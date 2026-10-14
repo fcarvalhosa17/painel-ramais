@@ -1,0 +1,45 @@
+#!/bin/sh
+# painel-ramais %postun. $1: 0 = remocao, 1 = upgrade (upgrade nao remove nada).
+# Mantem /var/lib/painel-ramais, /etc/painel-ramais (segredos) e o usuario de sistema. SELinux nao e revertido.
+# Limpeza total (manual): rm -rf /var/lib/painel-ramais /etc/painel-ramais; userdel painel-ramais
+
+[ "${1:-}" = "0" ] || exit 0
+
+warn() { echo "painel-ramais: AVISO: $*" >&2; }
+
+MANAGER_CUSTOM=/etc/asterisk/manager_custom.conf
+# Leitura e escrita como o usuario asterisk (dono de /etc/asterisk): symlink plantado nao escala para root.
+if command -v runuser >/dev/null 2>&1 && getent passwd asterisk >/dev/null 2>&1 && [ -e "$MANAGER_CUSTOM" ]; then
+  TMPD=$(mktemp -d /run/painel-ramais-postun.XXXXXX 2>/dev/null)
+  if [ -n "$TMPD" ]; then
+    chmod 0700 "$TMPD"
+    if runuser -u asterisk -- cat "$MANAGER_CUSTOM" > "$TMPD/orig" 2>/dev/null && grep -q '^; BEGIN painel-ramais' "$TMPD/orig"; then
+      sed '/^; BEGIN painel-ramais/,/^; END painel-ramais/d' "$TMPD/orig" > "$TMPD/final"
+      if runuser -u asterisk -- sh -c 'cat > "$1"' sh "$MANAGER_CUSTOM" < "$TMPD/final"; then
+        if command -v asterisk >/dev/null 2>&1; then
+          asterisk -rx "manager reload" >/dev/null 2>&1 || warn "manager reload falhou; rode manualmente"
+        fi
+      else
+        # a gravacao no lugar pode ter truncado o arquivo: $TMPD/orig e a unica copia do original, NAO apagar
+        KEEP_TMPD=1
+        warn "nao consegui remover o bloco AMI de $MANAGER_CUSTOM. O original esta salvo em $TMPD/orig (restaure com: cp $TMPD/orig $MANAGER_CUSTOM). ATENCAO: $TMPD fica em /run (tmpfs) e some no reinicio; COPIE o arquivo antes de reiniciar o servidor"
+      fi
+    fi
+    [ -n "$KEEP_TMPD" ] || rm -rf "$TMPD"
+  fi
+fi
+
+if [ -f /etc/httpd/conf.d/painel-ramais.conf ]; then
+  rm -f /etc/httpd/conf.d/painel-ramais.conf
+  if command -v httpd >/dev/null 2>&1 && command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet httpd; then
+    if httpd -t >/dev/null 2>&1; then
+      systemctl reload httpd || warn "reload do httpd falhou"
+    else
+      warn "httpd -t falhou apos remover painel-ramais.conf; httpd NAO recarregado"
+    fi
+  fi
+fi
+
+rm -rf /etc/systemd/system/painel-ramais.socket.d
+command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload
+exit 0

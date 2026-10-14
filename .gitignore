@@ -1,0 +1,36 @@
+# ferramentas locais (go, nfpm) e saida de build
+.tools/
+dist/
+*.exe
+*.test
+*.out
+
+# bancos e dados gerados
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+
+# segredos e credenciais (nunca versionar)
+secret
+ami-secret
+*.senha
+*senha*.txt
+respostas.ini
+.env
+*.pem
+*.key
+
+# editores / SO
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# python
+__pycache__/
+*.pyc
+
+# estado local do Claude Code
+.claude/

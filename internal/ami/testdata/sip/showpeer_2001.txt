@@ -1,0 +1,5 @@
+Response: Success
+Channeltype: SIP
+ObjectName: 2001
+Callerid: "Maria Souza" <2001>
+Useragent: Yealink SIP-T46U 108.86.0.20

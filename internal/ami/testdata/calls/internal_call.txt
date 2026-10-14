@@ -1,0 +1,118 @@
+Event: Newchannel
+Channel: PJSIP/2001-00000010
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2001
+CallerIDName: Maria Souza
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Context: from-internal
+Exten: 2002
+Uniqueid: 1791902000.10
+Linkedid: 1791902000.10
+
+Event: Newchannel
+Channel: PJSIP/2002-00000011
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2002
+CallerIDName: João Lima
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Context: from-internal
+Exten: s
+Uniqueid: 1791902000.11
+Linkedid: 1791902000.10
+
+Event: DialBegin
+Channel: PJSIP/2001-00000010
+DestChannel: PJSIP/2002-00000011
+DialString: 2002
+Uniqueid: 1791902000.10
+DestUniqueid: 1791902000.11
+Linkedid: 1791902000.10
+
+Event: Newstate
+Channel: PJSIP/2002-00000011
+ChannelState: 5
+ChannelStateDesc: Ringing
+Uniqueid: 1791902000.11
+Linkedid: 1791902000.10
+
+Event: NewConnectedLine
+Channel: PJSIP/2001-00000010
+CallerIDNum: 2001
+ConnectedLineNum: 2002
+ConnectedLineName: João Lima
+Uniqueid: 1791902000.10
+
+Event: NewCallerid
+Channel: PJSIP/2002-00000011
+CallerIDNum: 2001
+CallerIDName: Maria Souza
+Uniqueid: 1791902000.11
+
+Event: Newstate
+Channel: PJSIP/2002-00000011
+ChannelState: 6
+ChannelStateDesc: Up
+Uniqueid: 1791902000.11
+
+Event: DialEnd
+Channel: PJSIP/2001-00000010
+DestChannel: PJSIP/2002-00000011
+DialStatus: ANSWER
+Uniqueid: 1791902000.10
+DestUniqueid: 1791902000.11
+
+Event: BridgeEnter
+BridgeUniqueid: 7c1e9a2e-0001
+BridgeType: basic
+Channel: PJSIP/2001-00000010
+Uniqueid: 1791902000.10
+
+Event: BridgeEnter
+BridgeUniqueid: 7c1e9a2e-0001
+Channel: PJSIP/2002-00000011
+Uniqueid: 1791902000.11
+
+Event: Hold
+Channel: PJSIP/2002-00000011
+Uniqueid: 1791902000.11
+MusicClass: default
+
+Event: Unhold
+Channel: PJSIP/2002-00000011
+Uniqueid: 1791902000.11
+
+Event: BridgeLeave
+BridgeUniqueid: 7c1e9a2e-0001
+Channel: PJSIP/2001-00000010
+Uniqueid: 1791902000.10
+
+Event: Hangup
+Channel: PJSIP/2001-00000010
+Uniqueid: 1791902000.10
+Linkedid: 1791902000.10
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: Newchannel
+Channel: Local/2002@from-internal-0000001a;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2001
+CallerIDName: Maria Souza
+Exten: 2002
+Uniqueid: 1791902000.20
+Linkedid: 1791902000.10
+
+Event: Newchannel
+Channel: PJSIP/trunk-acme-00000012
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 11987654321
+CallerIDName: ACME LTDA
+Exten: s
+Uniqueid: 1791902000.21
+Linkedid: 1791902000.21

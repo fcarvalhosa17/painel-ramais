@@ -1,0 +1,16 @@
+# Gerado pelo pacote painel-ramais a partir de /usr/share/painel-ramais/httpd.conf.tmpl. Nao editar.
+# /debug e /api/health ficam fora do proxy (so acessiveis direto em 127.0.0.1).
+<Location "/painel-ramais/">
+    ProxyPreserveHost On
+    ProxyPass "http://@HOST@:@PORT@/"
+    ProxyPassReverse "http://@HOST@:@PORT@/"
+</Location>
+<Location "/painel-ramais/ws">
+    ProxyPass "ws://@HOST@:@PORT@/ws"
+</Location>
+<Location "/painel-ramais/debug">
+    ProxyPass "!"
+</Location>
+<Location "/painel-ramais/api/health">
+    ProxyPass "!"
+</Location>

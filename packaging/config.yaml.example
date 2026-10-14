@@ -1,0 +1,25 @@
+# /etc/painel-ramais/config.yaml (exemplo instalado pelo RPM, config noreplace)
+# Lido uma vez na subida; mudou algo: systemctl restart painel-ramais.
+# Chave desconhecida ou valor invalido: o daemon recusa iniciar e diz qual chave.
+# A linha "technology:" e reescrita pelo instalar.py: mantenha no nivel raiz, numa linha so.
+listen: "127.0.0.1:8790"
+technology: auto
+extension_pattern: '^[0-9]+$'
+data_dir: /var/lib/painel-ramais
+log_level: info
+
+ami:
+  address: "127.0.0.1:5038"
+  username: painel-ramais
+  # Senha lida deste arquivo (gerado no postinstall, 0600, dono painel-ramais). Nao colocar senha aqui.
+  secret_file: /etc/painel-ramais/ami-secret
+  # Teto de consultas de nome (PJSIPShowEndpoint/SIPshowpeer) em segundo plano, por segundo (1 a 200).
+  name_fill_per_second: 20
+
+auth:
+  secret_file: /etc/painel-ramais/secret
+  # Inatividade maxima da sessao (15m a 24h). Renovada pelo uso e enquanto houver WebSocket ativo (painel de NOC 24 h).
+  session_ttl: 12h
+
+history:
+  retention_days: 30

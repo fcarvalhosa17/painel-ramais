@@ -1,0 +1,82 @@
+# nfpm config. Rodar a partir da raiz do projeto (build.ps1 rpm faz isso).
+# VERSION vem do ambiente (build.ps1 exporta). Binario esperado em dist/painel-ramais.
+name: painel-ramais
+arch: amd64
+platform: linux
+version: ${VERSION}
+release: "1"
+section: default
+priority: optional
+maintainer: "Painel de Ramais <root@localhost>"
+description: Painel somente leitura de ramais para Issabel 5 (coletor AMI + API local)
+vendor: interno
+license: Proprietary
+# Sem depends: nenhuma dependencia de pacote do Issabel (nem de Asterisk/httpd, os scripts toleram ausencia).
+
+rpm:
+  compression: gzip
+
+contents:
+  - src: dist/painel-ramais
+    dst: /usr/bin/painel-ramais
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
+  - src: packaging/config.yaml.example
+    dst: /etc/painel-ramais/config.yaml
+    type: config|noreplace
+    file_info:
+      mode: 0640
+      owner: root
+      group: painel-ramais
+
+  - src: packaging/painel-ramais.service
+    dst: /usr/lib/systemd/system/painel-ramais.service
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+
+  - src: packaging/painel-ramais.socket
+    dst: /usr/lib/systemd/system/painel-ramais.socket
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+
+  - src: packaging/grupos-exemplo.csv
+    dst: /usr/share/doc/painel-ramais/grupos-exemplo.csv
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+
+  - src: packaging/httpd.conf.tmpl
+    dst: /usr/share/painel-ramais/httpd.conf.tmpl
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+
+  # O usuario painel-ramais e criado no %pre, antes do payload: os donos abaixo ja existem.
+  - dst: /etc/painel-ramais
+    type: dir
+    file_info:
+      mode: 0750
+      owner: root
+      group: painel-ramais
+
+  - dst: /var/lib/painel-ramais
+    type: dir
+    file_info:
+      mode: 0750
+      owner: painel-ramais
+      group: painel-ramais
+
+scripts:
+  preinstall: packaging/scripts/preinstall
+  postinstall: packaging/scripts/postinstall
+  preremove: packaging/scripts/preremove
+  postremove: packaging/scripts/postremove

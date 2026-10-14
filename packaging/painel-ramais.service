@@ -1,0 +1,39 @@
+[Unit]
+Description=Painel de Ramais (coletor AMI)
+After=network-online.target painel-ramais.socket
+Wants=network-online.target
+Requires=painel-ramais.socket
+StartLimitIntervalSec=0
+# Sem Requires/After de asterisk ou httpd: restart deles nao derruba o painel (o daemon reconecta).
+
+[Service]
+Type=simple
+User=painel-ramais
+Group=painel-ramais
+ExecStart=/usr/bin/painel-ramais serve --config /etc/painel-ramais/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+# exit 4 = banco com esquema mais novo que o binario (ErrVersionTooOld): reiniciar nao adianta
+RestartPreventExitStatus=4
+RestartSec=2
+LimitNOFILE=65536
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/painel-ramais
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

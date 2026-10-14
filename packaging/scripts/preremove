@@ -1,0 +1,14 @@
+#!/bin/sh
+# painel-ramais %preun. $1: 0 = remocao, 1 = upgrade (upgrade nao para nada).
+if [ "${1:-}" = "0" ] && command -v systemctl >/dev/null 2>&1; then
+  # 1o a conf do Apache (senao, com o socket parado, a 8790 fica livre enquanto o proxy ainda aponta para ela)
+  if [ -f /etc/httpd/conf.d/painel-ramais.conf ]; then
+    rm -f /etc/httpd/conf.d/painel-ramais.conf
+    if command -v httpd >/dev/null 2>&1 && systemctl is-active --quiet httpd; then
+      if httpd -t >/dev/null 2>&1; then systemctl reload httpd >/dev/null 2>&1; else echo "painel-ramais: AVISO: httpd -t falhou apos remover painel-ramais.conf; httpd NAO recarregado" >&2; fi
+    fi
+  fi
+  systemctl disable --now painel-ramais.service >/dev/null 2>&1
+  systemctl disable --now painel-ramais.socket >/dev/null 2>&1
+fi
+exit 0

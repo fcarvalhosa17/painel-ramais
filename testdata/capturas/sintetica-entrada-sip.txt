@@ -1,0 +1,2577 @@
+#PAINEL-RAMAIS-CAPTURA 1
+#meta {"anonimizado":true,"inicio":"2026-10-14T13:00:00Z","minutos":1,"origem":"gerada pelo simulador (internal/amisim, gen_test.go); nao e trafego de Asterisk real","sintetica":true,"versao_daemon":"0.1.1"}
+< 2026-10-14T13:00:00.002Z 29
+Asterisk Call Manager/5.0.1
+
+> 2026-10-14T13:00:00.004Z 69
+Action: Login
+ActionID: p1
+Username: painel-ramais
+Secret: ***
+
+
+< 2026-10-14T13:00:00.006Z 69
+Response: Success
+ActionID: p1
+Message: Authentication accepted
+
+
+< 2026-10-14T13:00:00.008Z 67
+Event: FullyBooted
+Privilege: system,all
+Status: Fully Booted
+
+
+> 2026-10-14T13:00:00.01Z 38
+Action: CoreSettings
+ActionID: p3
+
+
+< 2026-10-14T13:00:00.012Z 275
+Response: Success
+ActionID: p3
+AMIversion: 5.0.1
+AsteriskVersion: 18.20.0
+SystemName: 
+CoreMaxCalls: 0
+CoreMaxLoadAvg: 0.000000
+CoreRunUser: asterisk
+CoreRunGroup: asterisk
+CoreMaxFilehandles: 0
+CoreRealTimeEnabled: No
+CoreCDRenabled: Yes
+CoreHTTPenabled: Yes
+
+
+> 2026-10-14T13:00:00.014Z 60
+Action: ModuleCheck
+ActionID: p4
+Module: chan_pjsip.so
+
+
+< 2026-10-14T13:00:00.016Z 61
+Response: Error
+ActionID: p4
+Message: Module not loaded
+
+
+> 2026-10-14T13:00:00.018Z 58
+Action: ModuleCheck
+ActionID: p5
+Module: chan_sip.so
+
+
+< 2026-10-14T13:00:00.02Z 53
+Response: Success
+ActionID: p5
+Version: 18.20.0
+
+
+> 2026-10-14T13:00:00.022Z 34
+Action: SIPpeers
+ActionID: p6
+
+
+< 2026-10-14T13:00:00.024Z 92
+Response: Success
+ActionID: p6
+EventList: start
+Message: Peer status list will follow
+
+
+< 2026-10-14T13:00:00.026Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2000
+ChanObjectType: peer
+IPaddress: 10.1.1.1
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (23 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.028Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2001
+ChanObjectType: peer
+IPaddress: 10.1.1.2
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (24 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.03Z 290
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2002
+ChanObjectType: peer
+IPaddress: 10.1.1.3
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (7 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.032Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2003
+ChanObjectType: peer
+IPaddress: 10.1.1.4
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (13 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.034Z 283
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2004
+ChanObjectType: peer
+IPaddress: -none-
+IPport: 0
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: UNKNOWN
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.036Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2005
+ChanObjectType: peer
+IPaddress: 10.1.1.6
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (19 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.038Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2006
+ChanObjectType: peer
+IPaddress: 10.1.1.7
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (19 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.04Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2007
+ChanObjectType: peer
+IPaddress: 10.1.1.8
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (23 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.042Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2008
+ChanObjectType: peer
+IPaddress: 10.1.1.9
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (17 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.044Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2009
+ChanObjectType: peer
+IPaddress: 10.1.1.10
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (14 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.046Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2010
+ChanObjectType: peer
+IPaddress: 10.1.1.11
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (31 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.048Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2011
+ChanObjectType: peer
+IPaddress: 10.1.1.12
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.05Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2012
+ChanObjectType: peer
+IPaddress: 10.1.1.13
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (9 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.052Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2013
+ChanObjectType: peer
+IPaddress: 10.1.1.14
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (8 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.054Z 293
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2014
+ChanObjectType: peer
+IPaddress: 10.1.1.15
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: UNREACHABLE
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.056Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2015
+ChanObjectType: peer
+IPaddress: 10.1.1.16
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (40 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.058Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2016
+ChanObjectType: peer
+IPaddress: 10.1.1.17
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (25 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.06Z 283
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2017
+ChanObjectType: peer
+IPaddress: -none-
+IPport: 0
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: UNKNOWN
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.062Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2018
+ChanObjectType: peer
+IPaddress: 10.1.1.19
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (13 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.064Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2019
+ChanObjectType: peer
+IPaddress: 10.1.1.20
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (3 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.066Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2020
+ChanObjectType: peer
+IPaddress: 10.1.1.21
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (38 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.068Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2021
+ChanObjectType: peer
+IPaddress: 10.1.1.22
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (36 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.07Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2022
+ChanObjectType: peer
+IPaddress: 10.1.1.23
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (27 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.072Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2023
+ChanObjectType: peer
+IPaddress: 10.1.1.24
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (31 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.074Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2024
+ChanObjectType: peer
+IPaddress: 10.1.1.25
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (9 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.076Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2025
+ChanObjectType: peer
+IPaddress: 10.1.1.26
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (6 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.078Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2026
+ChanObjectType: peer
+IPaddress: 10.1.1.27
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (9 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.08Z 283
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2027
+ChanObjectType: peer
+IPaddress: -none-
+IPport: 0
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: UNKNOWN
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.082Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2028
+ChanObjectType: peer
+IPaddress: 10.1.1.29
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (23 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.084Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2029
+ChanObjectType: peer
+IPaddress: 10.1.1.30
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (25 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.086Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2030
+ChanObjectType: peer
+IPaddress: 10.1.1.31
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (24 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.088Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2031
+ChanObjectType: peer
+IPaddress: 10.1.1.32
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (16 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.09Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2032
+ChanObjectType: peer
+IPaddress: 10.1.1.33
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (30 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.092Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2033
+ChanObjectType: peer
+IPaddress: 10.1.1.34
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (20 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.094Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2034
+ChanObjectType: peer
+IPaddress: 10.1.1.35
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (17 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.096Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2035
+ChanObjectType: peer
+IPaddress: 10.1.1.36
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.098Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2036
+ChanObjectType: peer
+IPaddress: 10.1.1.37
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (6 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.1Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2037
+ChanObjectType: peer
+IPaddress: 10.1.1.38
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (9 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.102Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2038
+ChanObjectType: peer
+IPaddress: 10.1.1.39
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (35 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.104Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2039
+ChanObjectType: peer
+IPaddress: 10.1.1.40
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (14 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.106Z 296
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: trunk1
+ChanObjectType: peer
+IPaddress: 203.0.113.10
+IPport: 5060
+Dynamic: no
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.108Z 296
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: trunk2
+ChanObjectType: peer
+IPaddress: 203.0.113.10
+IPport: 5060
+Dynamic: no
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.11Z 296
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: trunk3
+ChanObjectType: peer
+IPaddress: 203.0.113.10
+IPport: 5060
+Dynamic: no
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.112Z 296
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: trunk4
+ChanObjectType: peer
+IPaddress: 203.0.113.10
+IPport: 5060
+Dynamic: no
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.114Z 77
+Event: PeerlistComplete
+ActionID: p6
+EventList: Complete
+ListItems: 44
+
+
+> 2026-10-14T13:00:00.116Z 41
+Action: DeviceStateList
+ActionID: p7
+
+
+< 2026-10-14T13:00:00.118Z 96
+Response: Success
+ActionID: p7
+EventList: start
+Message: Device State Changes will follow
+
+
+< 2026-10-14T13:00:00.12Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2000
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.122Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2001
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.124Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2002
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.126Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2003
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.128Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2004
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.13Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2005
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.132Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2006
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.134Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2007
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.136Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2008
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.138Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2009
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.14Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2010
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.142Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2011
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.144Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2012
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.146Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2013
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.148Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2014
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.15Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2015
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.152Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2016
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.154Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2017
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.156Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2018
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.158Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2019
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.16Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2020
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.162Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2021
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.164Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2022
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.166Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2023
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.168Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2024
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.17Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2025
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.172Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2026
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.174Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2027
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.176Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2028
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.178Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2029
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.18Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2030
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.182Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2031
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.184Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2032
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.186Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2033
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.188Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2034
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.19Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2035
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.192Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2036
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.194Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2037
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.196Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2038
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.198Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2039
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.2Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/trunk1
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.202Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/trunk2
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.204Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/trunk3
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.206Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/trunk4
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.208Z 84
+Event: DeviceStateChange
+ActionID: p7
+Device: Custom:DND2000
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.21Z 91
+Event: DeviceStateChange
+ActionID: p7
+Device: Queue:5000_pause_2000
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.212Z 84
+Event: DeviceStateListComplete
+ActionID: p7
+EventList: Complete
+ListItems: 46
+
+
+> 2026-10-14T13:00:00.214Z 42
+Action: CoreShowChannels
+ActionID: p8
+
+
+< 2026-10-14T13:00:00.216Z 84
+Response: Success
+ActionID: p8
+EventList: start
+Message: Channels will follow
+
+
+< 2026-10-14T13:00:00.218Z 84
+Event: CoreShowChannelsComplete
+ActionID: p8
+EventList: Complete
+ListItems: 0
+
+
+> 2026-10-14T13:00:00.22Z 49
+Action: SIPshowpeer
+ActionID: p9
+Peer: 2000
+
+
+< 2026-10-14T13:00:00.222Z 285
+Response: Success
+ActionID: p9
+Channeltype: SIP
+ObjectName: 2000
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2000" <2000>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.1
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (23 ms)
+
+
+> 2026-10-14T13:00:00.224Z 50
+Action: SIPshowpeer
+ActionID: p10
+Peer: 2001
+
+
+< 2026-10-14T13:00:00.226Z 287
+Response: Success
+ActionID: p10
+Channeltype: SIP
+ObjectName: 2001
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2001" <2001>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.2
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (24 ms)
+
+
+> 2026-10-14T13:00:00.228Z 50
+Action: SIPshowpeer
+ActionID: p11
+Peer: 2002
+
+
+< 2026-10-14T13:00:00.23Z 271
+Response: Success
+ActionID: p11
+Channeltype: SIP
+ObjectName: 2002
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2002" <2002>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.3
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (7 ms)
+
+
+> 2026-10-14T13:00:00.232Z 50
+Action: SIPshowpeer
+ActionID: p12
+Peer: 2003
+
+
+< 2026-10-14T13:00:00.234Z 276
+Response: Success
+ActionID: p12
+Channeltype: SIP
+ObjectName: 2003
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2003" <2003>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.4
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (13 ms)
+
+
+> 2026-10-14T13:00:00.236Z 50
+Action: SIPshowpeer
+ActionID: p13
+Peer: 2004
+
+
+< 2026-10-14T13:00:00.238Z 250
+Response: Success
+ActionID: p13
+Channeltype: SIP
+ObjectName: 2004
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2004" <2004>
+Context: from-internal
+Dynamic: Y
+Address-IP: -none-
+Address-Port: 0
+SIP-Useragent: 
+Status: UNKNOWN
+
+
+> 2026-10-14T13:00:00.24Z 50
+Action: SIPshowpeer
+ActionID: p14
+Peer: 2005
+
+
+< 2026-10-14T13:00:00.242Z 277
+Response: Success
+ActionID: p14
+Channeltype: SIP
+ObjectName: 2005
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2005" <2005>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.6
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (19 ms)
+
+
+> 2026-10-14T13:00:00.244Z 50
+Action: SIPshowpeer
+ActionID: p15
+Peer: 2006
+
+
+< 2026-10-14T13:00:00.246Z 286
+Response: Success
+ActionID: p15
+Channeltype: SIP
+ObjectName: 2006
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2006" <2006>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.7
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (19 ms)
+
+
+> 2026-10-14T13:00:00.248Z 50
+Action: SIPshowpeer
+ActionID: p16
+Peer: 2007
+
+
+< 2026-10-14T13:00:00.25Z 287
+Response: Success
+ActionID: p16
+Channeltype: SIP
+ObjectName: 2007
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2007" <2007>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.8
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (23 ms)
+
+
+> 2026-10-14T13:00:00.252Z 50
+Action: SIPshowpeer
+ActionID: p17
+Peer: 2008
+
+
+< 2026-10-14T13:00:00.254Z 272
+Response: Success
+ActionID: p17
+Channeltype: SIP
+ObjectName: 2008
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2008" <2008>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.9
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (17 ms)
+
+
+> 2026-10-14T13:00:00.256Z 50
+Action: SIPshowpeer
+ActionID: p18
+Peer: 2009
+
+
+< 2026-10-14T13:00:00.258Z 277
+Response: Success
+ActionID: p18
+Channeltype: SIP
+ObjectName: 2009
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2009" <2009>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.10
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (14 ms)
+
+
+> 2026-10-14T13:00:00.26Z 50
+Action: SIPshowpeer
+ActionID: p19
+Peer: 2010
+
+
+< 2026-10-14T13:00:00.262Z 276
+Response: Success
+ActionID: p19
+Channeltype: SIP
+ObjectName: 2010
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2010" <2010>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.11
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (31 ms)
+
+
+> 2026-10-14T13:00:00.264Z 50
+Action: SIPshowpeer
+ActionID: p20
+Peer: 2011
+
+
+< 2026-10-14T13:00:00.266Z 278
+Response: Success
+ActionID: p20
+Channeltype: SIP
+ObjectName: 2011
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2011" <2011>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.12
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (21 ms)
+
+
+> 2026-10-14T13:00:00.268Z 50
+Action: SIPshowpeer
+ActionID: p21
+Peer: 2012
+
+
+< 2026-10-14T13:00:00.27Z 286
+Response: Success
+ActionID: p21
+Channeltype: SIP
+ObjectName: 2012
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2012" <2012>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.13
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (9 ms)
+
+
+> 2026-10-14T13:00:00.272Z 50
+Action: SIPshowpeer
+ActionID: p22
+Peer: 2013
+
+
+< 2026-10-14T13:00:00.274Z 287
+Response: Success
+ActionID: p22
+Channeltype: SIP
+ObjectName: 2013
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2013" <2013>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.14
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (8 ms)
+
+
+> 2026-10-14T13:00:00.276Z 50
+Action: SIPshowpeer
+ActionID: p23
+Peer: 2014
+
+
+< 2026-10-14T13:00:00.278Z 274
+Response: Success
+ActionID: p23
+Channeltype: SIP
+ObjectName: 2014
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2014" <2014>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.15
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: UNREACHABLE
+
+
+> 2026-10-14T13:00:00.28Z 50
+Action: SIPshowpeer
+ActionID: p24
+Peer: 2015
+
+
+< 2026-10-14T13:00:00.282Z 277
+Response: Success
+ActionID: p24
+Channeltype: SIP
+ObjectName: 2015
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2015" <2015>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.16
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (40 ms)
+
+
+> 2026-10-14T13:00:00.284Z 50
+Action: SIPshowpeer
+ActionID: p25
+Peer: 2016
+
+
+< 2026-10-14T13:00:00.286Z 276
+Response: Success
+ActionID: p25
+Channeltype: SIP
+ObjectName: 2016
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2016" <2016>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.17
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (25 ms)
+
+
+> 2026-10-14T13:00:00.288Z 50
+Action: SIPshowpeer
+ActionID: p26
+Peer: 2017
+
+
+< 2026-10-14T13:00:00.29Z 250
+Response: Success
+ActionID: p26
+Channeltype: SIP
+ObjectName: 2017
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2017" <2017>
+Context: from-internal
+Dynamic: Y
+Address-IP: -none-
+Address-Port: 0
+SIP-Useragent: 
+Status: UNKNOWN
+
+
+> 2026-10-14T13:00:00.292Z 50
+Action: SIPshowpeer
+ActionID: p27
+Peer: 2018
+
+
+< 2026-10-14T13:00:00.294Z 287
+Response: Success
+ActionID: p27
+Channeltype: SIP
+ObjectName: 2018
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2018" <2018>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.19
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (13 ms)
+
+
+> 2026-10-14T13:00:00.296Z 50
+Action: SIPshowpeer
+ActionID: p28
+Peer: 2019
+
+
+< 2026-10-14T13:00:00.298Z 287
+Response: Success
+ActionID: p28
+Channeltype: SIP
+ObjectName: 2019
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2019" <2019>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.20
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (3 ms)
+
+
+> 2026-10-14T13:00:00.3Z 50
+Action: SIPshowpeer
+ActionID: p29
+Peer: 2020
+
+
+< 2026-10-14T13:00:00.302Z 273
+Response: Success
+ActionID: p29
+Channeltype: SIP
+ObjectName: 2020
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2020" <2020>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.21
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (38 ms)
+
+
+> 2026-10-14T13:00:00.304Z 50
+Action: SIPshowpeer
+ActionID: p30
+Peer: 2021
+
+
+< 2026-10-14T13:00:00.306Z 277
+Response: Success
+ActionID: p30
+Channeltype: SIP
+ObjectName: 2021
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2021" <2021>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.22
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (36 ms)
+
+
+> 2026-10-14T13:00:00.308Z 50
+Action: SIPshowpeer
+ActionID: p31
+Peer: 2022
+
+
+< 2026-10-14T13:00:00.31Z 276
+Response: Success
+ActionID: p31
+Channeltype: SIP
+ObjectName: 2022
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2022" <2022>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.23
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (27 ms)
+
+
+> 2026-10-14T13:00:00.312Z 50
+Action: SIPshowpeer
+ActionID: p32
+Peer: 2023
+
+
+< 2026-10-14T13:00:00.314Z 278
+Response: Success
+ActionID: p32
+Channeltype: SIP
+ObjectName: 2023
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2023" <2023>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.24
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (31 ms)
+
+
+> 2026-10-14T13:00:00.316Z 50
+Action: SIPshowpeer
+ActionID: p33
+Peer: 2024
+
+
+< 2026-10-14T13:00:00.318Z 286
+Response: Success
+ActionID: p33
+Channeltype: SIP
+ObjectName: 2024
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2024" <2024>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.25
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (9 ms)
+
+
+> 2026-10-14T13:00:00.32Z 50
+Action: SIPshowpeer
+ActionID: p34
+Peer: 2025
+
+
+< 2026-10-14T13:00:00.322Z 287
+Response: Success
+ActionID: p34
+Channeltype: SIP
+ObjectName: 2025
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2025" <2025>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.26
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (6 ms)
+
+
+> 2026-10-14T13:00:00.324Z 50
+Action: SIPshowpeer
+ActionID: p35
+Peer: 2026
+
+
+< 2026-10-14T13:00:00.326Z 272
+Response: Success
+ActionID: p35
+Channeltype: SIP
+ObjectName: 2026
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2026" <2026>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.27
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (9 ms)
+
+
+> 2026-10-14T13:00:00.328Z 50
+Action: SIPshowpeer
+ActionID: p36
+Peer: 2027
+
+
+< 2026-10-14T13:00:00.33Z 250
+Response: Success
+ActionID: p36
+Channeltype: SIP
+ObjectName: 2027
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2027" <2027>
+Context: from-internal
+Dynamic: Y
+Address-IP: -none-
+Address-Port: 0
+SIP-Useragent: 
+Status: UNKNOWN
+
+
+> 2026-10-14T13:00:00.332Z 50
+Action: SIPshowpeer
+ActionID: p37
+Peer: 2028
+
+
+< 2026-10-14T13:00:00.334Z 276
+Response: Success
+ActionID: p37
+Channeltype: SIP
+ObjectName: 2028
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2028" <2028>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.29
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (23 ms)
+
+
+> 2026-10-14T13:00:00.336Z 50
+Action: SIPshowpeer
+ActionID: p38
+Peer: 2029
+
+
+< 2026-10-14T13:00:00.338Z 278
+Response: Success
+ActionID: p38
+Channeltype: SIP
+ObjectName: 2029
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2029" <2029>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.30
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (25 ms)
+
+
+> 2026-10-14T13:00:00.34Z 50
+Action: SIPshowpeer
+ActionID: p39
+Peer: 2030
+
+
+< 2026-10-14T13:00:00.342Z 287
+Response: Success
+ActionID: p39
+Channeltype: SIP
+ObjectName: 2030
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2030" <2030>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.31
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (24 ms)
+
+
+> 2026-10-14T13:00:00.344Z 50
+Action: SIPshowpeer
+ActionID: p40
+Peer: 2031
+
+
+< 2026-10-14T13:00:00.346Z 288
+Response: Success
+ActionID: p40
+Channeltype: SIP
+ObjectName: 2031
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2031" <2031>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.32
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (16 ms)
+
+
+> 2026-10-14T13:00:00.348Z 50
+Action: SIPshowpeer
+ActionID: p41
+Peer: 2032
+
+
+< 2026-10-14T13:00:00.35Z 273
+Response: Success
+ActionID: p41
+Channeltype: SIP
+ObjectName: 2032
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2032" <2032>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.33
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (30 ms)
+
+
+> 2026-10-14T13:00:00.352Z 50
+Action: SIPshowpeer
+ActionID: p42
+Peer: 2033
+
+
+< 2026-10-14T13:00:00.354Z 277
+Response: Success
+ActionID: p42
+Channeltype: SIP
+ObjectName: 2033
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2033" <2033>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.34
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (20 ms)
+
+
+> 2026-10-14T13:00:00.356Z 50
+Action: SIPshowpeer
+ActionID: p43
+Peer: 2034
+
+
+< 2026-10-14T13:00:00.358Z 276
+Response: Success
+ActionID: p43
+Channeltype: SIP
+ObjectName: 2034
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2034" <2034>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.35
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (17 ms)
+
+
+> 2026-10-14T13:00:00.36Z 50
+Action: SIPshowpeer
+ActionID: p44
+Peer: 2035
+
+
+< 2026-10-14T13:00:00.362Z 278
+Response: Success
+ActionID: p44
+Channeltype: SIP
+ObjectName: 2035
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2035" <2035>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.36
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (21 ms)
+
+
+> 2026-10-14T13:00:00.364Z 50
+Action: SIPshowpeer
+ActionID: p45
+Peer: 2036
+
+
+< 2026-10-14T13:00:00.366Z 286
+Response: Success
+ActionID: p45
+Channeltype: SIP
+ObjectName: 2036
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2036" <2036>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.37
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (6 ms)
+
+
+> 2026-10-14T13:00:00.368Z 50
+Action: SIPshowpeer
+ActionID: p46
+Peer: 2037
+
+
+< 2026-10-14T13:00:00.37Z 287
+Response: Success
+ActionID: p46
+Channeltype: SIP
+ObjectName: 2037
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2037" <2037>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.38
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (9 ms)
+
+
+> 2026-10-14T13:00:00.372Z 50
+Action: SIPshowpeer
+ActionID: p47
+Peer: 2038
+
+
+< 2026-10-14T13:00:00.374Z 273
+Response: Success
+ActionID: p47
+Channeltype: SIP
+ObjectName: 2038
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2038" <2038>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.39
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (35 ms)
+
+
+> 2026-10-14T13:00:00.376Z 50
+Action: SIPshowpeer
+ActionID: p48
+Peer: 2039
+
+
+< 2026-10-14T13:00:00.378Z 277
+Response: Success
+ActionID: p48
+Channeltype: SIP
+ObjectName: 2039
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2039" <2039>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.40
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (14 ms)
+
+
+< 2026-10-14T13:00:01.08Z 352
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/trunk1-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.082Z 350
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-00000001
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.084Z 338
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2003-00000003
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.086Z 724
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/trunk1-00000001
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+DestChannel: SIP/2003-00000003
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2003
+DestCallerIDName: Ramal 2003
+DestConnectedLineNum: 11980000100
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.4
+DestLinkedid: 1791933446.2
+DialString: 2003
+
+
+< 2026-10-14T13:00:01.088Z 342
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2003-00000003
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.09Z 353
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-00000001
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.092Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2003
+State: RINGING
+
+
+< 2026-10-14T13:00:01.794Z 337
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2003-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.796Z 348
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.798Z 720
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+DestChannel: SIP/2003-00000003
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2003
+DestCallerIDName: Ramal 2003
+DestConnectedLineNum: 11980000100
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.4
+DestLinkedid: 1791933446.2
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:01.8Z 557
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.802Z 546
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2003-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.804Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2003
+State: INUSE
+
+
+< 2026-10-14T13:00:02.506Z 557
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:02.508Z 385
+Event: Hangup
+Privilege: call,all
+Channel: SIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:02.51Z 546
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2003-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:02.512Z 374
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2003-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:02.514Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2003
+State: NOT_INUSE
+
+
+#fim {"asterisk":"18.20.0","encerrado_por":"prazo","quadros":207,"tecnologia":"sip"}

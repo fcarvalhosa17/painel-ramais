@@ -1,0 +1,5 @@
+#!/bin/sh
+# painel-ramais %pre ($1: 1 = instalacao, 2 = upgrade). Usuario de sistema sem shell, antes do payload.
+getent group painel-ramais >/dev/null 2>&1 || groupadd -r painel-ramais
+getent passwd painel-ramais >/dev/null 2>&1 || useradd -r -g painel-ramais -d /var/lib/painel-ramais -s /sbin/nologin -M -c "Painel de Ramais" painel-ramais
+exit 0

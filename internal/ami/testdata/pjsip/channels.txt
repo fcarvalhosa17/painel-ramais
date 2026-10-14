@@ -1,0 +1,52 @@
+Response: Success
+EventList: start
+Message: Channels will follow
+
+Event: CoreShowChannel
+Channel: PJSIP/2001-00000010
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2001
+CallerIDName: Maria Souza
+ConnectedLineNum: 11987654321
+ConnectedLineName: ACME LTDA
+Context: from-internal
+Exten: 011987654321
+Uniqueid: 1791902000.10
+Linkedid: 1791902000.10
+Duration: 00:02:05
+BridgeId: 7c1e9a2e-0001
+
+Event: CoreShowChannel
+Channel: PJSIP/trunk-acme-00000011
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2001
+CallerIDName: Maria Souza
+ConnectedLineNum: 11987654321
+ConnectedLineName:
+Context: from-trunk
+Exten: s
+Uniqueid: 1791902000.11
+Linkedid: 1791902000.10
+Duration: 00:02:05
+BridgeId: 7c1e9a2e-0001
+
+Event: CoreShowChannel
+Channel: PJSIP/2002-00000012
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2002
+CallerIDName: João Lima
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Context: from-internal
+Exten: 2004
+Uniqueid: 1791902100.12
+Linkedid: 1791902100.12
+Duration: 00:00:03
+BridgeId:
+
+Event: CoreShowChannelsComplete
+EventList: Complete
+ListItems: 3

@@ -1,0 +1,9760 @@
+#PAINEL-RAMAIS-CAPTURA 1
+#meta {"anonimizado":true,"inicio":"2026-10-14T13:00:00Z","minutos":1,"origem":"gerada pelo simulador (internal/amisim, gen_test.go); nao e trafego de Asterisk real","sintetica":true,"versao_daemon":"0.1.1"}
+< 2026-10-14T13:00:00.002Z 29
+Asterisk Call Manager/5.0.1
+
+> 2026-10-14T13:00:00.004Z 69
+Action: Login
+ActionID: p1
+Username: painel-ramais
+Secret: ***
+
+
+< 2026-10-14T13:00:00.006Z 69
+Response: Success
+ActionID: p1
+Message: Authentication accepted
+
+
+< 2026-10-14T13:00:00.008Z 67
+Event: FullyBooted
+Privilege: system,all
+Status: Fully Booted
+
+
+> 2026-10-14T13:00:00.01Z 38
+Action: CoreSettings
+ActionID: p3
+
+
+< 2026-10-14T13:00:00.012Z 275
+Response: Success
+ActionID: p3
+AMIversion: 5.0.1
+AsteriskVersion: 18.20.0
+SystemName: 
+CoreMaxCalls: 0
+CoreMaxLoadAvg: 0.000000
+CoreRunUser: asterisk
+CoreRunGroup: asterisk
+CoreMaxFilehandles: 0
+CoreRealTimeEnabled: No
+CoreCDRenabled: Yes
+CoreHTTPenabled: Yes
+
+
+> 2026-10-14T13:00:00.014Z 60
+Action: ModuleCheck
+ActionID: p4
+Module: chan_pjsip.so
+
+
+< 2026-10-14T13:00:00.016Z 61
+Response: Error
+ActionID: p4
+Message: Module not loaded
+
+
+> 2026-10-14T13:00:00.018Z 58
+Action: ModuleCheck
+ActionID: p5
+Module: chan_sip.so
+
+
+< 2026-10-14T13:00:00.02Z 53
+Response: Success
+ActionID: p5
+Version: 18.20.0
+
+
+> 2026-10-14T13:00:00.022Z 34
+Action: SIPpeers
+ActionID: p6
+
+
+< 2026-10-14T13:00:00.024Z 92
+Response: Success
+ActionID: p6
+EventList: start
+Message: Peer status list will follow
+
+
+< 2026-10-14T13:00:00.026Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2000
+ChanObjectType: peer
+IPaddress: 10.1.1.1
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (23 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.028Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2001
+ChanObjectType: peer
+IPaddress: 10.1.1.2
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (24 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.03Z 290
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2002
+ChanObjectType: peer
+IPaddress: 10.1.1.3
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (7 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.032Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2003
+ChanObjectType: peer
+IPaddress: 10.1.1.4
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (13 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.034Z 283
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2004
+ChanObjectType: peer
+IPaddress: -none-
+IPport: 0
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: UNKNOWN
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.036Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2005
+ChanObjectType: peer
+IPaddress: 10.1.1.6
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (19 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.038Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2006
+ChanObjectType: peer
+IPaddress: 10.1.1.7
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (19 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.04Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2007
+ChanObjectType: peer
+IPaddress: 10.1.1.8
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (23 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.042Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2008
+ChanObjectType: peer
+IPaddress: 10.1.1.9
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (17 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.044Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2009
+ChanObjectType: peer
+IPaddress: 10.1.1.10
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (14 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.046Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2010
+ChanObjectType: peer
+IPaddress: 10.1.1.11
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (31 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.048Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2011
+ChanObjectType: peer
+IPaddress: 10.1.1.12
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.05Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2012
+ChanObjectType: peer
+IPaddress: 10.1.1.13
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (9 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.052Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2013
+ChanObjectType: peer
+IPaddress: 10.1.1.14
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (8 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.054Z 293
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2014
+ChanObjectType: peer
+IPaddress: 10.1.1.15
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: UNREACHABLE
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.056Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2015
+ChanObjectType: peer
+IPaddress: 10.1.1.16
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (40 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.058Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2016
+ChanObjectType: peer
+IPaddress: 10.1.1.17
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (25 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.06Z 283
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2017
+ChanObjectType: peer
+IPaddress: -none-
+IPport: 0
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: UNKNOWN
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.062Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2018
+ChanObjectType: peer
+IPaddress: 10.1.1.19
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (13 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.064Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2019
+ChanObjectType: peer
+IPaddress: 10.1.1.20
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (3 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.066Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2020
+ChanObjectType: peer
+IPaddress: 10.1.1.21
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (38 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.068Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2021
+ChanObjectType: peer
+IPaddress: 10.1.1.22
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (36 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.07Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2022
+ChanObjectType: peer
+IPaddress: 10.1.1.23
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (27 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.072Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2023
+ChanObjectType: peer
+IPaddress: 10.1.1.24
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (31 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.074Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2024
+ChanObjectType: peer
+IPaddress: 10.1.1.25
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (9 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.076Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2025
+ChanObjectType: peer
+IPaddress: 10.1.1.26
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (6 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.078Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2026
+ChanObjectType: peer
+IPaddress: 10.1.1.27
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (9 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.08Z 283
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2027
+ChanObjectType: peer
+IPaddress: -none-
+IPport: 0
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: UNKNOWN
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.082Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2028
+ChanObjectType: peer
+IPaddress: 10.1.1.29
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (23 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.084Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2029
+ChanObjectType: peer
+IPaddress: 10.1.1.30
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (25 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.086Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2030
+ChanObjectType: peer
+IPaddress: 10.1.1.31
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (24 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.088Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2031
+ChanObjectType: peer
+IPaddress: 10.1.1.32
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (16 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.09Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2032
+ChanObjectType: peer
+IPaddress: 10.1.1.33
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (30 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.092Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2033
+ChanObjectType: peer
+IPaddress: 10.1.1.34
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (20 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.094Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2034
+ChanObjectType: peer
+IPaddress: 10.1.1.35
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (17 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.096Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2035
+ChanObjectType: peer
+IPaddress: 10.1.1.36
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.098Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2036
+ChanObjectType: peer
+IPaddress: 10.1.1.37
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (6 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.1Z 291
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2037
+ChanObjectType: peer
+IPaddress: 10.1.1.38
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (9 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.102Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2038
+ChanObjectType: peer
+IPaddress: 10.1.1.39
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (35 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.104Z 292
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: 2039
+ChanObjectType: peer
+IPaddress: 10.1.1.40
+IPport: 5060
+Dynamic: yes
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (14 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.106Z 296
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: trunk1
+ChanObjectType: peer
+IPaddress: 203.0.113.10
+IPport: 5060
+Dynamic: no
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.108Z 296
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: trunk2
+ChanObjectType: peer
+IPaddress: 203.0.113.10
+IPport: 5060
+Dynamic: no
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.11Z 296
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: trunk3
+ChanObjectType: peer
+IPaddress: 203.0.113.10
+IPport: 5060
+Dynamic: no
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.112Z 296
+Event: PeerEntry
+ActionID: p6
+Channeltype: SIP
+ObjectName: trunk4
+ChanObjectType: peer
+IPaddress: 203.0.113.10
+IPport: 5060
+Dynamic: no
+AutoForcerport: no
+Forcerport: no
+AutoComedia: no
+Comedia: no
+VideoSupport: no
+TextSupport: no
+ACL: no
+Status: OK (21 ms)
+RealtimeDevice: no
+
+
+< 2026-10-14T13:00:00.114Z 77
+Event: PeerlistComplete
+ActionID: p6
+EventList: Complete
+ListItems: 44
+
+
+> 2026-10-14T13:00:00.116Z 41
+Action: DeviceStateList
+ActionID: p7
+
+
+< 2026-10-14T13:00:00.118Z 96
+Response: Success
+ActionID: p7
+EventList: start
+Message: Device State Changes will follow
+
+
+< 2026-10-14T13:00:00.12Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2000
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.122Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2001
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.124Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2002
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.126Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2003
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.128Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2004
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.13Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2005
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.132Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2006
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.134Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2007
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.136Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2008
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.138Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2009
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.14Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2010
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.142Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2011
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.144Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2012
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.146Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2013
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.148Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2014
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.15Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2015
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.152Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2016
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.154Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2017
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.156Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2018
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.158Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2019
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.16Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2020
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.162Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2021
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.164Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2022
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.166Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2023
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.168Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2024
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.17Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2025
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.172Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2026
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.174Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2027
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.176Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2028
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.178Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2029
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.18Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2030
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.182Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2031
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.184Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2032
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.186Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2033
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.188Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2034
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.19Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2035
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.192Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2036
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.194Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2037
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.196Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2038
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.198Z 78
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/2039
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.2Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/trunk1
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.202Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/trunk2
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.204Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/trunk3
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.206Z 80
+Event: DeviceStateChange
+ActionID: p7
+Device: SIP/trunk4
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.208Z 84
+Event: DeviceStateChange
+ActionID: p7
+Device: Custom:DND2000
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.21Z 91
+Event: DeviceStateChange
+ActionID: p7
+Device: Queue:5000_pause_2000
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.212Z 84
+Event: DeviceStateListComplete
+ActionID: p7
+EventList: Complete
+ListItems: 46
+
+
+> 2026-10-14T13:00:00.214Z 42
+Action: CoreShowChannels
+ActionID: p8
+
+
+< 2026-10-14T13:00:00.216Z 84
+Response: Success
+ActionID: p8
+EventList: start
+Message: Channels will follow
+
+
+< 2026-10-14T13:00:00.218Z 84
+Event: CoreShowChannelsComplete
+ActionID: p8
+EventList: Complete
+ListItems: 0
+
+
+> 2026-10-14T13:00:00.22Z 49
+Action: SIPshowpeer
+ActionID: p9
+Peer: 2000
+
+
+< 2026-10-14T13:00:00.222Z 285
+Response: Success
+ActionID: p9
+Channeltype: SIP
+ObjectName: 2000
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2000" <2000>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.1
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (23 ms)
+
+
+> 2026-10-14T13:00:00.224Z 50
+Action: SIPshowpeer
+ActionID: p10
+Peer: 2001
+
+
+< 2026-10-14T13:00:00.226Z 287
+Response: Success
+ActionID: p10
+Channeltype: SIP
+ObjectName: 2001
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2001" <2001>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.2
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (24 ms)
+
+
+> 2026-10-14T13:00:00.228Z 50
+Action: SIPshowpeer
+ActionID: p11
+Peer: 2002
+
+
+< 2026-10-14T13:00:00.23Z 271
+Response: Success
+ActionID: p11
+Channeltype: SIP
+ObjectName: 2002
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2002" <2002>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.3
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (7 ms)
+
+
+> 2026-10-14T13:00:00.232Z 50
+Action: SIPshowpeer
+ActionID: p12
+Peer: 2003
+
+
+< 2026-10-14T13:00:00.234Z 276
+Response: Success
+ActionID: p12
+Channeltype: SIP
+ObjectName: 2003
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2003" <2003>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.4
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (13 ms)
+
+
+> 2026-10-14T13:00:00.236Z 50
+Action: SIPshowpeer
+ActionID: p13
+Peer: 2004
+
+
+< 2026-10-14T13:00:00.238Z 250
+Response: Success
+ActionID: p13
+Channeltype: SIP
+ObjectName: 2004
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2004" <2004>
+Context: from-internal
+Dynamic: Y
+Address-IP: -none-
+Address-Port: 0
+SIP-Useragent: 
+Status: UNKNOWN
+
+
+> 2026-10-14T13:00:00.24Z 50
+Action: SIPshowpeer
+ActionID: p14
+Peer: 2005
+
+
+< 2026-10-14T13:00:00.242Z 277
+Response: Success
+ActionID: p14
+Channeltype: SIP
+ObjectName: 2005
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2005" <2005>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.6
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (19 ms)
+
+
+> 2026-10-14T13:00:00.244Z 50
+Action: SIPshowpeer
+ActionID: p15
+Peer: 2006
+
+
+< 2026-10-14T13:00:00.246Z 286
+Response: Success
+ActionID: p15
+Channeltype: SIP
+ObjectName: 2006
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2006" <2006>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.7
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (19 ms)
+
+
+> 2026-10-14T13:00:00.248Z 50
+Action: SIPshowpeer
+ActionID: p16
+Peer: 2007
+
+
+< 2026-10-14T13:00:00.25Z 287
+Response: Success
+ActionID: p16
+Channeltype: SIP
+ObjectName: 2007
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2007" <2007>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.8
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (23 ms)
+
+
+> 2026-10-14T13:00:00.252Z 50
+Action: SIPshowpeer
+ActionID: p17
+Peer: 2008
+
+
+< 2026-10-14T13:00:00.254Z 272
+Response: Success
+ActionID: p17
+Channeltype: SIP
+ObjectName: 2008
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2008" <2008>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.9
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (17 ms)
+
+
+> 2026-10-14T13:00:00.256Z 50
+Action: SIPshowpeer
+ActionID: p18
+Peer: 2009
+
+
+< 2026-10-14T13:00:00.258Z 277
+Response: Success
+ActionID: p18
+Channeltype: SIP
+ObjectName: 2009
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2009" <2009>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.10
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (14 ms)
+
+
+> 2026-10-14T13:00:00.26Z 50
+Action: SIPshowpeer
+ActionID: p19
+Peer: 2010
+
+
+< 2026-10-14T13:00:00.262Z 276
+Response: Success
+ActionID: p19
+Channeltype: SIP
+ObjectName: 2010
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2010" <2010>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.11
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (31 ms)
+
+
+> 2026-10-14T13:00:00.264Z 50
+Action: SIPshowpeer
+ActionID: p20
+Peer: 2011
+
+
+< 2026-10-14T13:00:00.266Z 278
+Response: Success
+ActionID: p20
+Channeltype: SIP
+ObjectName: 2011
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2011" <2011>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.12
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (21 ms)
+
+
+> 2026-10-14T13:00:00.268Z 50
+Action: SIPshowpeer
+ActionID: p21
+Peer: 2012
+
+
+< 2026-10-14T13:00:00.27Z 286
+Response: Success
+ActionID: p21
+Channeltype: SIP
+ObjectName: 2012
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2012" <2012>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.13
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (9 ms)
+
+
+> 2026-10-14T13:00:00.272Z 50
+Action: SIPshowpeer
+ActionID: p22
+Peer: 2013
+
+
+< 2026-10-14T13:00:00.274Z 287
+Response: Success
+ActionID: p22
+Channeltype: SIP
+ObjectName: 2013
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2013" <2013>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.14
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (8 ms)
+
+
+> 2026-10-14T13:00:00.276Z 50
+Action: SIPshowpeer
+ActionID: p23
+Peer: 2014
+
+
+< 2026-10-14T13:00:00.278Z 274
+Response: Success
+ActionID: p23
+Channeltype: SIP
+ObjectName: 2014
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2014" <2014>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.15
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: UNREACHABLE
+
+
+> 2026-10-14T13:00:00.28Z 50
+Action: SIPshowpeer
+ActionID: p24
+Peer: 2015
+
+
+< 2026-10-14T13:00:00.282Z 277
+Response: Success
+ActionID: p24
+Channeltype: SIP
+ObjectName: 2015
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2015" <2015>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.16
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (40 ms)
+
+
+> 2026-10-14T13:00:00.284Z 50
+Action: SIPshowpeer
+ActionID: p25
+Peer: 2016
+
+
+< 2026-10-14T13:00:00.286Z 276
+Response: Success
+ActionID: p25
+Channeltype: SIP
+ObjectName: 2016
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2016" <2016>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.17
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (25 ms)
+
+
+> 2026-10-14T13:00:00.288Z 50
+Action: SIPshowpeer
+ActionID: p26
+Peer: 2017
+
+
+< 2026-10-14T13:00:00.29Z 250
+Response: Success
+ActionID: p26
+Channeltype: SIP
+ObjectName: 2017
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2017" <2017>
+Context: from-internal
+Dynamic: Y
+Address-IP: -none-
+Address-Port: 0
+SIP-Useragent: 
+Status: UNKNOWN
+
+
+> 2026-10-14T13:00:00.292Z 50
+Action: SIPshowpeer
+ActionID: p27
+Peer: 2018
+
+
+< 2026-10-14T13:00:00.294Z 287
+Response: Success
+ActionID: p27
+Channeltype: SIP
+ObjectName: 2018
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2018" <2018>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.19
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (13 ms)
+
+
+> 2026-10-14T13:00:00.296Z 50
+Action: SIPshowpeer
+ActionID: p28
+Peer: 2019
+
+
+< 2026-10-14T13:00:00.298Z 287
+Response: Success
+ActionID: p28
+Channeltype: SIP
+ObjectName: 2019
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2019" <2019>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.20
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (3 ms)
+
+
+> 2026-10-14T13:00:00.3Z 50
+Action: SIPshowpeer
+ActionID: p29
+Peer: 2020
+
+
+< 2026-10-14T13:00:00.302Z 273
+Response: Success
+ActionID: p29
+Channeltype: SIP
+ObjectName: 2020
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2020" <2020>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.21
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (38 ms)
+
+
+> 2026-10-14T13:00:00.304Z 50
+Action: SIPshowpeer
+ActionID: p30
+Peer: 2021
+
+
+< 2026-10-14T13:00:00.306Z 277
+Response: Success
+ActionID: p30
+Channeltype: SIP
+ObjectName: 2021
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2021" <2021>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.22
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (36 ms)
+
+
+> 2026-10-14T13:00:00.308Z 50
+Action: SIPshowpeer
+ActionID: p31
+Peer: 2022
+
+
+< 2026-10-14T13:00:00.31Z 276
+Response: Success
+ActionID: p31
+Channeltype: SIP
+ObjectName: 2022
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2022" <2022>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.23
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (27 ms)
+
+
+> 2026-10-14T13:00:00.312Z 50
+Action: SIPshowpeer
+ActionID: p32
+Peer: 2023
+
+
+< 2026-10-14T13:00:00.314Z 278
+Response: Success
+ActionID: p32
+Channeltype: SIP
+ObjectName: 2023
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2023" <2023>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.24
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (31 ms)
+
+
+> 2026-10-14T13:00:00.316Z 50
+Action: SIPshowpeer
+ActionID: p33
+Peer: 2024
+
+
+< 2026-10-14T13:00:00.318Z 286
+Response: Success
+ActionID: p33
+Channeltype: SIP
+ObjectName: 2024
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2024" <2024>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.25
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (9 ms)
+
+
+> 2026-10-14T13:00:00.32Z 50
+Action: SIPshowpeer
+ActionID: p34
+Peer: 2025
+
+
+< 2026-10-14T13:00:00.322Z 287
+Response: Success
+ActionID: p34
+Channeltype: SIP
+ObjectName: 2025
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2025" <2025>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.26
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (6 ms)
+
+
+> 2026-10-14T13:00:00.324Z 50
+Action: SIPshowpeer
+ActionID: p35
+Peer: 2026
+
+
+< 2026-10-14T13:00:00.326Z 272
+Response: Success
+ActionID: p35
+Channeltype: SIP
+ObjectName: 2026
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2026" <2026>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.27
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (9 ms)
+
+
+> 2026-10-14T13:00:00.328Z 50
+Action: SIPshowpeer
+ActionID: p36
+Peer: 2027
+
+
+< 2026-10-14T13:00:00.33Z 250
+Response: Success
+ActionID: p36
+Channeltype: SIP
+ObjectName: 2027
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2027" <2027>
+Context: from-internal
+Dynamic: Y
+Address-IP: -none-
+Address-Port: 0
+SIP-Useragent: 
+Status: UNKNOWN
+
+
+> 2026-10-14T13:00:00.332Z 50
+Action: SIPshowpeer
+ActionID: p37
+Peer: 2028
+
+
+< 2026-10-14T13:00:00.334Z 276
+Response: Success
+ActionID: p37
+Channeltype: SIP
+ObjectName: 2028
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2028" <2028>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.29
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (23 ms)
+
+
+> 2026-10-14T13:00:00.336Z 50
+Action: SIPshowpeer
+ActionID: p38
+Peer: 2029
+
+
+< 2026-10-14T13:00:00.338Z 278
+Response: Success
+ActionID: p38
+Channeltype: SIP
+ObjectName: 2029
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2029" <2029>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.30
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (25 ms)
+
+
+> 2026-10-14T13:00:00.34Z 50
+Action: SIPshowpeer
+ActionID: p39
+Peer: 2030
+
+
+< 2026-10-14T13:00:00.342Z 287
+Response: Success
+ActionID: p39
+Channeltype: SIP
+ObjectName: 2030
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2030" <2030>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.31
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (24 ms)
+
+
+> 2026-10-14T13:00:00.344Z 50
+Action: SIPshowpeer
+ActionID: p40
+Peer: 2031
+
+
+< 2026-10-14T13:00:00.346Z 288
+Response: Success
+ActionID: p40
+Channeltype: SIP
+ObjectName: 2031
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2031" <2031>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.32
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (16 ms)
+
+
+> 2026-10-14T13:00:00.348Z 50
+Action: SIPshowpeer
+ActionID: p41
+Peer: 2032
+
+
+< 2026-10-14T13:00:00.35Z 273
+Response: Success
+ActionID: p41
+Channeltype: SIP
+ObjectName: 2032
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2032" <2032>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.33
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (30 ms)
+
+
+> 2026-10-14T13:00:00.352Z 50
+Action: SIPshowpeer
+ActionID: p42
+Peer: 2033
+
+
+< 2026-10-14T13:00:00.354Z 277
+Response: Success
+ActionID: p42
+Channeltype: SIP
+ObjectName: 2033
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2033" <2033>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.34
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (20 ms)
+
+
+> 2026-10-14T13:00:00.356Z 50
+Action: SIPshowpeer
+ActionID: p43
+Peer: 2034
+
+
+< 2026-10-14T13:00:00.358Z 276
+Response: Success
+ActionID: p43
+Channeltype: SIP
+ObjectName: 2034
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2034" <2034>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.35
+Address-Port: 5060
+SIP-Useragent: Fanvil X3S 2.12.1
+Status: OK (17 ms)
+
+
+> 2026-10-14T13:00:00.36Z 50
+Action: SIPshowpeer
+ActionID: p44
+Peer: 2035
+
+
+< 2026-10-14T13:00:00.362Z 278
+Response: Success
+ActionID: p44
+Channeltype: SIP
+ObjectName: 2035
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2035" <2035>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.36
+Address-Port: 5060
+SIP-Useragent: Cisco/SPA504G-7.6.2
+Status: OK (21 ms)
+
+
+> 2026-10-14T13:00:00.364Z 50
+Action: SIPshowpeer
+ActionID: p45
+Peer: 2036
+
+
+< 2026-10-14T13:00:00.366Z 286
+Response: Success
+ActionID: p45
+Channeltype: SIP
+ObjectName: 2036
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2036" <2036>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.37
+Address-Port: 5060
+SIP-Useragent: Yealink SIP-T46U 108.86.0.20
+Status: OK (6 ms)
+
+
+> 2026-10-14T13:00:00.368Z 50
+Action: SIPshowpeer
+ActionID: p46
+Peer: 2037
+
+
+< 2026-10-14T13:00:00.37Z 287
+Response: Success
+ActionID: p46
+Channeltype: SIP
+ObjectName: 2037
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2037" <2037>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.38
+Address-Port: 5060
+SIP-Useragent: Grandstream GXP1625 1.0.11.23
+Status: OK (9 ms)
+
+
+> 2026-10-14T13:00:00.372Z 50
+Action: SIPshowpeer
+ActionID: p47
+Peer: 2038
+
+
+< 2026-10-14T13:00:00.374Z 273
+Response: Success
+ActionID: p47
+Channeltype: SIP
+ObjectName: 2038
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2038" <2038>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.39
+Address-Port: 5060
+SIP-Useragent: Linphone/5.0.0
+Status: OK (35 ms)
+
+
+> 2026-10-14T13:00:00.376Z 50
+Action: SIPshowpeer
+ActionID: p48
+Peer: 2039
+
+
+< 2026-10-14T13:00:00.378Z 277
+Response: Success
+ActionID: p48
+Channeltype: SIP
+ObjectName: 2039
+ChanObjectType: peer
+SecretExist: ***
+Callerid: "Ramal 2039" <2039>
+Context: from-internal
+Dynamic: Y
+Address-IP: 10.1.1.40
+Address-Port: 5060
+SIP-Useragent: Zoiper rv2.10.19.4
+Status: OK (14 ms)
+
+
+< 2026-10-14T13:00:01.08Z 342
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2005
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.082Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2005
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.084Z 338
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2005-00000003
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2005
+CallerIDName: Ramal 2005
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.086Z 707
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2005
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+DestChannel: SIP/2005-00000003
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2005
+DestCallerIDName: Ramal 2005
+DestConnectedLineNum: 2003
+DestConnectedLineName: Ramal 2003
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.4
+DestLinkedid: 1791933446.2
+DialString: 2005
+
+
+< 2026-10-14T13:00:01.088Z 335
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2005-00000003
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2005
+CallerIDName: Ramal 2005
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.09Z 343
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2005
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.092Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2003
+State: INUSE
+
+
+< 2026-10-14T13:00:01.094Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2005
+State: RINGING
+
+
+< 2026-10-14T13:00:01.796Z 330
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2005-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2005
+CallerIDName: Ramal 2005
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.798Z 338
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2005
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.8Z 703
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2005
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+DestChannel: SIP/2005-00000003
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2005
+DestCallerIDName: Ramal 2005
+DestConnectedLineNum: 2003
+DestConnectedLineName: Ramal 2003
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.4
+DestLinkedid: 1791933446.2
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:01.802Z 547
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2005
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.804Z 539
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2005-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2005
+CallerIDName: Ramal 2005
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.806Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2005
+State: INUSE
+
+
+< 2026-10-14T13:00:03.208Z 539
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2005-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2005
+CallerIDName: Ramal 2005
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:03.21Z 367
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2005-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2005
+CallerIDName: Ramal 2005
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:03.212Z 547
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2005
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:03.214Z 338
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2006-00000005
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2006
+CallerIDName: Ramal 2006
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.6
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:03.216Z 705
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2006
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+DestChannel: SIP/2006-00000005
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2006
+DestCallerIDName: Ramal 2006
+DestConnectedLineNum: 2003
+DestConnectedLineName: Ramal 2003
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.6
+DestLinkedid: 1791933446.2
+DialString: 2006
+
+
+< 2026-10-14T13:00:03.218Z 335
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2006-00000005
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2006
+CallerIDName: Ramal 2006
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.6
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:03.22Z 342
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 2006
+ConnectedLineName: Ramal 2006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2006
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:03.222Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2005
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:03.224Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2006
+State: RINGING
+
+
+< 2026-10-14T13:00:03.926Z 330
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2006-00000005
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2006
+CallerIDName: Ramal 2006
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.6
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:03.928Z 699
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 2006
+ConnectedLineName: Ramal 2006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2006
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+DestChannel: SIP/2006-00000005
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2006
+DestCallerIDName: Ramal 2006
+DestConnectedLineNum: 2003
+DestConnectedLineName: Ramal 2003
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.6
+DestLinkedid: 1791933446.2
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:03.93Z 543
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 7619a83c-4a47-bd46-8c15-f3d0de430d7d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 2006
+ConnectedLineName: Ramal 2006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2006
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:03.932Z 539
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 7619a83c-4a47-bd46-8c15-f3d0de430d7d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2006-00000005
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2006
+CallerIDName: Ramal 2006
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.6
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:03.934Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2006
+State: INUSE
+
+
+< 2026-10-14T13:00:04.636Z 543
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 7619a83c-4a47-bd46-8c15-f3d0de430d7d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 2006
+ConnectedLineName: Ramal 2006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2006
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:04.638Z 371
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2003-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 2006
+ConnectedLineName: Ramal 2006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2006
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:04.64Z 539
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 7619a83c-4a47-bd46-8c15-f3d0de430d7d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2006-00000005
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2006
+CallerIDName: Ramal 2006
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.6
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:04.642Z 367
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2006-00000005
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2006
+CallerIDName: Ramal 2006
+ConnectedLineNum: 2003
+ConnectedLineName: Ramal 2003
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.6
+Linkedid: 1791933446.2
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:04.644Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2003
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:04.646Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2006
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:05.348Z 352
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/trunk2-00000007
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:05.35Z 350
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk2-00000007
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:05.352Z 339
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2007-00000009
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2007
+CallerIDName: Ramal 2007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.10
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:05.354Z 725
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/trunk2-00000007
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+DestChannel: SIP/2007-00000009
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2007
+DestCallerIDName: Ramal 2007
+DestConnectedLineNum: 11980000101
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.10
+DestLinkedid: 1791933446.8
+DialString: 2007
+
+
+< 2026-10-14T13:00:05.356Z 343
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2007-00000009
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2007
+CallerIDName: Ramal 2007
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.10
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:05.358Z 353
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk2-00000007
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:05.36Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2007
+State: RINGING
+
+
+< 2026-10-14T13:00:06.062Z 338
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2007-00000009
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2007
+CallerIDName: Ramal 2007
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.10
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:06.064Z 348
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk2-00000007
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:06.066Z 721
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/trunk2-00000007
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+DestChannel: SIP/2007-00000009
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2007
+DestCallerIDName: Ramal 2007
+DestConnectedLineNum: 11980000101
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.10
+DestLinkedid: 1791933446.8
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:06.068Z 557
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 4c0df490-a6a4-2d2b-5827-e05d614b6263
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000007
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:06.07Z 547
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 4c0df490-a6a4-2d2b-5827-e05d614b6263
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2007-00000009
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2007
+CallerIDName: Ramal 2007
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.10
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:06.072Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2007
+State: INUSE
+
+
+< 2026-10-14T13:00:07.474Z 547
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 4c0df490-a6a4-2d2b-5827-e05d614b6263
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2007-00000009
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2007
+CallerIDName: Ramal 2007
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.10
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:07.476Z 375
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2007-00000009
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2007
+CallerIDName: Ramal 2007
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.10
+Linkedid: 1791933446.8
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:07.478Z 557
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 4c0df490-a6a4-2d2b-5827-e05d614b6263
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000007
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:07.48Z 339
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2008-0000000b
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2008
+CallerIDName: Ramal 2008
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.12
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:07.482Z 719
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/trunk2-00000007
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2008
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+DestChannel: SIP/2008-0000000b
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2008
+DestCallerIDName: Ramal 2008
+DestConnectedLineNum: 11980000101
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.12
+DestLinkedid: 1791933446.8
+DialString: 2008
+
+
+< 2026-10-14T13:00:07.484Z 343
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2008-0000000b
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2008
+CallerIDName: Ramal 2008
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.12
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:07.486Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2007
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:07.488Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2008
+State: RINGING
+
+
+< 2026-10-14T13:00:08.19Z 338
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2008-0000000b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2008
+CallerIDName: Ramal 2008
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.12
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:08.192Z 717
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/trunk2-00000007
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2008
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+DestChannel: SIP/2008-0000000b
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2008
+DestCallerIDName: Ramal 2008
+DestConnectedLineNum: 11980000101
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.12
+DestLinkedid: 1791933446.8
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:08.194Z 553
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: c427f344-fe3e-3fcf-5e3c-612e04837cdb
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000007
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2008
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:08.196Z 547
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: c427f344-fe3e-3fcf-5e3c-612e04837cdb
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2008-0000000b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2008
+CallerIDName: Ramal 2008
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.12
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:08.198Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2008
+State: INUSE
+
+
+< 2026-10-14T13:00:08.9Z 553
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: c427f344-fe3e-3fcf-5e3c-612e04837cdb
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000007
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2008
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:08.902Z 381
+Event: Hangup
+Privilege: call,all
+Channel: SIP/trunk2-00000007
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000101
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2008
+Priority: 1
+Uniqueid: 1791933446.8
+Linkedid: 1791933446.8
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:08.904Z 547
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: c427f344-fe3e-3fcf-5e3c-612e04837cdb
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2008-0000000b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2008
+CallerIDName: Ramal 2008
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.12
+Linkedid: 1791933446.8
+
+
+< 2026-10-14T13:00:08.906Z 375
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2008-0000000b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2008
+CallerIDName: Ramal 2008
+ConnectedLineNum: 11980000101
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.12
+Linkedid: 1791933446.8
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:08.908Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2008
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:09.61Z 351
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2009-0000000d
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:09.612Z 349
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2009-0000000d
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:09.614Z 339
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/trunk1-0000000f
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:09.616Z 735
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2009-0000000d
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+DestChannel: SIP/trunk1-0000000f
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2009
+DestCallerIDName: Ramal 2009
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-trunk
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.16
+DestLinkedid: 1791933446.14
+DialString: trunk1/11980000102
+
+
+< 2026-10-14T13:00:09.618Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-0000000f
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:09.62Z 352
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2009-0000000d
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:09.622Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2009
+State: INUSE
+
+
+< 2026-10-14T13:00:10.324Z 335
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-0000000f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:10.326Z 347
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2009-0000000d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:10.328Z 717
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2009-0000000d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+DestChannel: SIP/trunk1-0000000f
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2009
+DestCallerIDName: Ramal 2009
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-trunk
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.16
+DestLinkedid: 1791933446.14
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:10.33Z 556
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 7c286dc3-7040-fa03-c958-de1f82a15eeb
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2009-0000000d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:10.332Z 544
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 7c286dc3-7040-fa03-c958-de1f82a15eeb
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-0000000f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:10.334Z 357
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2009-0000000d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:10.336Z 345
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/trunk1-0000000f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:11.738Z 558
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 7c286dc3-7040-fa03-c958-de1f82a15eeb
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2009-0000000d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:11.74Z 386
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2009-0000000d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000102
+Priority: 1
+Uniqueid: 1791933446.14
+Linkedid: 1791933446.14
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:11.742Z 546
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 7c286dc3-7040-fa03-c958-de1f82a15eeb
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-0000000f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:11.744Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2010-00000011
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2010
+CallerIDName: Ramal 2010
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.18
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:11.746Z 716
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/trunk1-0000000f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2010
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+DestChannel: SIP/2010-00000011
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2010
+DestCallerIDName: Ramal 2010
+DestConnectedLineNum: 11980000102
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.18
+DestLinkedid: 1791933446.14
+DialString: 2010
+
+
+< 2026-10-14T13:00:11.748Z 343
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2010-00000011
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2010
+CallerIDName: Ramal 2010
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.18
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:11.75Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2009
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:11.752Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2010
+State: RINGING
+
+
+< 2026-10-14T13:00:12.454Z 338
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2010-00000011
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2010
+CallerIDName: Ramal 2010
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.18
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:12.456Z 714
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/trunk1-0000000f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2010
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+DestChannel: SIP/2010-00000011
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2010
+DestCallerIDName: Ramal 2010
+DestConnectedLineNum: 11980000102
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.18
+DestLinkedid: 1791933446.14
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:12.458Z 550
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 709d373b-e5a2-3c08-66fd-64afbc7ef79d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-0000000f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2010
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:12.46Z 547
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 709d373b-e5a2-3c08-66fd-64afbc7ef79d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2010-00000011
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2010
+CallerIDName: Ramal 2010
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.18
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:12.462Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2010
+State: INUSE
+
+
+< 2026-10-14T13:00:13.164Z 550
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 709d373b-e5a2-3c08-66fd-64afbc7ef79d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-0000000f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2010
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:13.166Z 378
+Event: Hangup
+Privilege: call,all
+Channel: SIP/trunk1-0000000f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2009
+CallerIDName: Ramal 2009
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 2010
+Priority: 1
+Uniqueid: 1791933446.16
+Linkedid: 1791933446.14
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:13.168Z 547
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 709d373b-e5a2-3c08-66fd-64afbc7ef79d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2010-00000011
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2010
+CallerIDName: Ramal 2010
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.18
+Linkedid: 1791933446.14
+
+
+< 2026-10-14T13:00:13.17Z 375
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2010-00000011
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2010
+CallerIDName: Ramal 2010
+ConnectedLineNum: 11980000102
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.18
+Linkedid: 1791933446.14
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:13.172Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2010
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:13.874Z 344
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2011-00000013
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:13.876Z 342
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2011-00000013
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:13.878Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2012-00000015
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.22
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:13.88Z 711
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2011-00000013
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+DestChannel: SIP/2012-00000015
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2012
+DestCallerIDName: Ramal 2012
+DestConnectedLineNum: 2011
+DestConnectedLineName: Ramal 2011
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.22
+DestLinkedid: 1791933446.20
+DialString: 2012
+
+
+< 2026-10-14T13:00:13.882Z 337
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2012-00000015
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: 2011
+ConnectedLineName: Ramal 2011
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.22
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:13.884Z 345
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2011-00000013
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:13.886Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2011
+State: INUSE
+
+
+< 2026-10-14T13:00:13.888Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2012
+State: RINGING
+
+
+< 2026-10-14T13:00:14.59Z 332
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2012-00000015
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: 2011
+ConnectedLineName: Ramal 2011
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.22
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:14.592Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2011-00000013
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:14.594Z 707
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2011-00000013
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+DestChannel: SIP/2012-00000015
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2012
+DestCallerIDName: Ramal 2012
+DestConnectedLineNum: 2011
+DestConnectedLineName: Ramal 2011
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.22
+DestLinkedid: 1791933446.20
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:14.596Z 549
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: fd3371c9-2057-79a0-570a-9eac5050fb0d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2011-00000013
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:14.598Z 541
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: fd3371c9-2057-79a0-570a-9eac5050fb0d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2012-00000015
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: 2011
+ConnectedLineName: Ramal 2011
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.22
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:14.6Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2012
+State: INUSE
+
+
+< 2026-10-14T13:00:16.002Z 349
+Event: Hold
+Privilege: call,all
+Channel: SIP/2012-00000015
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: 2011
+ConnectedLineName: Ramal 2011
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.22
+Linkedid: 1791933446.20
+MusicClass: default
+
+
+< 2026-10-14T13:00:16.004Z 82
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2012
+State: ONHOLD
+
+
+< 2026-10-14T13:00:16.706Z 344
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2012-00000017
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2013
+Priority: 1
+Uniqueid: 1791933446.24
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:16.708Z 342
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2012-00000017
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2013
+Priority: 1
+Uniqueid: 1791933446.24
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:16.71Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2013-00000019
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2013
+CallerIDName: Ramal 2013
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.26
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:16.712Z 711
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2012-00000017
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2013
+Priority: 1
+Uniqueid: 1791933446.24
+Linkedid: 1791933446.24
+DestChannel: SIP/2013-00000019
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2013
+DestCallerIDName: Ramal 2013
+DestConnectedLineNum: 2012
+DestConnectedLineName: Ramal 2012
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.26
+DestLinkedid: 1791933446.24
+DialString: 2013
+
+
+< 2026-10-14T13:00:16.714Z 337
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2013-00000019
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2013
+CallerIDName: Ramal 2013
+ConnectedLineNum: 2012
+ConnectedLineName: Ramal 2012
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.26
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:16.716Z 345
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2012-00000017
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2013
+Priority: 1
+Uniqueid: 1791933446.24
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:16.718Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2012
+State: INUSE
+
+
+< 2026-10-14T13:00:16.72Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2013
+State: RINGING
+
+
+< 2026-10-14T13:00:17.422Z 332
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2013-00000019
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2013
+CallerIDName: Ramal 2013
+ConnectedLineNum: 2012
+ConnectedLineName: Ramal 2012
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.26
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:17.424Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2012-00000017
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2013
+Priority: 1
+Uniqueid: 1791933446.24
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:17.426Z 707
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2012-00000017
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2013
+Priority: 1
+Uniqueid: 1791933446.24
+Linkedid: 1791933446.24
+DestChannel: SIP/2013-00000019
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2013
+DestCallerIDName: Ramal 2013
+DestConnectedLineNum: 2012
+DestConnectedLineName: Ramal 2012
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.26
+DestLinkedid: 1791933446.24
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:17.428Z 549
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 61feffbe-735b-654d-417d-6ea3c6f30346
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2012-00000017
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2013
+Priority: 1
+Uniqueid: 1791933446.24
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:17.43Z 541
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 61feffbe-735b-654d-417d-6ea3c6f30346
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2013-00000019
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2013
+CallerIDName: Ramal 2013
+ConnectedLineNum: 2012
+ConnectedLineName: Ramal 2012
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.26
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:17.432Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2013
+State: INUSE
+
+
+< 2026-10-14T13:00:18.134Z 541
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: fd3371c9-2057-79a0-570a-9eac5050fb0d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2012-00000015
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: 2011
+ConnectedLineName: Ramal 2011
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.22
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:18.136Z 369
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2012-00000015
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: 2011
+ConnectedLineName: Ramal 2011
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.22
+Linkedid: 1791933446.20
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:18.138Z 549
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 61feffbe-735b-654d-417d-6ea3c6f30346
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2012-00000017
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2013
+Priority: 1
+Uniqueid: 1791933446.24
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:18.14Z 377
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2012-00000017
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2012
+CallerIDName: Ramal 2012
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2013
+Priority: 1
+Uniqueid: 1791933446.24
+Linkedid: 1791933446.24
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:18.142Z 549
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: fd3371c9-2057-79a0-570a-9eac5050fb0d
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2011-00000013
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:18.144Z 549
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 61feffbe-735b-654d-417d-6ea3c6f30346
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2011-00000013
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:18.146Z 344
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2011-00000013
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: 2013
+ConnectedLineName: Ramal 2013
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:18.148Z 340
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2013-00000019
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2013
+CallerIDName: Ramal 2013
+ConnectedLineNum: 2011
+ConnectedLineName: Ramal 2011
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.26
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:18.15Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2012
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:18.852Z 545
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 61feffbe-735b-654d-417d-6ea3c6f30346
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2011-00000013
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: 2013
+ConnectedLineName: Ramal 2013
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+
+
+< 2026-10-14T13:00:18.854Z 373
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2011-00000013
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2011
+CallerIDName: Ramal 2011
+ConnectedLineNum: 2013
+ConnectedLineName: Ramal 2013
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2012
+Priority: 1
+Uniqueid: 1791933446.20
+Linkedid: 1791933446.20
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:18.856Z 541
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 61feffbe-735b-654d-417d-6ea3c6f30346
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2013-00000019
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2013
+CallerIDName: Ramal 2013
+ConnectedLineNum: 2011
+ConnectedLineName: Ramal 2011
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.26
+Linkedid: 1791933446.24
+
+
+< 2026-10-14T13:00:18.858Z 369
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2013-00000019
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2013
+CallerIDName: Ramal 2013
+ConnectedLineNum: 2011
+ConnectedLineName: Ramal 2011
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.26
+Linkedid: 1791933446.24
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:18.86Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2011
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:18.862Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2013
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:19.564Z 354
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/trunk1-0000001b
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:19.566Z 352
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-0000001b
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:19.568Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2015-0000001d
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.30
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:19.57Z 728
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/trunk1-0000001b
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+DestChannel: SIP/2015-0000001d
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2015
+DestCallerIDName: Ramal 2015
+DestConnectedLineNum: 11980000104
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.30
+DestLinkedid: 1791933446.28
+DialString: 2015
+
+
+< 2026-10-14T13:00:19.572Z 344
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2015-0000001d
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: 11980000104
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.30
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:19.574Z 355
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-0000001b
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:19.576Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2015
+State: RINGING
+
+
+< 2026-10-14T13:00:20.278Z 339
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2015-0000001d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: 11980000104
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.30
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:20.28Z 350
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-0000001b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:20.282Z 724
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/trunk1-0000001b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+DestChannel: SIP/2015-0000001d
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2015
+DestCallerIDName: Ramal 2015
+DestConnectedLineNum: 11980000104
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.30
+DestLinkedid: 1791933446.28
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:20.284Z 559
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: b6188d00-765c-bf4e-d541-57525e6e7363
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-0000001b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:20.286Z 548
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: b6188d00-765c-bf4e-d541-57525e6e7363
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2015-0000001d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: 11980000104
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.30
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:20.288Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2015
+State: INUSE
+
+
+< 2026-10-14T13:00:21.69Z 356
+Event: Hold
+Privilege: call,all
+Channel: SIP/2015-0000001d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: 11980000104
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.30
+Linkedid: 1791933446.28
+MusicClass: default
+
+
+< 2026-10-14T13:00:21.692Z 82
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2015
+State: ONHOLD
+
+
+< 2026-10-14T13:00:22.394Z 344
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2015-0000001f
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2016
+Priority: 1
+Uniqueid: 1791933446.32
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:22.396Z 342
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2015-0000001f
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2016
+Priority: 1
+Uniqueid: 1791933446.32
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:22.398Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2016-00000021
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2016
+CallerIDName: Ramal 2016
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.34
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:22.4Z 711
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2015-0000001f
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2016
+Priority: 1
+Uniqueid: 1791933446.32
+Linkedid: 1791933446.32
+DestChannel: SIP/2016-00000021
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2016
+DestCallerIDName: Ramal 2016
+DestConnectedLineNum: 2015
+DestConnectedLineName: Ramal 2015
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.34
+DestLinkedid: 1791933446.32
+DialString: 2016
+
+
+< 2026-10-14T13:00:22.402Z 337
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2016-00000021
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2016
+CallerIDName: Ramal 2016
+ConnectedLineNum: 2015
+ConnectedLineName: Ramal 2015
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.34
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:22.404Z 345
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2015-0000001f
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2016
+Priority: 1
+Uniqueid: 1791933446.32
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:22.406Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2015
+State: INUSE
+
+
+< 2026-10-14T13:00:22.408Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2016
+State: RINGING
+
+
+< 2026-10-14T13:00:23.11Z 332
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2016-00000021
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2016
+CallerIDName: Ramal 2016
+ConnectedLineNum: 2015
+ConnectedLineName: Ramal 2015
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.34
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:23.112Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2015-0000001f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2016
+Priority: 1
+Uniqueid: 1791933446.32
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:23.114Z 707
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2015-0000001f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2016
+Priority: 1
+Uniqueid: 1791933446.32
+Linkedid: 1791933446.32
+DestChannel: SIP/2016-00000021
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2016
+DestCallerIDName: Ramal 2016
+DestConnectedLineNum: 2015
+DestConnectedLineName: Ramal 2015
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.34
+DestLinkedid: 1791933446.32
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:23.116Z 549
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 12e763a0-92f9-8d52-99ed-66160526f3af
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2015-0000001f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2016
+Priority: 1
+Uniqueid: 1791933446.32
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:23.118Z 541
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 12e763a0-92f9-8d52-99ed-66160526f3af
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2016-00000021
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2016
+CallerIDName: Ramal 2016
+ConnectedLineNum: 2015
+ConnectedLineName: Ramal 2015
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.34
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:23.12Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2016
+State: INUSE
+
+
+< 2026-10-14T13:00:23.822Z 548
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: b6188d00-765c-bf4e-d541-57525e6e7363
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2015-0000001d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: 11980000104
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.30
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:23.824Z 376
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2015-0000001d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: 11980000104
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.30
+Linkedid: 1791933446.28
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:23.826Z 549
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 12e763a0-92f9-8d52-99ed-66160526f3af
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2015-0000001f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2016
+Priority: 1
+Uniqueid: 1791933446.32
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:23.828Z 377
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2015-0000001f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2015
+CallerIDName: Ramal 2015
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2016
+Priority: 1
+Uniqueid: 1791933446.32
+Linkedid: 1791933446.32
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:23.83Z 559
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: b6188d00-765c-bf4e-d541-57525e6e7363
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-0000001b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:23.832Z 559
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 12e763a0-92f9-8d52-99ed-66160526f3af
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-0000001b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:23.834Z 347
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2016-00000021
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2016
+CallerIDName: Ramal 2016
+ConnectedLineNum: 11980000104
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.34
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:23.836Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2015
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:24.538Z 559
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 12e763a0-92f9-8d52-99ed-66160526f3af
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-0000001b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+
+
+< 2026-10-14T13:00:24.54Z 387
+Event: Hangup
+Privilege: call,all
+Channel: SIP/trunk1-0000001b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000104
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.28
+Linkedid: 1791933446.28
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:24.542Z 548
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 12e763a0-92f9-8d52-99ed-66160526f3af
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2016-00000021
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2016
+CallerIDName: Ramal 2016
+ConnectedLineNum: 11980000104
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.34
+Linkedid: 1791933446.32
+
+
+< 2026-10-14T13:00:24.544Z 376
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2016-00000021
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2016
+CallerIDName: Ramal 2016
+ConnectedLineNum: 11980000104
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.34
+Linkedid: 1791933446.32
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:24.546Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2016
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:25.248Z 351
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2018-00000023
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.25Z 349
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2018-00000023
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.252Z 339
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/trunk2-00000025
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.38
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.254Z 735
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2018-00000023
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+DestChannel: SIP/trunk2-00000025
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2018
+DestCallerIDName: Ramal 2018
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-trunk
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.38
+DestLinkedid: 1791933446.36
+DialString: trunk2/11980000105
+
+
+< 2026-10-14T13:00:25.256Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk2-00000025
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.38
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.258Z 352
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2018-00000023
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.26Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2018
+State: INUSE
+
+
+< 2026-10-14T13:00:25.962Z 335
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk2-00000025
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.38
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.964Z 347
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2018-00000023
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.966Z 717
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2018-00000023
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+DestChannel: SIP/trunk2-00000025
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2018
+DestCallerIDName: Ramal 2018
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-trunk
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.38
+DestLinkedid: 1791933446.36
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:25.968Z 556
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: e7097b4e-7d16-f40b-d324-913c17d1d833
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2018-00000023
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.97Z 544
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: e7097b4e-7d16-f40b-d324-913c17d1d833
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000025
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.38
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.972Z 357
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2018-00000023
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:25.974Z 345
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/trunk2-00000025
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.38
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:27.376Z 366
+Event: Hold
+Privilege: call,all
+Channel: SIP/2018-00000023
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+MusicClass: default
+
+
+< 2026-10-14T13:00:27.378Z 82
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2018
+State: ONHOLD
+
+
+< 2026-10-14T13:00:28.08Z 344
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2018-00000027
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2019
+Priority: 1
+Uniqueid: 1791933446.40
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:28.082Z 342
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2018-00000027
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2019
+Priority: 1
+Uniqueid: 1791933446.40
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:28.084Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2019-00000029
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2019
+CallerIDName: Ramal 2019
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.42
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:28.086Z 711
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2018-00000027
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2019
+Priority: 1
+Uniqueid: 1791933446.40
+Linkedid: 1791933446.40
+DestChannel: SIP/2019-00000029
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2019
+DestCallerIDName: Ramal 2019
+DestConnectedLineNum: 2018
+DestConnectedLineName: Ramal 2018
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.42
+DestLinkedid: 1791933446.40
+DialString: 2019
+
+
+< 2026-10-14T13:00:28.088Z 337
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2019-00000029
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2019
+CallerIDName: Ramal 2019
+ConnectedLineNum: 2018
+ConnectedLineName: Ramal 2018
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.42
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:28.09Z 345
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2018-00000027
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2019
+Priority: 1
+Uniqueid: 1791933446.40
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:28.092Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2018
+State: INUSE
+
+
+< 2026-10-14T13:00:28.094Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2019
+State: RINGING
+
+
+< 2026-10-14T13:00:28.796Z 332
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2019-00000029
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2019
+CallerIDName: Ramal 2019
+ConnectedLineNum: 2018
+ConnectedLineName: Ramal 2018
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.42
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:28.798Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2018-00000027
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2019
+Priority: 1
+Uniqueid: 1791933446.40
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:28.8Z 707
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2018-00000027
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2019
+Priority: 1
+Uniqueid: 1791933446.40
+Linkedid: 1791933446.40
+DestChannel: SIP/2019-00000029
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2019
+DestCallerIDName: Ramal 2019
+DestConnectedLineNum: 2018
+DestConnectedLineName: Ramal 2018
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.42
+DestLinkedid: 1791933446.40
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:28.802Z 549
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 79e52e02-5329-0b0a-e161-565ed065b77c
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2018-00000027
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2019
+Priority: 1
+Uniqueid: 1791933446.40
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:28.804Z 541
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 79e52e02-5329-0b0a-e161-565ed065b77c
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2019-00000029
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2019
+CallerIDName: Ramal 2019
+ConnectedLineNum: 2018
+ConnectedLineName: Ramal 2018
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.42
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:28.806Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2019
+State: INUSE
+
+
+< 2026-10-14T13:00:29.508Z 558
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: e7097b4e-7d16-f40b-d324-913c17d1d833
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2018-00000023
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:29.51Z 386
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2018-00000023
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000105
+Priority: 1
+Uniqueid: 1791933446.36
+Linkedid: 1791933446.36
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:29.512Z 549
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 79e52e02-5329-0b0a-e161-565ed065b77c
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2018-00000027
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2019
+Priority: 1
+Uniqueid: 1791933446.40
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:29.514Z 377
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2018-00000027
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2019
+Priority: 1
+Uniqueid: 1791933446.40
+Linkedid: 1791933446.40
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:29.516Z 546
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: e7097b4e-7d16-f40b-d324-913c17d1d833
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000025
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.38
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:29.518Z 546
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 79e52e02-5329-0b0a-e161-565ed065b77c
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000025
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.38
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:29.52Z 346
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2019-00000029
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2019
+CallerIDName: Ramal 2019
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.42
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:29.522Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2018
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:30.224Z 546
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 79e52e02-5329-0b0a-e161-565ed065b77c
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000025
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.38
+Linkedid: 1791933446.36
+
+
+< 2026-10-14T13:00:30.226Z 374
+Event: Hangup
+Privilege: call,all
+Channel: SIP/trunk2-00000025
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2018
+CallerIDName: Ramal 2018
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.38
+Linkedid: 1791933446.36
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:30.228Z 547
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 79e52e02-5329-0b0a-e161-565ed065b77c
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2019-00000029
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2019
+CallerIDName: Ramal 2019
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.42
+Linkedid: 1791933446.40
+
+
+< 2026-10-14T13:00:30.23Z 375
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2019-00000029
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2019
+CallerIDName: Ramal 2019
+ConnectedLineNum: 11980000105
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.42
+Linkedid: 1791933446.40
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:30.232Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2019
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:30.934Z 344
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2020-0000002b
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:30.936Z 342
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2020-0000002b
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:30.938Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2021-0000002d
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.46
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:30.94Z 711
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2020-0000002b
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+DestChannel: SIP/2021-0000002d
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2021
+DestCallerIDName: Ramal 2021
+DestConnectedLineNum: 2020
+DestConnectedLineName: Ramal 2020
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.46
+DestLinkedid: 1791933446.44
+DialString: 2021
+
+
+< 2026-10-14T13:00:30.942Z 337
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2021-0000002d
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: 2020
+ConnectedLineName: Ramal 2020
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.46
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:30.944Z 345
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2020-0000002b
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:30.946Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2020
+State: INUSE
+
+
+< 2026-10-14T13:00:30.948Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2021
+State: RINGING
+
+
+< 2026-10-14T13:00:31.65Z 332
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2021-0000002d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: 2020
+ConnectedLineName: Ramal 2020
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.46
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:31.652Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2020-0000002b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:31.654Z 707
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2020-0000002b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+DestChannel: SIP/2021-0000002d
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2021
+DestCallerIDName: Ramal 2021
+DestConnectedLineNum: 2020
+DestConnectedLineName: Ramal 2020
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.46
+DestLinkedid: 1791933446.44
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:31.656Z 549
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 23d801a0-57a3-e3d2-a22c-a0ba25f5a2cf
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2020-0000002b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:31.658Z 541
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 23d801a0-57a3-e3d2-a22c-a0ba25f5a2cf
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2021-0000002d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: 2020
+ConnectedLineName: Ramal 2020
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.46
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:31.66Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2021
+State: INUSE
+
+
+< 2026-10-14T13:00:33.062Z 349
+Event: Hold
+Privilege: call,all
+Channel: SIP/2021-0000002d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: 2020
+ConnectedLineName: Ramal 2020
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.46
+Linkedid: 1791933446.44
+MusicClass: default
+
+
+< 2026-10-14T13:00:33.064Z 82
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2021
+State: ONHOLD
+
+
+< 2026-10-14T13:00:33.766Z 344
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2021-0000002f
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.48
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:33.768Z 342
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2021-0000002f
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.48
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:33.77Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2022-00000031
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2022
+CallerIDName: Ramal 2022
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.50
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:33.772Z 711
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2021-0000002f
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.48
+Linkedid: 1791933446.48
+DestChannel: SIP/2022-00000031
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2022
+DestCallerIDName: Ramal 2022
+DestConnectedLineNum: 2021
+DestConnectedLineName: Ramal 2021
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.50
+DestLinkedid: 1791933446.48
+DialString: 2022
+
+
+< 2026-10-14T13:00:33.774Z 337
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2022-00000031
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2022
+CallerIDName: Ramal 2022
+ConnectedLineNum: 2021
+ConnectedLineName: Ramal 2021
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.50
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:33.776Z 345
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2021-0000002f
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.48
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:33.778Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2021
+State: INUSE
+
+
+< 2026-10-14T13:00:33.78Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2022
+State: RINGING
+
+
+< 2026-10-14T13:00:34.482Z 332
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2022-00000031
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2022
+CallerIDName: Ramal 2022
+ConnectedLineNum: 2021
+ConnectedLineName: Ramal 2021
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.50
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:34.484Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2021-0000002f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.48
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:34.486Z 707
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2021-0000002f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.48
+Linkedid: 1791933446.48
+DestChannel: SIP/2022-00000031
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2022
+DestCallerIDName: Ramal 2022
+DestConnectedLineNum: 2021
+DestConnectedLineName: Ramal 2021
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.50
+DestLinkedid: 1791933446.48
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:34.488Z 549
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: a1e4127b-1e75-62b2-ceae-d62b87b74089
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2021-0000002f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.48
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:34.49Z 541
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: a1e4127b-1e75-62b2-ceae-d62b87b74089
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2022-00000031
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2022
+CallerIDName: Ramal 2022
+ConnectedLineNum: 2021
+ConnectedLineName: Ramal 2021
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.50
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:34.492Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2022
+State: INUSE
+
+
+< 2026-10-14T13:00:35.194Z 541
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 23d801a0-57a3-e3d2-a22c-a0ba25f5a2cf
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2021-0000002d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: 2020
+ConnectedLineName: Ramal 2020
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.46
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:35.196Z 369
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2021-0000002d
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: 2020
+ConnectedLineName: Ramal 2020
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.46
+Linkedid: 1791933446.44
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:35.198Z 549
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: a1e4127b-1e75-62b2-ceae-d62b87b74089
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2021-0000002f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.48
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:35.2Z 377
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2021-0000002f
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2021
+CallerIDName: Ramal 2021
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.48
+Linkedid: 1791933446.48
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:35.202Z 354
+Event: Newchannel
+Privilege: call,all
+Channel: Local/2022@transfer-00000033;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.52
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:35.204Z 354
+Event: Newchannel
+Privilege: call,all
+Channel: Local/2022@transfer-00000033;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.53
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:35.206Z 561
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 23d801a0-57a3-e3d2-a22c-a0ba25f5a2cf
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: Local/2022@transfer-00000033;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.52
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:35.208Z 561
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: a1e4127b-1e75-62b2-ceae-d62b87b74089
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: Local/2022@transfer-00000033;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.53
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:35.21Z 344
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2020-0000002b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: 2022
+ConnectedLineName: Ramal 2022
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:35.212Z 340
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2022-00000031
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2022
+CallerIDName: Ramal 2022
+ConnectedLineNum: 2020
+ConnectedLineName: Ramal 2020
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.50
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:35.214Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2021
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:35.916Z 545
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 23d801a0-57a3-e3d2-a22c-a0ba25f5a2cf
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2020-0000002b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: 2022
+ConnectedLineName: Ramal 2022
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:35.918Z 373
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2020-0000002b
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2020
+CallerIDName: Ramal 2020
+ConnectedLineNum: 2022
+ConnectedLineName: Ramal 2022
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2021
+Priority: 1
+Uniqueid: 1791933446.44
+Linkedid: 1791933446.44
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:35.92Z 561
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 23d801a0-57a3-e3d2-a22c-a0ba25f5a2cf
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: Local/2022@transfer-00000033;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.52
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:35.922Z 389
+Event: Hangup
+Privilege: call,all
+Channel: Local/2022@transfer-00000033;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.52
+Linkedid: 1791933446.44
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:35.924Z 561
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: a1e4127b-1e75-62b2-ceae-d62b87b74089
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: Local/2022@transfer-00000033;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.53
+Linkedid: 1791933446.44
+
+
+< 2026-10-14T13:00:35.926Z 389
+Event: Hangup
+Privilege: call,all
+Channel: Local/2022@transfer-00000033;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2022
+Priority: 1
+Uniqueid: 1791933446.53
+Linkedid: 1791933446.44
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:35.928Z 541
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: a1e4127b-1e75-62b2-ceae-d62b87b74089
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2022-00000031
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2022
+CallerIDName: Ramal 2022
+ConnectedLineNum: 2020
+ConnectedLineName: Ramal 2020
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.50
+Linkedid: 1791933446.48
+
+
+< 2026-10-14T13:00:35.93Z 369
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2022-00000031
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2022
+CallerIDName: Ramal 2022
+ConnectedLineNum: 2020
+ConnectedLineName: Ramal 2020
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.50
+Linkedid: 1791933446.48
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:35.932Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2020
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:35.934Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2022
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:36.636Z 354
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/trunk2-00000036
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 11980000107
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.55
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:36.638Z 352
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk2-00000036
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000107
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.55
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:36.64Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2023-00000038
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.57
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:36.642Z 728
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/trunk2-00000036
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000107
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.55
+Linkedid: 1791933446.55
+DestChannel: SIP/2023-00000038
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2023
+DestCallerIDName: Ramal 2023
+DestConnectedLineNum: 11980000107
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.57
+DestLinkedid: 1791933446.55
+DialString: 2023
+
+
+< 2026-10-14T13:00:36.644Z 344
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2023-00000038
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: 11980000107
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.57
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:36.646Z 355
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk2-00000036
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 11980000107
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.55
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:36.648Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2023
+State: RINGING
+
+
+< 2026-10-14T13:00:37.35Z 339
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2023-00000038
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: 11980000107
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.57
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:37.352Z 350
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk2-00000036
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000107
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.55
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:37.354Z 724
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/trunk2-00000036
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000107
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.55
+Linkedid: 1791933446.55
+DestChannel: SIP/2023-00000038
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2023
+DestCallerIDName: Ramal 2023
+DestConnectedLineNum: 11980000107
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.57
+DestLinkedid: 1791933446.55
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:37.356Z 559
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 2597db8e-424c-f004-4a5b-22953bfb2b37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000036
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000107
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.55
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:37.358Z 548
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 2597db8e-424c-f004-4a5b-22953bfb2b37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2023-00000038
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: 11980000107
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.57
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:37.36Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2023
+State: INUSE
+
+
+< 2026-10-14T13:00:38.762Z 356
+Event: Hold
+Privilege: call,all
+Channel: SIP/2023-00000038
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: 11980000107
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.57
+Linkedid: 1791933446.55
+MusicClass: default
+
+
+< 2026-10-14T13:00:38.764Z 82
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2023
+State: ONHOLD
+
+
+< 2026-10-14T13:00:39.466Z 344
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2023-0000003a
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.59
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:39.468Z 342
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2023-0000003a
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.59
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:39.47Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2024-0000003c
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2024
+CallerIDName: Ramal 2024
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.61
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:39.472Z 711
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2023-0000003a
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.59
+Linkedid: 1791933446.59
+DestChannel: SIP/2024-0000003c
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2024
+DestCallerIDName: Ramal 2024
+DestConnectedLineNum: 2023
+DestConnectedLineName: Ramal 2023
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.61
+DestLinkedid: 1791933446.59
+DialString: 2024
+
+
+< 2026-10-14T13:00:39.474Z 337
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2024-0000003c
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2024
+CallerIDName: Ramal 2024
+ConnectedLineNum: 2023
+ConnectedLineName: Ramal 2023
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.61
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:39.476Z 345
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2023-0000003a
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.59
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:39.478Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2023
+State: INUSE
+
+
+< 2026-10-14T13:00:39.48Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2024
+State: RINGING
+
+
+< 2026-10-14T13:00:40.182Z 332
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2024-0000003c
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2024
+CallerIDName: Ramal 2024
+ConnectedLineNum: 2023
+ConnectedLineName: Ramal 2023
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.61
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:40.184Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2023-0000003a
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.59
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:40.186Z 707
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2023-0000003a
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.59
+Linkedid: 1791933446.59
+DestChannel: SIP/2024-0000003c
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2024
+DestCallerIDName: Ramal 2024
+DestConnectedLineNum: 2023
+DestConnectedLineName: Ramal 2023
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.61
+DestLinkedid: 1791933446.59
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:40.188Z 549
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: ebb78be7-f52e-cfc7-a17f-d05e6d87e199
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2023-0000003a
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.59
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:40.19Z 541
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: ebb78be7-f52e-cfc7-a17f-d05e6d87e199
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2024-0000003c
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2024
+CallerIDName: Ramal 2024
+ConnectedLineNum: 2023
+ConnectedLineName: Ramal 2023
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.61
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:40.192Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2024
+State: INUSE
+
+
+< 2026-10-14T13:00:40.894Z 548
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 2597db8e-424c-f004-4a5b-22953bfb2b37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2023-00000038
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: 11980000107
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.57
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:40.896Z 376
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2023-00000038
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: 11980000107
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.57
+Linkedid: 1791933446.55
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:40.898Z 549
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: ebb78be7-f52e-cfc7-a17f-d05e6d87e199
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2023-0000003a
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.59
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:40.9Z 377
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2023-0000003a
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2023
+CallerIDName: Ramal 2023
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.59
+Linkedid: 1791933446.59
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:40.902Z 354
+Event: Newchannel
+Privilege: call,all
+Channel: Local/2024@transfer-0000003e;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.63
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:40.904Z 354
+Event: Newchannel
+Privilege: call,all
+Channel: Local/2024@transfer-0000003e;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.64
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:40.906Z 561
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 2597db8e-424c-f004-4a5b-22953bfb2b37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: Local/2024@transfer-0000003e;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.63
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:40.908Z 561
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: ebb78be7-f52e-cfc7-a17f-d05e6d87e199
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: Local/2024@transfer-0000003e;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.64
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:40.91Z 347
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2024-0000003c
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2024
+CallerIDName: Ramal 2024
+ConnectedLineNum: 11980000107
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.61
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:40.912Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2023
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:41.614Z 559
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 2597db8e-424c-f004-4a5b-22953bfb2b37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk2-00000036
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000107
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.55
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:41.616Z 387
+Event: Hangup
+Privilege: call,all
+Channel: SIP/trunk2-00000036
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000107
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.55
+Linkedid: 1791933446.55
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:41.618Z 561
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 2597db8e-424c-f004-4a5b-22953bfb2b37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: Local/2024@transfer-0000003e;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.63
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:41.62Z 389
+Event: Hangup
+Privilege: call,all
+Channel: Local/2024@transfer-0000003e;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.63
+Linkedid: 1791933446.55
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:41.622Z 561
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: ebb78be7-f52e-cfc7-a17f-d05e6d87e199
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: Local/2024@transfer-0000003e;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.64
+Linkedid: 1791933446.55
+
+
+< 2026-10-14T13:00:41.624Z 389
+Event: Hangup
+Privilege: call,all
+Channel: Local/2024@transfer-0000003e;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2024
+Priority: 1
+Uniqueid: 1791933446.64
+Linkedid: 1791933446.55
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:41.626Z 548
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: ebb78be7-f52e-cfc7-a17f-d05e6d87e199
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2024-0000003c
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2024
+CallerIDName: Ramal 2024
+ConnectedLineNum: 11980000107
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.61
+Linkedid: 1791933446.59
+
+
+< 2026-10-14T13:00:41.628Z 376
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2024-0000003c
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2024
+CallerIDName: Ramal 2024
+ConnectedLineNum: 11980000107
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.61
+Linkedid: 1791933446.59
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:41.63Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2024
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:42.332Z 351
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2025-00000041
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:42.334Z 349
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2025-00000041
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:42.336Z 339
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/trunk1-00000043
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.68
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:42.338Z 735
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2025-00000041
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+DestChannel: SIP/trunk1-00000043
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2025
+DestCallerIDName: Ramal 2025
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-trunk
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.68
+DestLinkedid: 1791933446.66
+DialString: trunk1/11980000108
+
+
+< 2026-10-14T13:00:42.34Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-00000043
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.68
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:42.342Z 352
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2025-00000041
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:42.344Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2025
+State: INUSE
+
+
+< 2026-10-14T13:00:43.046Z 335
+Event: Newstate
+Privilege: call,all
+Channel: SIP/trunk1-00000043
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.68
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:43.048Z 347
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2025-00000041
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:43.05Z 717
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2025-00000041
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+DestChannel: SIP/trunk1-00000043
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2025
+DestCallerIDName: Ramal 2025
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-trunk
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.68
+DestLinkedid: 1791933446.66
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:43.052Z 556
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 0775a482-186c-0814-7914-dd1372a87c93
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2025-00000041
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:43.054Z 544
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 0775a482-186c-0814-7914-dd1372a87c93
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-00000043
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.68
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:43.056Z 357
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2025-00000041
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:43.058Z 345
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/trunk1-00000043
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.68
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:44.46Z 366
+Event: Hold
+Privilege: call,all
+Channel: SIP/2025-00000041
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+MusicClass: default
+
+
+< 2026-10-14T13:00:44.462Z 82
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2025
+State: ONHOLD
+
+
+< 2026-10-14T13:00:45.164Z 344
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2025-00000045
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.70
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:45.166Z 342
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2025-00000045
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.70
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:45.168Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: SIP/2026-00000047
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2026
+CallerIDName: Ramal 2026
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.72
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:45.17Z 711
+Event: DialBegin
+Privilege: call,all
+Channel: SIP/2025-00000045
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.70
+Linkedid: 1791933446.70
+DestChannel: SIP/2026-00000047
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2026
+DestCallerIDName: Ramal 2026
+DestConnectedLineNum: 2025
+DestConnectedLineName: Ramal 2025
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.72
+DestLinkedid: 1791933446.70
+DialString: 2026
+
+
+< 2026-10-14T13:00:45.172Z 337
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2026-00000047
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2026
+CallerIDName: Ramal 2026
+ConnectedLineNum: 2025
+ConnectedLineName: Ramal 2025
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.72
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:45.174Z 345
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2025-00000045
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.70
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:45.176Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2025
+State: INUSE
+
+
+< 2026-10-14T13:00:45.178Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2026
+State: RINGING
+
+
+< 2026-10-14T13:00:45.88Z 332
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2026-00000047
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2026
+CallerIDName: Ramal 2026
+ConnectedLineNum: 2025
+ConnectedLineName: Ramal 2025
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.72
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:45.882Z 340
+Event: Newstate
+Privilege: call,all
+Channel: SIP/2025-00000045
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.70
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:45.884Z 707
+Event: DialEnd
+Privilege: call,all
+Channel: SIP/2025-00000045
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.70
+Linkedid: 1791933446.70
+DestChannel: SIP/2026-00000047
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2026
+DestCallerIDName: Ramal 2026
+DestConnectedLineNum: 2025
+DestConnectedLineName: Ramal 2025
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.72
+DestLinkedid: 1791933446.70
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:45.886Z 549
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 1969b21c-2124-199b-c781-a84041306c60
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2025-00000045
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.70
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:45.888Z 541
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 1969b21c-2124-199b-c781-a84041306c60
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: SIP/2026-00000047
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2026
+CallerIDName: Ramal 2026
+ConnectedLineNum: 2025
+ConnectedLineName: Ramal 2025
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.72
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:45.89Z 81
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2026
+State: INUSE
+
+
+< 2026-10-14T13:00:46.592Z 558
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 0775a482-186c-0814-7914-dd1372a87c93
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2025-00000041
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:46.594Z 386
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2025-00000041
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 11980000108
+Priority: 1
+Uniqueid: 1791933446.66
+Linkedid: 1791933446.66
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:46.596Z 549
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 1969b21c-2124-199b-c781-a84041306c60
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/2025-00000045
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.70
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:46.598Z 377
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2025-00000045
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.70
+Linkedid: 1791933446.70
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:46.6Z 354
+Event: Newchannel
+Privilege: call,all
+Channel: Local/2026@transfer-00000049;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.74
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:46.602Z 354
+Event: Newchannel
+Privilege: call,all
+Channel: Local/2026@transfer-00000049;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.75
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:46.604Z 561
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 0775a482-186c-0814-7914-dd1372a87c93
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: Local/2026@transfer-00000049;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.74
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:46.606Z 561
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 1969b21c-2124-199b-c781-a84041306c60
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: Local/2026@transfer-00000049;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.75
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:46.608Z 346
+Event: NewConnectedLine
+Privilege: call,all
+Channel: SIP/2026-00000047
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2026
+CallerIDName: Ramal 2026
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.72
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:46.61Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2025
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:47.312Z 546
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 0775a482-186c-0814-7914-dd1372a87c93
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: SIP/trunk1-00000043
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.68
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:47.314Z 374
+Event: Hangup
+Privilege: call,all
+Channel: SIP/trunk1-00000043
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2025
+CallerIDName: Ramal 2025
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.68
+Linkedid: 1791933446.66
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:47.316Z 561
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 0775a482-186c-0814-7914-dd1372a87c93
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: Local/2026@transfer-00000049;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.74
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:47.318Z 389
+Event: Hangup
+Privilege: call,all
+Channel: Local/2026@transfer-00000049;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.74
+Linkedid: 1791933446.66
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:47.32Z 561
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 1969b21c-2124-199b-c781-a84041306c60
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: Local/2026@transfer-00000049;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.75
+Linkedid: 1791933446.66
+
+
+< 2026-10-14T13:00:47.322Z 389
+Event: Hangup
+Privilege: call,all
+Channel: Local/2026@transfer-00000049;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: transfer
+Exten: 2026
+Priority: 1
+Uniqueid: 1791933446.75
+Linkedid: 1791933446.66
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:47.324Z 547
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 1969b21c-2124-199b-c781-a84041306c60
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: SIP/2026-00000047
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2026
+CallerIDName: Ramal 2026
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.72
+Linkedid: 1791933446.70
+
+
+< 2026-10-14T13:00:47.326Z 375
+Event: Hangup
+Privilege: call,all
+Channel: SIP/2026-00000047
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2026
+CallerIDName: Ramal 2026
+ConnectedLineNum: 11980000108
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.72
+Linkedid: 1791933446.70
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:47.328Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: SIP/2026
+State: NOT_INUSE
+
+
+#fim {"asterisk":"18.20.0","encerrado_por":"prazo","quadros":564,"tecnologia":"sip"}

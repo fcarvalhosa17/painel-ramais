@@ -1,0 +1,387 @@
+{
+ "tecnologia": "sip",
+ "checkpoints": [
+  {
+   "quadros": 189,
+   "rotulo": "inicio",
+   "ramais": {
+    "2000": {
+     "number": "2000",
+     "name": "Ramal 2000",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.1",
+     "user_agent": "Yealink SIP-T46U 108.86.0.20",
+     "latency_ms": 23,
+     "device_state": "not_inuse",
+     "calls": []
+    },
+    "2001": {
+     "number": "2001",
+     "name": "Ramal 2001",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.2",
+     "user_agent": "Grandstream GXP1625 1.0.11.23",
+     "latency_ms": 24,
+     "device_state": "not_inuse",
+     "calls": []
+    },
+    "2002": {
+     "number": "2002",
+     "name": "Ramal 2002",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.3",
+     "user_agent": "Linphone/5.0.0",
+     "latency_ms": 7,
+     "device_state": "not_inuse",
+     "calls": []
+    }
+   }
+  },
+  {
+   "quadros": 201,
+   "rotulo": "local-inbound / ring",
+   "ramais": {
+    "2003": {
+     "number": "2003",
+     "name": "Ramal 2003",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.4",
+     "user_agent": "Zoiper rv2.10.19.4",
+     "latency_ms": 13,
+     "device_state": "ringing",
+     "calls": [
+      {
+       "id": "1791933446.7",
+       "direction": "inbound",
+       "state": "ringing",
+       "peer": {
+        "kind": "external",
+        "number": "11980000100",
+        "name": "Pessoa 001"
+       },
+       "started_at": "2026-10-13T23:17:26.700Z",
+       "answered_at": ""
+      }
+     ]
+    }
+   }
+  },
+  {
+   "quadros": 212,
+   "rotulo": "local-inbound / answer",
+   "ramais": {
+    "2003": {
+     "number": "2003",
+     "name": "Ramal 2003",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.4",
+     "user_agent": "Zoiper rv2.10.19.4",
+     "latency_ms": 13,
+     "device_state": "inuse",
+     "calls": [
+      {
+       "id": "1791933446.7",
+       "direction": "inbound",
+       "state": "talking",
+       "peer": {
+        "kind": "external",
+        "number": "11980000100",
+        "name": "Pessoa 001"
+       },
+       "started_at": "2026-10-13T23:17:26.700Z",
+       "answered_at": "2026-10-13T23:17:26.701Z"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "quadros": 220,
+   "rotulo": "local-inbound / optimize",
+   "ramais": {
+    "2003": {
+     "number": "2003",
+     "name": "Ramal 2003",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.4",
+     "user_agent": "Zoiper rv2.10.19.4",
+     "latency_ms": 13,
+     "device_state": "inuse",
+     "calls": [
+      {
+       "id": "1791933446.7",
+       "direction": "inbound",
+       "state": "talking",
+       "peer": {
+        "kind": "external",
+        "number": "11980000100",
+        "name": "Pessoa 001"
+       },
+       "started_at": "2026-10-13T23:17:26.700Z",
+       "answered_at": "2026-10-13T23:17:26.701Z"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "quadros": 225,
+   "rotulo": "local-inbound / hangup",
+   "ramais": {
+    "2003": {
+     "number": "2003",
+     "name": "Ramal 2003",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.4",
+     "user_agent": "Zoiper rv2.10.19.4",
+     "latency_ms": 13,
+     "device_state": "not_inuse",
+     "calls": []
+    }
+   }
+  },
+  {
+   "quadros": 225,
+   "rotulo": "local-inbound / limpo",
+   "ramais": {
+    "2003": {
+     "number": "2003",
+     "name": "Ramal 2003",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.4",
+     "user_agent": "Zoiper rv2.10.19.4",
+     "latency_ms": 13,
+     "device_state": "not_inuse",
+     "calls": []
+    }
+   }
+  },
+  {
+   "quadros": 238,
+   "rotulo": "local-internal / ring",
+   "ramais": {
+    "2005": {
+     "number": "2005",
+     "name": "Ramal 2005",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.6",
+     "user_agent": "Cisco/SPA504G-7.6.2",
+     "latency_ms": 19,
+     "device_state": "inuse",
+     "calls": [
+      {
+       "id": "1791933446.9",
+       "direction": "internal",
+       "state": "ringing",
+       "peer": {
+        "kind": "extension",
+        "number": "2006",
+        "name": "Ramal 2006"
+       },
+       "started_at": "2026-10-13T23:17:26.702Z",
+       "answered_at": "",
+       "peer_ambiguous": true
+      }
+     ]
+    },
+    "2006": {
+     "number": "2006",
+     "name": "Ramal 2006",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.7",
+     "user_agent": "Yealink SIP-T46U 108.86.0.20",
+     "latency_ms": 19,
+     "device_state": "ringing",
+     "calls": [
+      {
+       "id": "1791933446.14",
+       "direction": "internal",
+       "state": "ringing",
+       "peer": {
+        "kind": "extension",
+        "number": "2005",
+        "name": "Ramal 2005"
+       },
+       "started_at": "2026-10-13T23:17:26.702Z",
+       "answered_at": ""
+      }
+     ]
+    }
+   }
+  },
+  {
+   "quadros": 249,
+   "rotulo": "local-internal / answer",
+   "ramais": {
+    "2005": {
+     "number": "2005",
+     "name": "Ramal 2005",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.6",
+     "user_agent": "Cisco/SPA504G-7.6.2",
+     "latency_ms": 19,
+     "device_state": "inuse",
+     "calls": [
+      {
+       "id": "1791933446.9",
+       "direction": "internal",
+       "state": "talking",
+       "peer": {
+        "kind": "extension",
+        "number": "2006",
+        "name": "Ramal 2006"
+       },
+       "started_at": "2026-10-13T23:17:26.702Z",
+       "answered_at": "2026-10-13T23:17:26.703Z"
+      }
+     ]
+    },
+    "2006": {
+     "number": "2006",
+     "name": "Ramal 2006",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.7",
+     "user_agent": "Yealink SIP-T46U 108.86.0.20",
+     "latency_ms": 19,
+     "device_state": "inuse",
+     "calls": [
+      {
+       "id": "1791933446.14",
+       "direction": "internal",
+       "state": "talking",
+       "peer": {
+        "kind": "extension",
+        "number": "2005",
+        "name": "Ramal 2005"
+       },
+       "started_at": "2026-10-13T23:17:26.702Z",
+       "answered_at": "2026-10-13T23:17:26.703Z"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "quadros": 257,
+   "rotulo": "local-internal / optimize",
+   "ramais": {
+    "2005": {
+     "number": "2005",
+     "name": "Ramal 2005",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.6",
+     "user_agent": "Cisco/SPA504G-7.6.2",
+     "latency_ms": 19,
+     "device_state": "inuse",
+     "calls": [
+      {
+       "id": "1791933446.9",
+       "direction": "internal",
+       "state": "talking",
+       "peer": {
+        "kind": "extension",
+        "number": "2006",
+        "name": "Ramal 2006"
+       },
+       "started_at": "2026-10-13T23:17:26.702Z",
+       "answered_at": "2026-10-13T23:17:26.703Z"
+      }
+     ]
+    },
+    "2006": {
+     "number": "2006",
+     "name": "Ramal 2006",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.7",
+     "user_agent": "Yealink SIP-T46U 108.86.0.20",
+     "latency_ms": 19,
+     "device_state": "inuse",
+     "calls": [
+      {
+       "id": "1791933446.14",
+       "direction": "internal",
+       "state": "talking",
+       "peer": {
+        "kind": "extension",
+        "number": "2005",
+        "name": "Ramal 2005"
+       },
+       "started_at": "2026-10-13T23:17:26.702Z",
+       "answered_at": "2026-10-13T23:17:26.703Z"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "quadros": 263,
+   "rotulo": "local-internal / hangup",
+   "ramais": {
+    "2005": {
+     "number": "2005",
+     "name": "Ramal 2005",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.6",
+     "user_agent": "Cisco/SPA504G-7.6.2",
+     "latency_ms": 19,
+     "device_state": "not_inuse",
+     "calls": []
+    },
+    "2006": {
+     "number": "2006",
+     "name": "Ramal 2006",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.7",
+     "user_agent": "Yealink SIP-T46U 108.86.0.20",
+     "latency_ms": 19,
+     "device_state": "not_inuse",
+     "calls": []
+    }
+   }
+  },
+  {
+   "quadros": 263,
+   "rotulo": "local-internal / limpo",
+   "ramais": {
+    "2005": {
+     "number": "2005",
+     "name": "Ramal 2005",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.6",
+     "user_agent": "Cisco/SPA504G-7.6.2",
+     "latency_ms": 19,
+     "device_state": "not_inuse",
+     "calls": []
+    },
+    "2006": {
+     "number": "2006",
+     "name": "Ramal 2006",
+     "technology": "sip",
+     "registration": "registered",
+     "ip": "10.1.1.7",
+     "user_agent": "Yealink SIP-T46U 108.86.0.20",
+     "latency_ms": 19,
+     "device_state": "not_inuse",
+     "calls": []
+    }
+   }
+  }
+ ]
+}

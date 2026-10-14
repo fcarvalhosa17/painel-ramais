@@ -1,0 +1,11 @@
+[Unit]
+Description=Socket do Painel de Ramais (somente loopback)
+# O systemd mantem a porta ocupada mesmo com o daemon parado ou em crash; o daemon recebe o socket via LISTEN_FDS.
+
+[Socket]
+ListenStream=127.0.0.1:8790
+Accept=no
+Service=painel-ramais.service
+
+[Install]
+WantedBy=sockets.target

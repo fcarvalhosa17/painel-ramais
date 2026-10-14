@@ -1,0 +1,4323 @@
+#PAINEL-RAMAIS-CAPTURA 1
+#meta {"anonimizado":true,"inicio":"2026-10-14T13:00:00Z","minutos":1,"origem":"gerada pelo simulador (internal/amisim, gen_test.go); nao e trafego de Asterisk real","sintetica":true,"versao_daemon":"0.1.1"}
+< 2026-10-14T13:00:00.002Z 29
+Asterisk Call Manager/5.0.1
+
+> 2026-10-14T13:00:00.004Z 69
+Action: Login
+ActionID: p1
+Username: painel-ramais
+Secret: ***
+
+
+< 2026-10-14T13:00:00.006Z 69
+Response: Success
+ActionID: p1
+Message: Authentication accepted
+
+
+< 2026-10-14T13:00:00.008Z 67
+Event: FullyBooted
+Privilege: system,all
+Status: Fully Booted
+
+
+> 2026-10-14T13:00:00.01Z 38
+Action: CoreSettings
+ActionID: p3
+
+
+< 2026-10-14T13:00:00.012Z 275
+Response: Success
+ActionID: p3
+AMIversion: 5.0.1
+AsteriskVersion: 18.20.0
+SystemName: 
+CoreMaxCalls: 0
+CoreMaxLoadAvg: 0.000000
+CoreRunUser: asterisk
+CoreRunGroup: asterisk
+CoreMaxFilehandles: 0
+CoreRealTimeEnabled: No
+CoreCDRenabled: Yes
+CoreHTTPenabled: Yes
+
+
+> 2026-10-14T13:00:00.014Z 60
+Action: ModuleCheck
+ActionID: p4
+Module: chan_pjsip.so
+
+
+< 2026-10-14T13:00:00.016Z 53
+Response: Success
+ActionID: p4
+Version: 18.20.0
+
+
+> 2026-10-14T13:00:00.018Z 58
+Action: ModuleCheck
+ActionID: p5
+Module: chan_sip.so
+
+
+< 2026-10-14T13:00:00.02Z 61
+Response: Error
+ActionID: p5
+Message: Module not loaded
+
+
+> 2026-10-14T13:00:00.022Z 44
+Action: PJSIPShowEndpoints
+ActionID: p6
+
+
+< 2026-10-14T13:00:00.024Z 128
+Response: Success
+ActionID: p6
+EventList: start
+Message: A listing of Endpoints follows, presented as EndpointList events
+
+
+< 2026-10-14T13:00:00.026Z 224
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2000
+Transport: 0.0.0.0-udp
+Aor: 2000
+Auths: 2000
+OutboundAuths: 
+Contacts: 2000/sip:2000@10.1.1.1:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.028Z 224
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2001
+Transport: 0.0.0.0-udp
+Aor: 2001
+Auths: 2001
+OutboundAuths: 
+Contacts: 2001/sip:2001@10.1.1.2:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.03Z 224
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2002
+Transport: 0.0.0.0-udp
+Aor: 2002
+Auths: 2002
+OutboundAuths: 
+Contacts: 2002/sip:2002@10.1.1.3:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.032Z 224
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2003
+Transport: 0.0.0.0-udp
+Aor: 2003
+Auths: 2003
+OutboundAuths: 
+Contacts: 2003/sip:2003@10.1.1.4:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.034Z 198
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2004
+Transport: 0.0.0.0-udp
+Aor: 2004
+Auths: 2004
+OutboundAuths: 
+Contacts: 
+DeviceState: Unavailable
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.036Z 224
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2005
+Transport: 0.0.0.0-udp
+Aor: 2005
+Auths: 2005
+OutboundAuths: 
+Contacts: 2005/sip:2005@10.1.1.6:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.038Z 224
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2006
+Transport: 0.0.0.0-udp
+Aor: 2006
+Auths: 2006
+OutboundAuths: 
+Contacts: 2006/sip:2006@10.1.1.7:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.04Z 224
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2007
+Transport: 0.0.0.0-udp
+Aor: 2007
+Auths: 2007
+OutboundAuths: 
+Contacts: 2007/sip:2007@10.1.1.8:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.042Z 224
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2008
+Transport: 0.0.0.0-udp
+Aor: 2008
+Auths: 2008
+OutboundAuths: 
+Contacts: 2008/sip:2008@10.1.1.9:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.044Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2009
+Transport: 0.0.0.0-udp
+Aor: 2009
+Auths: 2009
+OutboundAuths: 
+Contacts: 2009/sip:2009@10.1.1.10:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.046Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2010
+Transport: 0.0.0.0-udp
+Aor: 2010
+Auths: 2010
+OutboundAuths: 
+Contacts: 2010/sip:2010@10.1.1.11:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.048Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2011
+Transport: 0.0.0.0-udp
+Aor: 2011
+Auths: 2011
+OutboundAuths: 
+Contacts: 2011/sip:2011@10.1.1.12:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.05Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2012
+Transport: 0.0.0.0-udp
+Aor: 2012
+Auths: 2012
+OutboundAuths: 
+Contacts: 2012/sip:2012@10.1.1.13:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.052Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2013
+Transport: 0.0.0.0-udp
+Aor: 2013
+Auths: 2013
+OutboundAuths: 
+Contacts: 2013/sip:2013@10.1.1.14:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.054Z 226
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2014
+Transport: 0.0.0.0-udp
+Aor: 2014
+Auths: 2014
+OutboundAuths: 
+Contacts: 2014/sip:2014@10.1.1.15:5060
+DeviceState: Unavailable
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.056Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2015
+Transport: 0.0.0.0-udp
+Aor: 2015
+Auths: 2015
+OutboundAuths: 
+Contacts: 2015/sip:2015@10.1.1.16:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.058Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2016
+Transport: 0.0.0.0-udp
+Aor: 2016
+Auths: 2016
+OutboundAuths: 
+Contacts: 2016/sip:2016@10.1.1.17:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.06Z 198
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2017
+Transport: 0.0.0.0-udp
+Aor: 2017
+Auths: 2017
+OutboundAuths: 
+Contacts: 
+DeviceState: Unavailable
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.062Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2018
+Transport: 0.0.0.0-udp
+Aor: 2018
+Auths: 2018
+OutboundAuths: 
+Contacts: 2018/sip:2018@10.1.1.19:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.064Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2019
+Transport: 0.0.0.0-udp
+Aor: 2019
+Auths: 2019
+OutboundAuths: 
+Contacts: 2019/sip:2019@10.1.1.20:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.066Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2020
+Transport: 0.0.0.0-udp
+Aor: 2020
+Auths: 2020
+OutboundAuths: 
+Contacts: 2020/sip:2020@10.1.1.21:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.068Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2021
+Transport: 0.0.0.0-udp
+Aor: 2021
+Auths: 2021
+OutboundAuths: 
+Contacts: 2021/sip:2021@10.1.1.22:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.07Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2022
+Transport: 0.0.0.0-udp
+Aor: 2022
+Auths: 2022
+OutboundAuths: 
+Contacts: 2022/sip:2022@10.1.1.23:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.072Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2023
+Transport: 0.0.0.0-udp
+Aor: 2023
+Auths: 2023
+OutboundAuths: 
+Contacts: 2023/sip:2023@10.1.1.24:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.074Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2024
+Transport: 0.0.0.0-udp
+Aor: 2024
+Auths: 2024
+OutboundAuths: 
+Contacts: 2024/sip:2024@10.1.1.25:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.076Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2025
+Transport: 0.0.0.0-udp
+Aor: 2025
+Auths: 2025
+OutboundAuths: 
+Contacts: 2025/sip:2025@10.1.1.26:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.078Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2026
+Transport: 0.0.0.0-udp
+Aor: 2026
+Auths: 2026
+OutboundAuths: 
+Contacts: 2026/sip:2026@10.1.1.27:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.08Z 198
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2027
+Transport: 0.0.0.0-udp
+Aor: 2027
+Auths: 2027
+OutboundAuths: 
+Contacts: 
+DeviceState: Unavailable
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.082Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2028
+Transport: 0.0.0.0-udp
+Aor: 2028
+Auths: 2028
+OutboundAuths: 
+Contacts: 2028/sip:2028@10.1.1.29:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.084Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2029
+Transport: 0.0.0.0-udp
+Aor: 2029
+Auths: 2029
+OutboundAuths: 
+Contacts: 2029/sip:2029@10.1.1.30:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.086Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2030
+Transport: 0.0.0.0-udp
+Aor: 2030
+Auths: 2030
+OutboundAuths: 
+Contacts: 2030/sip:2030@10.1.1.31:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.088Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2031
+Transport: 0.0.0.0-udp
+Aor: 2031
+Auths: 2031
+OutboundAuths: 
+Contacts: 2031/sip:2031@10.1.1.32:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.09Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2032
+Transport: 0.0.0.0-udp
+Aor: 2032
+Auths: 2032
+OutboundAuths: 
+Contacts: 2032/sip:2032@10.1.1.33:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.092Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2033
+Transport: 0.0.0.0-udp
+Aor: 2033
+Auths: 2033
+OutboundAuths: 
+Contacts: 2033/sip:2033@10.1.1.34:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.094Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2034
+Transport: 0.0.0.0-udp
+Aor: 2034
+Auths: 2034
+OutboundAuths: 
+Contacts: 2034/sip:2034@10.1.1.35:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.096Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2035
+Transport: 0.0.0.0-udp
+Aor: 2035
+Auths: 2035
+OutboundAuths: 
+Contacts: 2035/sip:2035@10.1.1.36:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.098Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2036
+Transport: 0.0.0.0-udp
+Aor: 2036
+Auths: 2036
+OutboundAuths: 
+Contacts: 2036/sip:2036@10.1.1.37:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.1Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2037
+Transport: 0.0.0.0-udp
+Aor: 2037
+Auths: 2037
+OutboundAuths: 
+Contacts: 2037/sip:2037@10.1.1.38:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.102Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2038
+Transport: 0.0.0.0-udp
+Aor: 2038
+Auths: 2038
+OutboundAuths: 
+Contacts: 2038/sip:2038@10.1.1.39:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.104Z 225
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: 2039
+Transport: 0.0.0.0-udp
+Aor: 2039
+Auths: 2039
+OutboundAuths: 
+Contacts: 2039/sip:2039@10.1.1.40:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.106Z 231
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: trunk1
+Transport: 0.0.0.0-udp
+Aor: trunk1
+Auths: 
+OutboundAuths: trunk1
+Contacts: trunk1/sip:203.0.113.10:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.108Z 231
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: trunk2
+Transport: 0.0.0.0-udp
+Aor: trunk2
+Auths: 
+OutboundAuths: trunk2
+Contacts: trunk2/sip:203.0.113.10:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.11Z 231
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: trunk3
+Transport: 0.0.0.0-udp
+Aor: trunk3
+Auths: 
+OutboundAuths: trunk3
+Contacts: trunk3/sip:203.0.113.10:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.112Z 231
+Event: EndpointList
+ActionID: p6
+ObjectType: endpoint
+ObjectName: trunk4
+Transport: 0.0.0.0-udp
+Aor: trunk4
+Auths: 
+OutboundAuths: trunk4
+Contacts: trunk4/sip:203.0.113.10:5060
+DeviceState: Not in use
+ActiveChannels: 
+
+
+< 2026-10-14T13:00:00.114Z 81
+Event: EndpointListComplete
+ActionID: p6
+EventList: Complete
+ListItems: 44
+
+
+> 2026-10-14T13:00:00.116Z 43
+Action: PJSIPShowContacts
+ActionID: p7
+
+
+< 2026-10-14T13:00:00.118Z 126
+Response: Success
+ActionID: p7
+EventList: start
+Message: A listing of Contacts follows, presented as ContactList events
+
+
+< 2026-10-14T13:00:00.12Z 442
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2000;@000000000009
+ViaAddr: 10.1.1.1
+QualifyTimeout: 3.000000
+UserAgent: Yealink SIP-T46U 108.86.0.20
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2000@10.1.1.1
+Endpoint: 2000
+Uri: sip:2000@10.1.1.1:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 23000
+EndpointName: 2000
+ID: 2000;@000000000009
+
+
+< 2026-10-14T13:00:00.122Z 443
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2001;@00009e3779ba
+ViaAddr: 10.1.1.2
+QualifyTimeout: 3.000000
+UserAgent: Grandstream GXP1625 1.0.11.23
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2001@10.1.1.2
+Endpoint: 2001
+Uri: sip:2001@10.1.1.2:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 24000
+EndpointName: 2001
+ID: 2001;@00009e3779ba
+
+
+< 2026-10-14T13:00:00.124Z 427
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2002;@00013c6ef36b
+ViaAddr: 10.1.1.3
+QualifyTimeout: 3.000000
+UserAgent: Linphone/5.0.0
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2002@10.1.1.3
+Endpoint: 2002
+Uri: sip:2002@10.1.1.3:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 7000
+EndpointName: 2002
+ID: 2002;@00013c6ef36b
+
+
+< 2026-10-14T13:00:00.126Z 432
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2003;@0001daa66d1c
+ViaAddr: 10.1.1.4
+QualifyTimeout: 3.000000
+UserAgent: Zoiper rv2.10.19.4
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2003@10.1.1.4
+Endpoint: 2003
+Uri: sip:2003@10.1.1.4:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 13000
+EndpointName: 2003
+ID: 2003;@0001daa66d1c
+
+
+< 2026-10-14T13:00:00.128Z 433
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2005;@00031715607e
+ViaAddr: 10.1.1.6
+QualifyTimeout: 3.000000
+UserAgent: Cisco/SPA504G-7.6.2
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2005@10.1.1.6
+Endpoint: 2005
+Uri: sip:2005@10.1.1.6:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 19000
+EndpointName: 2005
+ID: 2005;@00031715607e
+
+
+< 2026-10-14T13:00:00.13Z 442
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2006;@0003b54cda2f
+ViaAddr: 10.1.1.7
+QualifyTimeout: 3.000000
+UserAgent: Yealink SIP-T46U 108.86.0.20
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2006@10.1.1.7
+Endpoint: 2006
+Uri: sip:2006@10.1.1.7:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 19000
+EndpointName: 2006
+ID: 2006;@0003b54cda2f
+
+
+< 2026-10-14T13:00:00.132Z 443
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2007;@0004538453e0
+ViaAddr: 10.1.1.8
+QualifyTimeout: 3.000000
+UserAgent: Grandstream GXP1625 1.0.11.23
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2007@10.1.1.8
+Endpoint: 2007
+Uri: sip:2007@10.1.1.8:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 23000
+EndpointName: 2007
+ID: 2007;@0004538453e0
+
+
+< 2026-10-14T13:00:00.134Z 428
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2008;@0004f1bbcd91
+ViaAddr: 10.1.1.9
+QualifyTimeout: 3.000000
+UserAgent: Linphone/5.0.0
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2008@10.1.1.9
+Endpoint: 2008
+Uri: sip:2008@10.1.1.9:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 17000
+EndpointName: 2008
+ID: 2008;@0004f1bbcd91
+
+
+< 2026-10-14T13:00:00.136Z 435
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2009;@00058ff34742
+ViaAddr: 10.1.1.10
+QualifyTimeout: 3.000000
+UserAgent: Zoiper rv2.10.19.4
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2009@10.1.1.10
+Endpoint: 2009
+Uri: sip:2009@10.1.1.10:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 14000
+EndpointName: 2009
+ID: 2009;@00058ff34742
+
+
+< 2026-10-14T13:00:00.138Z 434
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2010;@00062e2ac0f3
+ViaAddr: 10.1.1.11
+QualifyTimeout: 3.000000
+UserAgent: Fanvil X3S 2.12.1
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2010@10.1.1.11
+Endpoint: 2010
+Uri: sip:2010@10.1.1.11:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 31000
+EndpointName: 2010
+ID: 2010;@00062e2ac0f3
+
+
+< 2026-10-14T13:00:00.14Z 436
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2011;@0006cc623aa4
+ViaAddr: 10.1.1.12
+QualifyTimeout: 3.000000
+UserAgent: Cisco/SPA504G-7.6.2
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2011@10.1.1.12
+Endpoint: 2011
+Uri: sip:2011@10.1.1.12:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 21000
+EndpointName: 2011
+ID: 2011;@0006cc623aa4
+
+
+< 2026-10-14T13:00:00.142Z 444
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2012;@00076a99b455
+ViaAddr: 10.1.1.13
+QualifyTimeout: 3.000000
+UserAgent: Yealink SIP-T46U 108.86.0.20
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2012@10.1.1.13
+Endpoint: 2012
+Uri: sip:2012@10.1.1.13:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 9000
+EndpointName: 2012
+ID: 2012;@00076a99b455
+
+
+< 2026-10-14T13:00:00.144Z 445
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2013;@000808d12e06
+ViaAddr: 10.1.1.14
+QualifyTimeout: 3.000000
+UserAgent: Grandstream GXP1625 1.0.11.23
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2013@10.1.1.14
+Endpoint: 2013
+Uri: sip:2013@10.1.1.14:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 8000
+EndpointName: 2013
+ID: 2013;@000808d12e06
+
+
+< 2026-10-14T13:00:00.146Z 429
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2014;@0008a708a7b7
+ViaAddr: 10.1.1.15
+QualifyTimeout: 3.000000
+UserAgent: Linphone/5.0.0
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2014@10.1.1.15
+Endpoint: 2014
+Uri: sip:2014@10.1.1.15:5060
+QualifyFrequency: 60
+Status: Unreachable
+RoundtripUsec: 0
+EndpointName: 2014
+ID: 2014;@0008a708a7b7
+
+
+< 2026-10-14T13:00:00.148Z 435
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2015;@000945402168
+ViaAddr: 10.1.1.16
+QualifyTimeout: 3.000000
+UserAgent: Zoiper rv2.10.19.4
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2015@10.1.1.16
+Endpoint: 2015
+Uri: sip:2015@10.1.1.16:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 40000
+EndpointName: 2015
+ID: 2015;@000945402168
+
+
+< 2026-10-14T13:00:00.15Z 434
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2016;@0009e3779b19
+ViaAddr: 10.1.1.17
+QualifyTimeout: 3.000000
+UserAgent: Fanvil X3S 2.12.1
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2016@10.1.1.17
+Endpoint: 2016
+Uri: sip:2016@10.1.1.17:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 25000
+EndpointName: 2016
+ID: 2016;@0009e3779b19
+
+
+< 2026-10-14T13:00:00.152Z 445
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2018;@000b1fe68e7b
+ViaAddr: 10.1.1.19
+QualifyTimeout: 3.000000
+UserAgent: Yealink SIP-T46U 108.86.0.20
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2018@10.1.1.19
+Endpoint: 2018
+Uri: sip:2018@10.1.1.19:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 13000
+EndpointName: 2018
+ID: 2018;@000b1fe68e7b
+
+
+< 2026-10-14T13:00:00.154Z 445
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2019;@000bbe1e082c
+ViaAddr: 10.1.1.20
+QualifyTimeout: 3.000000
+UserAgent: Grandstream GXP1625 1.0.11.23
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2019@10.1.1.20
+Endpoint: 2019
+Uri: sip:2019@10.1.1.20:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 3000
+EndpointName: 2019
+ID: 2019;@000bbe1e082c
+
+
+< 2026-10-14T13:00:00.156Z 431
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2020;@000c5c5581dd
+ViaAddr: 10.1.1.21
+QualifyTimeout: 3.000000
+UserAgent: Linphone/5.0.0
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2020@10.1.1.21
+Endpoint: 2020
+Uri: sip:2020@10.1.1.21:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 38000
+EndpointName: 2020
+ID: 2020;@000c5c5581dd
+
+
+< 2026-10-14T13:00:00.158Z 435
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2021;@000cfa8cfb8e
+ViaAddr: 10.1.1.22
+QualifyTimeout: 3.000000
+UserAgent: Zoiper rv2.10.19.4
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2021@10.1.1.22
+Endpoint: 2021
+Uri: sip:2021@10.1.1.22:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 36000
+EndpointName: 2021
+ID: 2021;@000cfa8cfb8e
+
+
+< 2026-10-14T13:00:00.16Z 434
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2022;@000d98c4753f
+ViaAddr: 10.1.1.23
+QualifyTimeout: 3.000000
+UserAgent: Fanvil X3S 2.12.1
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2022@10.1.1.23
+Endpoint: 2022
+Uri: sip:2022@10.1.1.23:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 27000
+EndpointName: 2022
+ID: 2022;@000d98c4753f
+
+
+< 2026-10-14T13:00:00.162Z 436
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2023;@000e36fbeef0
+ViaAddr: 10.1.1.24
+QualifyTimeout: 3.000000
+UserAgent: Cisco/SPA504G-7.6.2
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2023@10.1.1.24
+Endpoint: 2023
+Uri: sip:2023@10.1.1.24:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 31000
+EndpointName: 2023
+ID: 2023;@000e36fbeef0
+
+
+< 2026-10-14T13:00:00.164Z 444
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2024;@000ed53368a1
+ViaAddr: 10.1.1.25
+QualifyTimeout: 3.000000
+UserAgent: Yealink SIP-T46U 108.86.0.20
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2024@10.1.1.25
+Endpoint: 2024
+Uri: sip:2024@10.1.1.25:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 9000
+EndpointName: 2024
+ID: 2024;@000ed53368a1
+
+
+< 2026-10-14T13:00:00.166Z 445
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2025;@000f736ae252
+ViaAddr: 10.1.1.26
+QualifyTimeout: 3.000000
+UserAgent: Grandstream GXP1625 1.0.11.23
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2025@10.1.1.26
+Endpoint: 2025
+Uri: sip:2025@10.1.1.26:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 6000
+EndpointName: 2025
+ID: 2025;@000f736ae252
+
+
+< 2026-10-14T13:00:00.168Z 430
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2026;@001011a25c03
+ViaAddr: 10.1.1.27
+QualifyTimeout: 3.000000
+UserAgent: Linphone/5.0.0
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2026@10.1.1.27
+Endpoint: 2026
+Uri: sip:2026@10.1.1.27:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 9000
+EndpointName: 2026
+ID: 2026;@001011a25c03
+
+
+< 2026-10-14T13:00:00.17Z 434
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2028;@00114e114f65
+ViaAddr: 10.1.1.29
+QualifyTimeout: 3.000000
+UserAgent: Fanvil X3S 2.12.1
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2028@10.1.1.29
+Endpoint: 2028
+Uri: sip:2028@10.1.1.29:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 23000
+EndpointName: 2028
+ID: 2028;@00114e114f65
+
+
+< 2026-10-14T13:00:00.172Z 436
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2029;@0011ec48c916
+ViaAddr: 10.1.1.30
+QualifyTimeout: 3.000000
+UserAgent: Cisco/SPA504G-7.6.2
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2029@10.1.1.30
+Endpoint: 2029
+Uri: sip:2029@10.1.1.30:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 25000
+EndpointName: 2029
+ID: 2029;@0011ec48c916
+
+
+< 2026-10-14T13:00:00.174Z 445
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2030;@00128a8042c7
+ViaAddr: 10.1.1.31
+QualifyTimeout: 3.000000
+UserAgent: Yealink SIP-T46U 108.86.0.20
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2030@10.1.1.31
+Endpoint: 2030
+Uri: sip:2030@10.1.1.31:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 24000
+EndpointName: 2030
+ID: 2030;@00128a8042c7
+
+
+< 2026-10-14T13:00:00.176Z 446
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2031;@001328b7bc78
+ViaAddr: 10.1.1.32
+QualifyTimeout: 3.000000
+UserAgent: Grandstream GXP1625 1.0.11.23
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2031@10.1.1.32
+Endpoint: 2031
+Uri: sip:2031@10.1.1.32:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 16000
+EndpointName: 2031
+ID: 2031;@001328b7bc78
+
+
+< 2026-10-14T13:00:00.178Z 431
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2032;@0013c6ef3629
+ViaAddr: 10.1.1.33
+QualifyTimeout: 3.000000
+UserAgent: Linphone/5.0.0
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2032@10.1.1.33
+Endpoint: 2032
+Uri: sip:2032@10.1.1.33:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 30000
+EndpointName: 2032
+ID: 2032;@0013c6ef3629
+
+
+< 2026-10-14T13:00:00.18Z 435
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2033;@00146526afda
+ViaAddr: 10.1.1.34
+QualifyTimeout: 3.000000
+UserAgent: Zoiper rv2.10.19.4
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2033@10.1.1.34
+Endpoint: 2033
+Uri: sip:2033@10.1.1.34:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 20000
+EndpointName: 2033
+ID: 2033;@00146526afda
+
+
+< 2026-10-14T13:00:00.182Z 434
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2034;@0015035e298b
+ViaAddr: 10.1.1.35
+QualifyTimeout: 3.000000
+UserAgent: Fanvil X3S 2.12.1
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2034@10.1.1.35
+Endpoint: 2034
+Uri: sip:2034@10.1.1.35:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 17000
+EndpointName: 2034
+ID: 2034;@0015035e298b
+
+
+< 2026-10-14T13:00:00.184Z 436
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2035;@0015a195a33c
+ViaAddr: 10.1.1.36
+QualifyTimeout: 3.000000
+UserAgent: Cisco/SPA504G-7.6.2
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2035@10.1.1.36
+Endpoint: 2035
+Uri: sip:2035@10.1.1.36:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 21000
+EndpointName: 2035
+ID: 2035;@0015a195a33c
+
+
+< 2026-10-14T13:00:00.186Z 444
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2036;@00163fcd1ced
+ViaAddr: 10.1.1.37
+QualifyTimeout: 3.000000
+UserAgent: Yealink SIP-T46U 108.86.0.20
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2036@10.1.1.37
+Endpoint: 2036
+Uri: sip:2036@10.1.1.37:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 6000
+EndpointName: 2036
+ID: 2036;@00163fcd1ced
+
+
+< 2026-10-14T13:00:00.188Z 445
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2037;@0016de04969e
+ViaAddr: 10.1.1.38
+QualifyTimeout: 3.000000
+UserAgent: Grandstream GXP1625 1.0.11.23
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2037@10.1.1.38
+Endpoint: 2037
+Uri: sip:2037@10.1.1.38:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 9000
+EndpointName: 2037
+ID: 2037;@0016de04969e
+
+
+< 2026-10-14T13:00:00.19Z 431
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2038;@00177c3c104f
+ViaAddr: 10.1.1.39
+QualifyTimeout: 3.000000
+UserAgent: Linphone/5.0.0
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2038@10.1.1.39
+Endpoint: 2038
+Uri: sip:2038@10.1.1.39:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 35000
+EndpointName: 2038
+ID: 2038;@00177c3c104f
+
+
+< 2026-10-14T13:00:00.192Z 435
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: 2039;@00181a738a00
+ViaAddr: 10.1.1.40
+QualifyTimeout: 3.000000
+UserAgent: Zoiper rv2.10.19.4
+RegExpire: 1791937046
+ViaPort: 5060
+AuthenticateQualify: false
+OutboundProxy: 
+Path: 
+CallID: c2039@10.1.1.40
+Endpoint: 2039
+Uri: sip:2039@10.1.1.40:5060
+QualifyFrequency: 60
+Status: Reachable
+RoundtripUsec: 14000
+EndpointName: 2039
+ID: 2039;@00181a738a00
+
+
+< 2026-10-14T13:00:00.194Z 250
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: trunk1;@static
+ViaAddr: 203.0.113.10
+UserAgent: 
+Endpoint: trunk1
+Uri: sip:203.0.113.10:5060
+Status: Reachable
+RoundtripUsec: 21000
+EndpointName: trunk1
+ID: trunk1;@static
+
+
+< 2026-10-14T13:00:00.196Z 250
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: trunk2;@static
+ViaAddr: 203.0.113.10
+UserAgent: 
+Endpoint: trunk2
+Uri: sip:203.0.113.10:5060
+Status: Reachable
+RoundtripUsec: 21000
+EndpointName: trunk2
+ID: trunk2;@static
+
+
+< 2026-10-14T13:00:00.198Z 250
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: trunk3;@static
+ViaAddr: 203.0.113.10
+UserAgent: 
+Endpoint: trunk3
+Uri: sip:203.0.113.10:5060
+Status: Reachable
+RoundtripUsec: 21000
+EndpointName: trunk3
+ID: trunk3;@static
+
+
+< 2026-10-14T13:00:00.2Z 250
+Event: ContactList
+ActionID: p7
+ObjectType: contact
+ObjectName: trunk4;@static
+ViaAddr: 203.0.113.10
+UserAgent: 
+Endpoint: trunk4
+Uri: sip:203.0.113.10:5060
+Status: Reachable
+RoundtripUsec: 21000
+EndpointName: trunk4
+ID: trunk4;@static
+
+
+< 2026-10-14T13:00:00.202Z 80
+Event: ContactListComplete
+ActionID: p7
+EventList: Complete
+ListItems: 41
+
+
+> 2026-10-14T13:00:00.204Z 41
+Action: DeviceStateList
+ActionID: p8
+
+
+< 2026-10-14T13:00:00.206Z 96
+Response: Success
+ActionID: p8
+EventList: start
+Message: Device State Changes will follow
+
+
+< 2026-10-14T13:00:00.208Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2000
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.21Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2001
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.212Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2002
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.214Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2003
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.216Z 82
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2004
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.218Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2005
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.22Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2006
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.222Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2007
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.224Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2008
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.226Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2009
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.228Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2010
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.23Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2011
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.232Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2012
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.234Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2013
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.236Z 82
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2014
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.238Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2015
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.24Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2016
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.242Z 82
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2017
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.244Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2018
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.246Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2019
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.248Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2020
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.25Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2021
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.252Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2022
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.254Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2023
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.256Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2024
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.258Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2025
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.26Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2026
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.262Z 82
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2027
+State: UNAVAILABLE
+
+
+< 2026-10-14T13:00:00.264Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2028
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.266Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2029
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.268Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2030
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.27Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2031
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.272Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2032
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.274Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2033
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.276Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2034
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.278Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2035
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.28Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2036
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.282Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2037
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.284Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2038
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.286Z 80
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/2039
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.288Z 82
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/trunk1
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.29Z 82
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/trunk2
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.292Z 82
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/trunk3
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.294Z 82
+Event: DeviceStateChange
+ActionID: p8
+Device: PJSIP/trunk4
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.296Z 84
+Event: DeviceStateChange
+ActionID: p8
+Device: Custom:DND2000
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.298Z 91
+Event: DeviceStateChange
+ActionID: p8
+Device: Queue:5000_pause_2000
+State: NOT_INUSE
+
+
+< 2026-10-14T13:00:00.3Z 84
+Event: DeviceStateListComplete
+ActionID: p8
+EventList: Complete
+ListItems: 46
+
+
+> 2026-10-14T13:00:00.302Z 42
+Action: CoreShowChannels
+ActionID: p9
+
+
+< 2026-10-14T13:00:00.304Z 84
+Response: Success
+ActionID: p9
+EventList: start
+Message: Channels will follow
+
+
+< 2026-10-14T13:00:00.306Z 84
+Event: CoreShowChannelsComplete
+ActionID: p9
+EventList: Complete
+ListItems: 0
+
+
+> 2026-10-14T13:00:00.308Z 60
+Action: PJSIPShowEndpoint
+ActionID: p10
+Endpoint: 2000
+
+
+< 2026-10-14T13:00:00.31Z 130
+Response: Success
+ActionID: p10
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.312Z 305
+Event: EndpointDetail
+ActionID: p10
+ObjectType: endpoint
+ObjectName: 2000
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2000" <2000>
+Aors: 2000
+Auth: 2000
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.314Z 130
+Event: AorDetail
+ActionID: p10
+ObjectType: aor
+ObjectName: 2000
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.316Z 83
+Event: EndpointDetailComplete
+ActionID: p10
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.318Z 60
+Action: PJSIPShowEndpoint
+ActionID: p11
+Endpoint: 2001
+
+
+< 2026-10-14T13:00:00.32Z 130
+Response: Success
+ActionID: p11
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.322Z 305
+Event: EndpointDetail
+ActionID: p11
+ObjectType: endpoint
+ObjectName: 2001
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2001" <2001>
+Aors: 2001
+Auth: 2001
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.324Z 130
+Event: AorDetail
+ActionID: p11
+ObjectType: aor
+ObjectName: 2001
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.326Z 83
+Event: EndpointDetailComplete
+ActionID: p11
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.328Z 60
+Action: PJSIPShowEndpoint
+ActionID: p12
+Endpoint: 2002
+
+
+< 2026-10-14T13:00:00.33Z 130
+Response: Success
+ActionID: p12
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.332Z 305
+Event: EndpointDetail
+ActionID: p12
+ObjectType: endpoint
+ObjectName: 2002
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2002" <2002>
+Aors: 2002
+Auth: 2002
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.334Z 130
+Event: AorDetail
+ActionID: p12
+ObjectType: aor
+ObjectName: 2002
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.336Z 83
+Event: EndpointDetailComplete
+ActionID: p12
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.338Z 60
+Action: PJSIPShowEndpoint
+ActionID: p13
+Endpoint: 2003
+
+
+< 2026-10-14T13:00:00.34Z 130
+Response: Success
+ActionID: p13
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.342Z 305
+Event: EndpointDetail
+ActionID: p13
+ObjectType: endpoint
+ObjectName: 2003
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2003" <2003>
+Aors: 2003
+Auth: 2003
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.344Z 130
+Event: AorDetail
+ActionID: p13
+ObjectType: aor
+ObjectName: 2003
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.346Z 83
+Event: EndpointDetailComplete
+ActionID: p13
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.348Z 60
+Action: PJSIPShowEndpoint
+ActionID: p14
+Endpoint: 2004
+
+
+< 2026-10-14T13:00:00.35Z 130
+Response: Success
+ActionID: p14
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.352Z 305
+Event: EndpointDetail
+ActionID: p14
+ObjectType: endpoint
+ObjectName: 2004
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2004" <2004>
+Aors: 2004
+Auth: 2004
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.354Z 130
+Event: AorDetail
+ActionID: p14
+ObjectType: aor
+ObjectName: 2004
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.356Z 83
+Event: EndpointDetailComplete
+ActionID: p14
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.358Z 60
+Action: PJSIPShowEndpoint
+ActionID: p15
+Endpoint: 2005
+
+
+< 2026-10-14T13:00:00.36Z 130
+Response: Success
+ActionID: p15
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.362Z 305
+Event: EndpointDetail
+ActionID: p15
+ObjectType: endpoint
+ObjectName: 2005
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2005" <2005>
+Aors: 2005
+Auth: 2005
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.364Z 130
+Event: AorDetail
+ActionID: p15
+ObjectType: aor
+ObjectName: 2005
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.366Z 83
+Event: EndpointDetailComplete
+ActionID: p15
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.368Z 60
+Action: PJSIPShowEndpoint
+ActionID: p16
+Endpoint: 2006
+
+
+< 2026-10-14T13:00:00.37Z 130
+Response: Success
+ActionID: p16
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.372Z 305
+Event: EndpointDetail
+ActionID: p16
+ObjectType: endpoint
+ObjectName: 2006
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2006" <2006>
+Aors: 2006
+Auth: 2006
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.374Z 130
+Event: AorDetail
+ActionID: p16
+ObjectType: aor
+ObjectName: 2006
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.376Z 83
+Event: EndpointDetailComplete
+ActionID: p16
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.378Z 60
+Action: PJSIPShowEndpoint
+ActionID: p17
+Endpoint: 2007
+
+
+< 2026-10-14T13:00:00.38Z 130
+Response: Success
+ActionID: p17
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.382Z 305
+Event: EndpointDetail
+ActionID: p17
+ObjectType: endpoint
+ObjectName: 2007
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2007" <2007>
+Aors: 2007
+Auth: 2007
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.384Z 130
+Event: AorDetail
+ActionID: p17
+ObjectType: aor
+ObjectName: 2007
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.386Z 83
+Event: EndpointDetailComplete
+ActionID: p17
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.388Z 60
+Action: PJSIPShowEndpoint
+ActionID: p18
+Endpoint: 2008
+
+
+< 2026-10-14T13:00:00.39Z 130
+Response: Success
+ActionID: p18
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.392Z 305
+Event: EndpointDetail
+ActionID: p18
+ObjectType: endpoint
+ObjectName: 2008
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2008" <2008>
+Aors: 2008
+Auth: 2008
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.394Z 130
+Event: AorDetail
+ActionID: p18
+ObjectType: aor
+ObjectName: 2008
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.396Z 83
+Event: EndpointDetailComplete
+ActionID: p18
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.398Z 60
+Action: PJSIPShowEndpoint
+ActionID: p19
+Endpoint: 2009
+
+
+< 2026-10-14T13:00:00.4Z 130
+Response: Success
+ActionID: p19
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.402Z 305
+Event: EndpointDetail
+ActionID: p19
+ObjectType: endpoint
+ObjectName: 2009
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2009" <2009>
+Aors: 2009
+Auth: 2009
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.404Z 130
+Event: AorDetail
+ActionID: p19
+ObjectType: aor
+ObjectName: 2009
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.406Z 83
+Event: EndpointDetailComplete
+ActionID: p19
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.408Z 60
+Action: PJSIPShowEndpoint
+ActionID: p20
+Endpoint: 2010
+
+
+< 2026-10-14T13:00:00.41Z 130
+Response: Success
+ActionID: p20
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.412Z 305
+Event: EndpointDetail
+ActionID: p20
+ObjectType: endpoint
+ObjectName: 2010
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2010" <2010>
+Aors: 2010
+Auth: 2010
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.414Z 130
+Event: AorDetail
+ActionID: p20
+ObjectType: aor
+ObjectName: 2010
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.416Z 83
+Event: EndpointDetailComplete
+ActionID: p20
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.418Z 60
+Action: PJSIPShowEndpoint
+ActionID: p21
+Endpoint: 2011
+
+
+< 2026-10-14T13:00:00.42Z 130
+Response: Success
+ActionID: p21
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.422Z 305
+Event: EndpointDetail
+ActionID: p21
+ObjectType: endpoint
+ObjectName: 2011
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2011" <2011>
+Aors: 2011
+Auth: 2011
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.424Z 130
+Event: AorDetail
+ActionID: p21
+ObjectType: aor
+ObjectName: 2011
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.426Z 83
+Event: EndpointDetailComplete
+ActionID: p21
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.428Z 60
+Action: PJSIPShowEndpoint
+ActionID: p22
+Endpoint: 2012
+
+
+< 2026-10-14T13:00:00.43Z 130
+Response: Success
+ActionID: p22
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.432Z 305
+Event: EndpointDetail
+ActionID: p22
+ObjectType: endpoint
+ObjectName: 2012
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2012" <2012>
+Aors: 2012
+Auth: 2012
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.434Z 130
+Event: AorDetail
+ActionID: p22
+ObjectType: aor
+ObjectName: 2012
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.436Z 83
+Event: EndpointDetailComplete
+ActionID: p22
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.438Z 60
+Action: PJSIPShowEndpoint
+ActionID: p23
+Endpoint: 2013
+
+
+< 2026-10-14T13:00:00.44Z 130
+Response: Success
+ActionID: p23
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.442Z 305
+Event: EndpointDetail
+ActionID: p23
+ObjectType: endpoint
+ObjectName: 2013
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2013" <2013>
+Aors: 2013
+Auth: 2013
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.444Z 130
+Event: AorDetail
+ActionID: p23
+ObjectType: aor
+ObjectName: 2013
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.446Z 83
+Event: EndpointDetailComplete
+ActionID: p23
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.448Z 60
+Action: PJSIPShowEndpoint
+ActionID: p24
+Endpoint: 2014
+
+
+< 2026-10-14T13:00:00.45Z 130
+Response: Success
+ActionID: p24
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.452Z 305
+Event: EndpointDetail
+ActionID: p24
+ObjectType: endpoint
+ObjectName: 2014
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2014" <2014>
+Aors: 2014
+Auth: 2014
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.454Z 130
+Event: AorDetail
+ActionID: p24
+ObjectType: aor
+ObjectName: 2014
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.456Z 83
+Event: EndpointDetailComplete
+ActionID: p24
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.458Z 60
+Action: PJSIPShowEndpoint
+ActionID: p25
+Endpoint: 2015
+
+
+< 2026-10-14T13:00:00.46Z 130
+Response: Success
+ActionID: p25
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.462Z 305
+Event: EndpointDetail
+ActionID: p25
+ObjectType: endpoint
+ObjectName: 2015
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2015" <2015>
+Aors: 2015
+Auth: 2015
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.464Z 130
+Event: AorDetail
+ActionID: p25
+ObjectType: aor
+ObjectName: 2015
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.466Z 83
+Event: EndpointDetailComplete
+ActionID: p25
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.468Z 60
+Action: PJSIPShowEndpoint
+ActionID: p26
+Endpoint: 2016
+
+
+< 2026-10-14T13:00:00.47Z 130
+Response: Success
+ActionID: p26
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.472Z 305
+Event: EndpointDetail
+ActionID: p26
+ObjectType: endpoint
+ObjectName: 2016
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2016" <2016>
+Aors: 2016
+Auth: 2016
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.474Z 130
+Event: AorDetail
+ActionID: p26
+ObjectType: aor
+ObjectName: 2016
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.476Z 83
+Event: EndpointDetailComplete
+ActionID: p26
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.478Z 60
+Action: PJSIPShowEndpoint
+ActionID: p27
+Endpoint: 2017
+
+
+< 2026-10-14T13:00:00.48Z 130
+Response: Success
+ActionID: p27
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.482Z 305
+Event: EndpointDetail
+ActionID: p27
+ObjectType: endpoint
+ObjectName: 2017
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2017" <2017>
+Aors: 2017
+Auth: 2017
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.484Z 130
+Event: AorDetail
+ActionID: p27
+ObjectType: aor
+ObjectName: 2017
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.486Z 83
+Event: EndpointDetailComplete
+ActionID: p27
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.488Z 60
+Action: PJSIPShowEndpoint
+ActionID: p28
+Endpoint: 2018
+
+
+< 2026-10-14T13:00:00.49Z 130
+Response: Success
+ActionID: p28
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.492Z 305
+Event: EndpointDetail
+ActionID: p28
+ObjectType: endpoint
+ObjectName: 2018
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2018" <2018>
+Aors: 2018
+Auth: 2018
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.494Z 130
+Event: AorDetail
+ActionID: p28
+ObjectType: aor
+ObjectName: 2018
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.496Z 83
+Event: EndpointDetailComplete
+ActionID: p28
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.498Z 60
+Action: PJSIPShowEndpoint
+ActionID: p29
+Endpoint: 2019
+
+
+< 2026-10-14T13:00:00.5Z 130
+Response: Success
+ActionID: p29
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.502Z 305
+Event: EndpointDetail
+ActionID: p29
+ObjectType: endpoint
+ObjectName: 2019
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2019" <2019>
+Aors: 2019
+Auth: 2019
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.504Z 130
+Event: AorDetail
+ActionID: p29
+ObjectType: aor
+ObjectName: 2019
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.506Z 83
+Event: EndpointDetailComplete
+ActionID: p29
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.508Z 60
+Action: PJSIPShowEndpoint
+ActionID: p30
+Endpoint: 2020
+
+
+< 2026-10-14T13:00:00.51Z 130
+Response: Success
+ActionID: p30
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.512Z 305
+Event: EndpointDetail
+ActionID: p30
+ObjectType: endpoint
+ObjectName: 2020
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2020" <2020>
+Aors: 2020
+Auth: 2020
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.514Z 130
+Event: AorDetail
+ActionID: p30
+ObjectType: aor
+ObjectName: 2020
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.516Z 83
+Event: EndpointDetailComplete
+ActionID: p30
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.518Z 60
+Action: PJSIPShowEndpoint
+ActionID: p31
+Endpoint: 2021
+
+
+< 2026-10-14T13:00:00.52Z 130
+Response: Success
+ActionID: p31
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.522Z 305
+Event: EndpointDetail
+ActionID: p31
+ObjectType: endpoint
+ObjectName: 2021
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2021" <2021>
+Aors: 2021
+Auth: 2021
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.524Z 130
+Event: AorDetail
+ActionID: p31
+ObjectType: aor
+ObjectName: 2021
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.526Z 83
+Event: EndpointDetailComplete
+ActionID: p31
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.528Z 60
+Action: PJSIPShowEndpoint
+ActionID: p32
+Endpoint: 2022
+
+
+< 2026-10-14T13:00:00.53Z 130
+Response: Success
+ActionID: p32
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.532Z 305
+Event: EndpointDetail
+ActionID: p32
+ObjectType: endpoint
+ObjectName: 2022
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2022" <2022>
+Aors: 2022
+Auth: 2022
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.534Z 130
+Event: AorDetail
+ActionID: p32
+ObjectType: aor
+ObjectName: 2022
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.536Z 83
+Event: EndpointDetailComplete
+ActionID: p32
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.538Z 60
+Action: PJSIPShowEndpoint
+ActionID: p33
+Endpoint: 2023
+
+
+< 2026-10-14T13:00:00.54Z 130
+Response: Success
+ActionID: p33
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.542Z 305
+Event: EndpointDetail
+ActionID: p33
+ObjectType: endpoint
+ObjectName: 2023
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2023" <2023>
+Aors: 2023
+Auth: 2023
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.544Z 130
+Event: AorDetail
+ActionID: p33
+ObjectType: aor
+ObjectName: 2023
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.546Z 83
+Event: EndpointDetailComplete
+ActionID: p33
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.548Z 60
+Action: PJSIPShowEndpoint
+ActionID: p34
+Endpoint: 2024
+
+
+< 2026-10-14T13:00:00.55Z 130
+Response: Success
+ActionID: p34
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.552Z 305
+Event: EndpointDetail
+ActionID: p34
+ObjectType: endpoint
+ObjectName: 2024
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2024" <2024>
+Aors: 2024
+Auth: 2024
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.554Z 130
+Event: AorDetail
+ActionID: p34
+ObjectType: aor
+ObjectName: 2024
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.556Z 83
+Event: EndpointDetailComplete
+ActionID: p34
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.558Z 60
+Action: PJSIPShowEndpoint
+ActionID: p35
+Endpoint: 2025
+
+
+< 2026-10-14T13:00:00.56Z 130
+Response: Success
+ActionID: p35
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.562Z 305
+Event: EndpointDetail
+ActionID: p35
+ObjectType: endpoint
+ObjectName: 2025
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2025" <2025>
+Aors: 2025
+Auth: 2025
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.564Z 130
+Event: AorDetail
+ActionID: p35
+ObjectType: aor
+ObjectName: 2025
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.566Z 83
+Event: EndpointDetailComplete
+ActionID: p35
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.568Z 60
+Action: PJSIPShowEndpoint
+ActionID: p36
+Endpoint: 2026
+
+
+< 2026-10-14T13:00:00.57Z 130
+Response: Success
+ActionID: p36
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.572Z 305
+Event: EndpointDetail
+ActionID: p36
+ObjectType: endpoint
+ObjectName: 2026
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2026" <2026>
+Aors: 2026
+Auth: 2026
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.574Z 130
+Event: AorDetail
+ActionID: p36
+ObjectType: aor
+ObjectName: 2026
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.576Z 83
+Event: EndpointDetailComplete
+ActionID: p36
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.578Z 60
+Action: PJSIPShowEndpoint
+ActionID: p37
+Endpoint: 2027
+
+
+< 2026-10-14T13:00:00.58Z 130
+Response: Success
+ActionID: p37
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.582Z 305
+Event: EndpointDetail
+ActionID: p37
+ObjectType: endpoint
+ObjectName: 2027
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2027" <2027>
+Aors: 2027
+Auth: 2027
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.584Z 130
+Event: AorDetail
+ActionID: p37
+ObjectType: aor
+ObjectName: 2027
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.586Z 83
+Event: EndpointDetailComplete
+ActionID: p37
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.588Z 60
+Action: PJSIPShowEndpoint
+ActionID: p38
+Endpoint: 2028
+
+
+< 2026-10-14T13:00:00.59Z 130
+Response: Success
+ActionID: p38
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.592Z 305
+Event: EndpointDetail
+ActionID: p38
+ObjectType: endpoint
+ObjectName: 2028
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2028" <2028>
+Aors: 2028
+Auth: 2028
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.594Z 130
+Event: AorDetail
+ActionID: p38
+ObjectType: aor
+ObjectName: 2028
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.596Z 83
+Event: EndpointDetailComplete
+ActionID: p38
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.598Z 60
+Action: PJSIPShowEndpoint
+ActionID: p39
+Endpoint: 2029
+
+
+< 2026-10-14T13:00:00.6Z 130
+Response: Success
+ActionID: p39
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.602Z 305
+Event: EndpointDetail
+ActionID: p39
+ObjectType: endpoint
+ObjectName: 2029
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2029" <2029>
+Aors: 2029
+Auth: 2029
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.604Z 130
+Event: AorDetail
+ActionID: p39
+ObjectType: aor
+ObjectName: 2029
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.606Z 83
+Event: EndpointDetailComplete
+ActionID: p39
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.608Z 60
+Action: PJSIPShowEndpoint
+ActionID: p40
+Endpoint: 2030
+
+
+< 2026-10-14T13:00:00.61Z 130
+Response: Success
+ActionID: p40
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.612Z 305
+Event: EndpointDetail
+ActionID: p40
+ObjectType: endpoint
+ObjectName: 2030
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2030" <2030>
+Aors: 2030
+Auth: 2030
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.614Z 130
+Event: AorDetail
+ActionID: p40
+ObjectType: aor
+ObjectName: 2030
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.616Z 83
+Event: EndpointDetailComplete
+ActionID: p40
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.618Z 60
+Action: PJSIPShowEndpoint
+ActionID: p41
+Endpoint: 2031
+
+
+< 2026-10-14T13:00:00.62Z 130
+Response: Success
+ActionID: p41
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.622Z 305
+Event: EndpointDetail
+ActionID: p41
+ObjectType: endpoint
+ObjectName: 2031
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2031" <2031>
+Aors: 2031
+Auth: 2031
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.624Z 130
+Event: AorDetail
+ActionID: p41
+ObjectType: aor
+ObjectName: 2031
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.626Z 83
+Event: EndpointDetailComplete
+ActionID: p41
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.628Z 60
+Action: PJSIPShowEndpoint
+ActionID: p42
+Endpoint: 2032
+
+
+< 2026-10-14T13:00:00.63Z 130
+Response: Success
+ActionID: p42
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.632Z 305
+Event: EndpointDetail
+ActionID: p42
+ObjectType: endpoint
+ObjectName: 2032
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2032" <2032>
+Aors: 2032
+Auth: 2032
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.634Z 130
+Event: AorDetail
+ActionID: p42
+ObjectType: aor
+ObjectName: 2032
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.636Z 83
+Event: EndpointDetailComplete
+ActionID: p42
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.638Z 60
+Action: PJSIPShowEndpoint
+ActionID: p43
+Endpoint: 2033
+
+
+< 2026-10-14T13:00:00.64Z 130
+Response: Success
+ActionID: p43
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.642Z 305
+Event: EndpointDetail
+ActionID: p43
+ObjectType: endpoint
+ObjectName: 2033
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2033" <2033>
+Aors: 2033
+Auth: 2033
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.644Z 130
+Event: AorDetail
+ActionID: p43
+ObjectType: aor
+ObjectName: 2033
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.646Z 83
+Event: EndpointDetailComplete
+ActionID: p43
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.648Z 60
+Action: PJSIPShowEndpoint
+ActionID: p44
+Endpoint: 2034
+
+
+< 2026-10-14T13:00:00.65Z 130
+Response: Success
+ActionID: p44
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.652Z 305
+Event: EndpointDetail
+ActionID: p44
+ObjectType: endpoint
+ObjectName: 2034
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2034" <2034>
+Aors: 2034
+Auth: 2034
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.654Z 130
+Event: AorDetail
+ActionID: p44
+ObjectType: aor
+ObjectName: 2034
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.656Z 83
+Event: EndpointDetailComplete
+ActionID: p44
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.658Z 60
+Action: PJSIPShowEndpoint
+ActionID: p45
+Endpoint: 2035
+
+
+< 2026-10-14T13:00:00.66Z 130
+Response: Success
+ActionID: p45
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.662Z 305
+Event: EndpointDetail
+ActionID: p45
+ObjectType: endpoint
+ObjectName: 2035
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2035" <2035>
+Aors: 2035
+Auth: 2035
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.664Z 130
+Event: AorDetail
+ActionID: p45
+ObjectType: aor
+ObjectName: 2035
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.666Z 83
+Event: EndpointDetailComplete
+ActionID: p45
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.668Z 60
+Action: PJSIPShowEndpoint
+ActionID: p46
+Endpoint: 2036
+
+
+< 2026-10-14T13:00:00.67Z 130
+Response: Success
+ActionID: p46
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.672Z 305
+Event: EndpointDetail
+ActionID: p46
+ObjectType: endpoint
+ObjectName: 2036
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2036" <2036>
+Aors: 2036
+Auth: 2036
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.674Z 130
+Event: AorDetail
+ActionID: p46
+ObjectType: aor
+ObjectName: 2036
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.676Z 83
+Event: EndpointDetailComplete
+ActionID: p46
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.678Z 60
+Action: PJSIPShowEndpoint
+ActionID: p47
+Endpoint: 2037
+
+
+< 2026-10-14T13:00:00.68Z 130
+Response: Success
+ActionID: p47
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.682Z 305
+Event: EndpointDetail
+ActionID: p47
+ObjectType: endpoint
+ObjectName: 2037
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2037" <2037>
+Aors: 2037
+Auth: 2037
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.684Z 130
+Event: AorDetail
+ActionID: p47
+ObjectType: aor
+ObjectName: 2037
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.686Z 83
+Event: EndpointDetailComplete
+ActionID: p47
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.688Z 60
+Action: PJSIPShowEndpoint
+ActionID: p48
+Endpoint: 2038
+
+
+< 2026-10-14T13:00:00.69Z 130
+Response: Success
+ActionID: p48
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.692Z 305
+Event: EndpointDetail
+ActionID: p48
+ObjectType: endpoint
+ObjectName: 2038
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2038" <2038>
+Aors: 2038
+Auth: 2038
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.694Z 130
+Event: AorDetail
+ActionID: p48
+ObjectType: aor
+ObjectName: 2038
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.696Z 83
+Event: EndpointDetailComplete
+ActionID: p48
+EventList: Complete
+ListItems: 2
+
+
+> 2026-10-14T13:00:00.698Z 60
+Action: PJSIPShowEndpoint
+ActionID: p49
+Endpoint: 2039
+
+
+< 2026-10-14T13:00:00.7Z 130
+Response: Success
+ActionID: p49
+EventList: start
+Message: A listing of Endpoint follows, presented as EndpointDetail events
+
+
+< 2026-10-14T13:00:00.702Z 305
+Event: EndpointDetail
+ActionID: p49
+ObjectType: endpoint
+ObjectName: 2039
+Context: from-internal
+Disallow: all
+Allow: ulaw,alaw
+DtmfMode: rfc4733
+Callerid: "Ramal 2039" <2039>
+Aors: 2039
+Auth: 2039
+DeviceStateBusyAt: 0
+Transport: 0.0.0.0-udp
+Mailboxes: 
+DirectMedia: false
+Accountcode: 
+
+
+< 2026-10-14T13:00:00.704Z 130
+Event: AorDetail
+ActionID: p49
+ObjectType: aor
+ObjectName: 2039
+MaxContacts: 1
+RemoveExisting: true
+QualifyFrequency: 60
+
+
+< 2026-10-14T13:00:00.706Z 83
+Event: EndpointDetailComplete
+ActionID: p49
+EventList: Complete
+ListItems: 2
+
+
+< 2026-10-14T13:00:01.408Z 354
+Event: Newchannel
+Privilege: call,all
+Channel: PJSIP/trunk1-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.41Z 352
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/trunk1-00000001
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.412Z 340
+Event: Newchannel
+Privilege: call,all
+Channel: PJSIP/2003-00000003
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.414Z 728
+Event: DialBegin
+Privilege: call,all
+Channel: PJSIP/trunk1-00000001
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+DestChannel: PJSIP/2003-00000003
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 2003
+DestCallerIDName: Ramal 2003
+DestConnectedLineNum: 11980000100
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.4
+DestLinkedid: 1791933446.2
+DialString: 2003
+
+
+< 2026-10-14T13:00:01.416Z 344
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/2003-00000003
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.418Z 355
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/trunk1-00000001
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:01.42Z 85
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/2003
+State: RINGING
+
+
+< 2026-10-14T13:00:02.122Z 339
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/2003-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:02.124Z 350
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:02.126Z 724
+Event: DialEnd
+Privilege: call,all
+Channel: PJSIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+DestChannel: PJSIP/2003-00000003
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 2003
+DestCallerIDName: Ramal 2003
+DestConnectedLineNum: 11980000100
+DestConnectedLineName: Pessoa 001
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1791933446.4
+DestLinkedid: 1791933446.2
+DialStatus: ANSWER
+
+
+< 2026-10-14T13:00:02.128Z 559
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: PJSIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:02.13Z 548
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: PJSIP/2003-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:02.132Z 83
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/2003
+State: INUSE
+
+
+< 2026-10-14T13:00:02.834Z 559
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: PJSIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:02.836Z 387
+Event: Hangup
+Privilege: call,all
+Channel: PJSIP/trunk1-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 11980000100
+CallerIDName: Pessoa 001
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-trunk
+Exten: 30001000
+Priority: 1
+Uniqueid: 1791933446.2
+Linkedid: 1791933446.2
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:02.838Z 548
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 61a257c4-6222-9f5e-9f46-27f442a64c36
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: PJSIP/2003-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+
+
+< 2026-10-14T13:00:02.84Z 376
+Event: Hangup
+Privilege: call,all
+Channel: PJSIP/2003-00000003
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 2003
+CallerIDName: Ramal 2003
+ConnectedLineNum: 11980000100
+ConnectedLineName: Pessoa 001
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 
+Priority: 1
+Uniqueid: 1791933446.4
+Linkedid: 1791933446.2
+Cause: 16
+Cause-txt: Normal Clearing
+
+
+< 2026-10-14T13:00:02.842Z 87
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/2003
+State: NOT_INUSE
+
+
+#fim {"asterisk":"18.20.0","encerrado_por":"prazo","quadros":371,"tecnologia":"pjsip"}
