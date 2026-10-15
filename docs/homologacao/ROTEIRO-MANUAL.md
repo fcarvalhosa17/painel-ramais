@@ -124,6 +124,33 @@ curl -fLO "$BASE/SHA256SUMS"
 
 Faca os passos abaixo na ordem, um por vez, com 20 a 30 s entre eles. Em cada um, aperte Enter no terminal 1 ao terminar. No segundo terminal use `painel_ver` durante a chamada. Se o que voce ve for diferente do esperado, **digite uma anotacao** no terminal 1 (o que viu, a hora e o ramal) e siga: a analise cruza as horas depois.
 
+**Checagens da correcao V1 (processo do capturar)**
+
+Faca durante o Passo 1, com o `homologar` rodando: o `capturar` so existe enquanto ele roda. A correcao V1 manda o `capturar` rodar em sessao propria (`setsid`), sem terminal e sem stdin, e sem permitir que outro processo se anexe a ele. Duas conferencias, no segundo terminal:
+
+- **Comando (i):**
+
+```
+PID=$(pgrep -u painel-ramais -f 'painel-ramais capturar' | head -n 1); echo "PID=$PID"
+ps -o pid,sid,tty,user,cmd -p "$PID"
+```
+
+- **Resultado esperado (i):** `PID` preenchido; na linha do `ps`, a coluna `TTY` e `?` (sem terminal), `SID` igual ao `PID` (sessao propria) e `USER` `painel-ramais`.
+- **Se for diferente (i):** `TTY` com `pts/N`, ou `SID` diferente do `PID`, ou `PID` vazio (o `capturar` nao esta rodando: veja a mensagem do terminal 1): copie a linha inteira do `ps` para a anotacao.
+- **Comando (ii):** primeiro `command -v strace`. Se existir: `sudo -u painel-ramais strace -p "$PID"` (se algum dia ele anexar, Ctrl-C na hora e anote). Se `command -v strace` nao imprimir nada, **nao instale o strace**: registre "teste nao feito".
+- **Resultado esperado (ii):** permissao negada (`Operation not permitted` ou `attach: ptrace ... Permission denied`) e o `strace` encerra sozinho, sem mostrar chamadas de sistema do `capturar`.
+- **Se for diferente (ii):** se aparecerem chamadas de sistema (`read(`, `write(`, `epoll_wait(`...), o V1 falhou: pare o `strace`, anote a hora e o texto exato da saida.
+
+**Onde registrar (i) e (ii):** no terminal 1, o do `homologar`, digite uma linha de anotacao por checagem e aperte Enter (texto + Enter grava a anotacao com a hora, sem avancar de passo). Elas vao para o `roteiro.log` dentro do `homologacao-AAAAMMDD-HHMMSS.tar.gz`, o unico arquivo de texto livre do pacote; nao existe pasta onde soltar outro arquivo. Escreva sempre uma linha so (uma linha vazia avanca o passo, entao nao cole varias linhas de uma vez) e comece por `V1-i` ou `V1-ii`:
+
+```
+V1-i tty=? sid=<SID> pid=<PID> user=painel-ramais
+V1-ii strace: permissao negada (Operation not permitted)
+V1-ii teste nao feito: strace nao instalado na VM
+```
+
+Se o `ps` mostrar outra coisa, escreva o que viu (por exemplo `V1-i tty=pts/0 sid=1234 pid=5678`). O pacote passa pelo filtro de anonimizacao, entao hosts e usuarios podem aparecer trocados por valores ficticios.
+
 **Passo 1: Chamada interna**
 
 A liga para B, B atende, conversam 20 s, A desliga.
@@ -288,4 +315,4 @@ journalctl -u painel-ramais --since "-15min" --no-pager | tail -40
 
 ## Entrega
 
-Devolva ao time: o `homologacao-*.tar.gz` de cada rodada (so depois de rodar o analisador e olhar as `[SUSPEITA]`), a tabela da etapa 17, as anotacoes dos passos que ficaram diferentes do esperado e o resultado de `systemd-analyze security painel-ramais` (esta em `pre.txt`; no Rocky 8 o comando pode nao existir e a mensagem de erro e o resultado).
+Devolva ao time: o `homologacao-*.tar.gz` de cada rodada (so depois de rodar o analisador e olhar as `[SUSPEITA]`), a tabela da etapa 17, as anotacoes dos passos que ficaram diferentes do esperado, as linhas `V1-i` e `V1-ii` (ficam no `roteiro.log` do pacote) e o resultado de `systemd-analyze security painel-ramais` (esta em `pre.txt`; no Rocky 8 o comando pode nao existir e a mensagem de erro e o resultado).
