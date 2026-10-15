@@ -1,21 +1,27 @@
-name: Carga 30 min
+name: Carga
 on:
   workflow_dispatch:
     inputs:
-      duracao:
-        description: 'Duracao do regime sob carga (formato Go)'
+      duracao_pjsip:
+        description: 'pjsip: regime medido apos o aquecimento (formato Go; 5h cabe no limite de 6 h do runner)'
+        default: '5h'
+        required: true
+      duracao_sip:
+        description: 'sip: regime medido apos o aquecimento (formato Go)'
         default: '30m'
+        required: true
+      aquecimento:
+        description: 'Aquecimento depois do preenchimento de nomes, fora da regressao do heap (formato Go)'
+        default: '10m'
         required: true
 permissions:
   contents: read
 jobs:
-  carga:
+  # 10 min de aquecimento + 5 h de regime + ~20 min de subida, preenchimento de nomes,
+  # matriz, rajada, queda e final = ~330 min. Teto do runner hospedado: 360 min.
+  pjsip-5h:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        modo: [pjsip, sip]
+    timeout-minutes: 345
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,23 +33,42 @@ jobs:
         run: |
           CGO_ENABLED=0 go build -trimpath -o painel-ramais ./cmd/painel-ramais
           CGO_ENABLED=0 go build -trimpath -o loadtest ./cmd/loadtest
-      - name: Carga com 10.000 ramais (simulador + daemon), CPU e RSS por minuto
+      - name: Carga pjsip, 10.000 ramais, heap pos-GC e pprof
         env:
-          MODO: ${{ matrix.modo }}
-          DURACAO: ${{ inputs.duracao }}
-        run: |
-          mkdir -p saida
-          sh tools/amostrar-proc.sh painel-ramais "saida/cpu-rss-$MODO.csv" 60 &
-          amostrador=$!
-          rc=0
-          ./loadtest -daemon ./painel-ramais -modes "$MODO" -exts 10000 -duration "$DURACAO" -captures "" -out "saida/relatorio-carga-$MODO.md" || rc=$?
-          kill "$amostrador" 2>/dev/null || true
-          echo "loadtest saiu com $rc"
-          exit "$rc"
+          DURACAO: ${{ inputs.duracao_pjsip }}
+          AQUECIMENTO: ${{ inputs.aquecimento }}
+        run: sh tools/carga-ci.sh pjsip "$DURACAO" "$AQUECIMENTO"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
-          name: carga-${{ matrix.modo }}
+          name: carga-pjsip-5h
+          path: saida/
+          retention-days: 30
+          if-no-files-found: error
+
+  sip-30min:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Build do daemon e do loadtest (linux/amd64)
+        run: |
+          CGO_ENABLED=0 go build -trimpath -o painel-ramais ./cmd/painel-ramais
+          CGO_ENABLED=0 go build -trimpath -o loadtest ./cmd/loadtest
+      - name: Carga sip, 10.000 ramais, heap pos-GC e pprof
+        env:
+          DURACAO: ${{ inputs.duracao_sip }}
+          AQUECIMENTO: ${{ inputs.aquecimento }}
+        run: sh tools/carga-ci.sh sip "$DURACAO" "$AQUECIMENTO"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: carga-sip-30min
           path: saida/
           retention-days: 30
           if-no-files-found: error
