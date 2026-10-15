@@ -36,7 +36,7 @@ jobs:
           sh tools/amostrar-proc.sh painel-ramais "saida/cpu-rss-$MODO.csv" 60 &
           amostrador=$!
           rc=0
-          ./loadtest -daemon ./painel-ramais -modes "$MODO" -exts 10000 -duration "$DURACAO" -skip-matrix -captures "" -out "saida/relatorio-carga-$MODO.md" || rc=$?
+          ./loadtest -daemon ./painel-ramais -modes "$MODO" -exts 10000 -duration "$DURACAO" -captures "" -out "saida/relatorio-carga-$MODO.md" || rc=$?
           kill "$amostrador" 2>/dev/null || true
           echo "loadtest saiu com $rc"
           exit "$rc"
