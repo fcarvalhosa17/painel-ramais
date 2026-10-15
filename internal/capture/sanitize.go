@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -32,6 +33,9 @@ type Sanitizer struct {
 	idents  map[string]string
 	hosts   map[string]string
 	ips     map[string]string
+
+	hostNames []string       // AddHost
+	hostRe    *regexp.Regexp // nomes de AddHost, o mais longo primeiro
 }
 
 // NewSanitizer cria o limpador.
@@ -46,7 +50,7 @@ func NewSanitizer(opt SanitizeOptions) *Sanitizer {
 const maskedValue = "***"
 
 var (
-	secretKey = regexp.MustCompile(`(?i)secret|password|passwd|md5|challenge|token|key$`)
+	secretKey = regexp.MustCompile(`(?i)secret|passw|passphrase|pwd|senha|(^|[_.-])pass([_.-]|$)|pass$|md5|challenge|token|key$|keyfile|auth|cookie|session(id|_id)?$|hmac|signature|credential|hash$|expectedresponse`)
 	// safeKey: campos estruturais do protocolo, que nao carregam dado pessoal e cujos
 	// numeros longos (Uniqueid, Timestamp, RoundtripUsec...) nao podem ser trocados.
 	safeKey = regexp.MustCompile(`(?i)^(event|response|action|actionid|uniqueid|linkedid|destuniqueid|destlinkedid|bridge.*|` +
@@ -255,7 +259,7 @@ func pow10(n int) int {
 func (s *Sanitizer) hostsInURIs(v string) string {
 	return uriHost.ReplaceAllStringFunc(v, func(m string) string {
 		h := m[1:]
-		if ipv4.MatchString(h) { // IP e tratado por replaceIPs
+		if ipv4.MatchString(h) || strings.HasSuffix(strings.ToLower(h), ".invalid") { // IP: replaceIPs; .invalid: ja e ficticio
 			return m
 		}
 		return "@" + s.host(h)
@@ -285,4 +289,211 @@ func (s *Sanitizer) fakeIP(orig string, mk func(n int) string) string {
 	f := mk(len(s.ips))
 	s.ips[orig] = f
 	return f
+}
+
+// textPair acha "chave: valor", "chave=valor", "chave":"valor" e 'chave': 'valor' em texto livre (log, saida de CLI,
+// JSON compacto, repr de Python). O valor e uma string entre aspas (duplas ou simples) ou a sequencia ate espaco,
+// virgula, ponto e virgula, "&", "}", "]" ou aspas.
+var textPair = regexp.MustCompile(`["']?([A-Za-z][A-Za-z0-9_.-]*)["']?\s*[:=]\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^\s,;&}\]"']*)`)
+
+var (
+	// headerKey: cabecalhos HTTP/SIP cujo valor e a linha inteira depois do ":".
+	headerKey = regexp.MustCompile(`(?i)^(set-cookie|cookie|authorization|proxy-authorization)$`)
+	// digestKey: parametros de Digest que provam a senha (so contam em linha com "Digest").
+	digestKey  = regexp.MustCompile(`(?i)^(response|nonce|cnonce|opaque)$`)
+	digestLine = regexp.MustCompile(`(?i)\bdigest\b`)
+	// schemeStart: esquema no INICIO do trecho ("sip:", "https://"); depois de "/" nunca e esquema (IAX2/tcp:X@).
+	schemeStart = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9+.-]*):(//)?`)
+	// urlSchemes: "sip:2001@host" e esquema:usuario, nao usuario:senha.
+	urlSchemes = map[string]bool{"sip": true, "sips": true, "tel": true, "mailto": true, "http": true, "https": true,
+		"iax": true, "iax2": true, "ws": true, "wss": true, "ftp": true, "sftp": true, "tcp": true, "udp": true,
+		"tls": true, "h323": true, "xmpp": true, "ldap": true}
+)
+
+// AddHost cadastra um nome de maquina (hostname, FQDN) para ser trocado por host-NNN.invalid em qualquer
+// ponto do texto de Text, com a mesma troca dos hosts de URI. So vale com Anonymize.
+func (s *Sanitizer) AddHost(name string) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" || name == "localhost" {
+		return
+	}
+	for _, h := range s.hostNames {
+		if h == name {
+			return
+		}
+	}
+	s.hostNames = append(s.hostNames, name)
+	byLen := append([]string(nil), s.hostNames...)
+	sort.Slice(byLen, func(i, j int) bool { return len(byLen[i]) > len(byLen[j]) }) // o FQDN antes do nome curto
+	for i, h := range byLen {
+		byLen[i] = regexp.QuoteMeta(h)
+	}
+	s.hostRe = regexp.MustCompile(`(?i)\b(?:` + strings.Join(byLen, "|") + `)\b`)
+}
+
+// Text limpa texto livre linha a linha com as mesmas regras de Frame: cada par chave/valor passa por
+// value() (segredos viram *** sempre; com Anonymize, nomes, usuarios, hosts, numeros e IPs trocados) e o
+// resto da linha passa pela limpeza padrao. O mesmo Sanitizer devolve o mesmo ficticio para o mesmo
+// original em todos os textos (e em Frame). Quebras de linha (\n, \r\n) ficam como estao.
+//
+// Valor de chave secreta: com aspas (duplas ou simples), ate a aspa que fecha; sem aspas, ate o FIM DA LINHA
+// (escolha de seguranca: "secret=abc def=X" nao deixa resto; perde-se o que vinha depois na mesma linha);
+// cabecalho Cookie/Set-Cookie/Authorization: a linha toda depois do ":". "?chave=" e "&chave=" dentro de um valor
+// (URL com query, "tcp: secret=X") e um par secreto novo, e valor entre aspas com um par dentro e limpo de novo. Tambem mascara a senha de "usuario:senha@host" e, em linha com Digest, response/nonce.
+// Nao cobre: segredo que ocupa varias linhas (chave PEM), segredo em argv/`ps` fora de par chave=valor e
+// texto livre sem chave.
+func (s *Sanitizer) Text(raw []byte) []byte {
+	lines := bytes.Split(raw, []byte("\n"))
+	for i, ln := range lines {
+		lines[i] = []byte(s.textLine(string(ln)))
+	}
+	return bytes.Join(lines, []byte("\n"))
+}
+
+func (s *Sanitizer) textLine(ln string) string {
+	ln = maskUserinfo(ln)
+	if s.opt.Anonymize && s.hostRe != nil {
+		ln = s.hostRe.ReplaceAllStringFunc(ln, func(h string) string { return s.host(strings.ToLower(h)) })
+	}
+	digest := digestLine.MatchString(ln)
+	end := len(strings.TrimRight(ln, "\r")) // o CR do CRLF fica fora de qualquer valor
+	var b strings.Builder
+	pos := 0
+	for pos < end {
+		m := textPair.FindStringSubmatchIndex(ln[pos:end])
+		if m == nil {
+			break
+		}
+		for i := range m {
+			if m[i] >= 0 {
+				m[i] += pos
+			}
+		}
+		b.WriteString(s.plain(ln[pos:m[0]]))
+		b.WriteString(ln[m[0]:m[4]]) // aspas, chave e separador
+		key := ln[m[2]:m[3]]
+		if secretKey.MatchString(key) || (digest && digestKey.MatchString(key)) {
+			vend := secretEnd(ln, m[4], end, key)
+			switch {
+			case vend == m[4]:
+			case vend-m[4] >= 2 && (ln[m[4]] == '"' || ln[m[4]] == '\'') && ln[vend-1] == ln[m[4]]:
+				b.WriteString(ln[m[4]:m[4]+1] + maskedValue + ln[m[4]:m[4]+1])
+			default:
+				b.WriteString(maskedValue)
+			}
+			pos = vend
+			continue
+		}
+		vend := m[5]
+		if c := ln[m[4]:vend]; c != "" && c[0] != '"' && c[0] != '\'' {
+			for _, n := range textPair.FindAllStringSubmatchIndex(c, -1) { // par secreto dentro do valor: "?session=X", "tcp: secret=X"
+				if k := c[n[2]:n[3]]; secretKey.MatchString(k) || (digest && digestKey.MatchString(k)) {
+					vend = m[4] + n[0]
+					break
+				}
+			}
+		}
+		b.WriteString(s.pairValue(key, ln[m[4]:vend]))
+		pos = vend
+	}
+	b.WriteString(s.plain(ln[pos:]))
+	return b.String()
+}
+
+// secretEnd acha o fim do valor secreto que comeca em start (end = fim do conteudo da linha).
+func secretEnd(ln string, start, end int, key string) int {
+	if start >= end {
+		return start
+	}
+	if headerKey.MatchString(key) {
+		return end
+	}
+	if q := ln[start]; q == '"' || q == '\'' {
+		for i := start + 1; i < end; i++ {
+			if ln[i] == '\\' {
+				i++
+				continue
+			}
+			if ln[i] == q {
+				return i + 1
+			}
+		}
+		return end
+	}
+	return end // sem aspas: ate o fim da linha (o mais seguro: "secret=abc def=X" nao deixa resto)
+}
+
+// maskUserinfo troca a senha de "usuario:senha@host" por ***. O trecho (separado por espaco, < > ou ") e ancorado
+// no ULTIMO "@" (a senha pode ter "@" e "/"); so um esquema conhecido no INICIO do trecho (sip:, https://) nao e
+// usuario ("sip:2001@host" fica; "IAX2/sip:X@h" e "2001/sip:X@h" mascaram o X: depois de "/" nunca e esquema).
+func maskUserinfo(ln string) string {
+	if !strings.Contains(ln, "@") {
+		return ln
+	}
+	var b strings.Builder
+	for i := 0; i < len(ln); {
+		j := i
+		for j < len(ln) && !isChunkSep(ln[j]) {
+			j++
+		}
+		b.WriteString(maskChunk(ln[i:j]))
+		k := j
+		for k < len(ln) && isChunkSep(ln[k]) {
+			k++
+		}
+		b.WriteString(ln[j:k])
+		i = k
+	}
+	return b.String()
+}
+
+func isChunkSep(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '<' || c == '>' || c == '"'
+}
+
+func maskChunk(c string) string {
+	at := strings.LastIndexByte(c, '@')
+	if at <= 0 {
+		return c
+	}
+	user := c[:at]
+	start := 0
+	if m := schemeStart.FindStringSubmatch(user); m != nil && urlSchemes[strings.ToLower(m[1])] {
+		start = len(m[0])
+	}
+	colon := strings.IndexByte(user[start:], ':')
+	if colon < 0 || user[start+colon+1:] == "" || user[start+colon+1:] == maskedValue {
+		return c
+	}
+	return c[:start+colon+1] + maskedValue + c[at:]
+}
+
+// pairValue limpa o valor de um par; valor entre aspas (duplas ou simples) mantem as aspas. Valor entre aspas que
+// tem um par dentro (erro="dial tcp: secret=X") passa de novo por textLine.
+func (s *Sanitizer) pairValue(key, val string) string {
+	var q byte
+	if len(val) >= 2 && (val[0] == '"' || val[0] == '\'') && val[len(val)-1] == val[0] {
+		q, val = val[0], val[1:len(val)-1]
+	}
+	var out string
+	switch {
+	case s.opt.Anonymize && strings.EqualFold(key, "name") && strings.TrimSpace(val) != "": // "name" de ramal/peer no JSON do painel
+		out = s.replaceIPs(s.name(val))
+	case q != 0 && textPair.MatchString(val) && !safeKey.MatchString(key):
+		out = s.textLine(val)
+	default:
+		out = strings.TrimPrefix(s.value(key, " "+val, frameCtx{}), " ")
+	}
+	if q != 0 {
+		return string(q) + out + string(q)
+	}
+	return out
+}
+
+// plain e a limpeza padrao de um trecho sem chave.
+func (s *Sanitizer) plain(seg string) string {
+	if !s.opt.Anonymize || seg == "" {
+		return seg
+	}
+	return s.replaceIPs(s.hostsInURIs(s.numbersIn(seg)))
 }

@@ -223,3 +223,50 @@ func TestEnrichFillsNamesAtLimitedRate(t *testing.T) {
 		t.Errorf("cancelamento: %v", err)
 	}
 }
+
+// Regra de produto: o IP exibido e o texto que o Asterisk devolve (ViaAddr, senao o host do Uri);
+// valor fora do padrao IPv4 aparece como texto e NAO interrompe o processamento dos demais ramais.
+func TestIPForaDoPadraoIPv4EExibidoComoTexto(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) string {
+		p := dir + "/" + name
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	var eps, cts string
+	cts = "Response: Success\r\nEventList: start\r\n\r\n"
+	eps = cts
+	for _, e := range []struct{ name, via, uri string }{
+		{"2001", "(null)", "sip:2001@192.0.2.10:5060"},                // texto estranho no ViaAddr
+		{"2002", "", "sip:2002@pbx.exemplo.invalid:5060;ob"},          // sem ViaAddr: host do Uri, que e nome
+		{"2003", "[2001:db8::1]:5060", "sip:2003@[2001:db8::1]:5060"}, // IPv6 nao e tratado: so texto
+		{"2004", "192.0.2.31", "sip:2004@192.0.2.31:5060"},            // normal, depois de tres fora do padrao
+	} {
+		eps += "Event: EndpointList\r\nObjectType: endpoint\r\nObjectName: " + e.name + "\r\nDeviceState: In use\r\n\r\n"
+		cts += "Event: ContactList\r\nObjectType: contact\r\nObjectName: " + e.name + ";@x\r\nEndpoint: " + e.name + "\r\nUri: " + e.uri + "\r\nStatus: Reachable\r\n"
+		if e.via != "" {
+			cts += "ViaAddr: " + e.via + "\r\n"
+		}
+		cts += "\r\n"
+	}
+	tail := "Event: EndpointListComplete\r\nEventList: Complete\r\nListItems: 4\r\n\r\n"
+	got, _ := snapshot(t, map[string]string{
+		"PJSIPShowEndpoints": write("eps.txt", eps+tail),
+		"PJSIPShowContacts":  write("cts.txt", cts+"Event: ContactListComplete\r\nEventList: Complete\r\nListItems: 4\r\n\r\n"),
+		"DeviceStateList":    td + "pjsip/devicestate.txt",
+		"CoreShowChannels":   td + "pjsip/channels.txt",
+	})
+	for _, want := range []string{
+		"RegistrationChanged{Name=2001 State=registered IP=(null)}",
+		"RegistrationChanged{Name=2002 State=registered IP=pbx.exemplo.invalid}",
+		"RegistrationChanged{Name=2003 State=registered IP=2001:db8::1}",
+		"RegistrationChanged{Name=2004 State=registered IP=192.0.2.31}",
+		"DeviceStateChanged{Name=2001 State=inuse}", // o restante do snapshot seguiu
+	} {
+		if !slices.Contains(got, want) {
+			t.Errorf("faltou %q em:\n%v", want, got)
+		}
+	}
+}

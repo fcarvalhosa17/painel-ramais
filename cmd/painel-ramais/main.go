@@ -50,6 +50,10 @@ func (c *cli) run(args []string) int {
 		return c.group(rest)
 	case "capturar":
 		return c.capturar(rest)
+	case "filtrar":
+		return c.filtrar(rest)
+	case "actions":
+		return c.actions(rest)
 	case "session":
 		return c.session(rest)
 	case "token":
@@ -68,7 +72,9 @@ func (c *cli) usage() int {
   painel-ramais group list
   painel-ramais group del <grupo>
   painel-ramais session purge [--all]
-  painel-ramais capturar --minutos N --saida ARQ [--anonimizar] [--digitos-externos 7]
+  painel-ramais capturar --minutos N --saida ARQ|- [--anonimizar] [--digitos-externos 7]
+  painel-ramais filtrar [--anonimizar] [--digitos-externos 7]   (stdin -> stdout; mascara segredos com as regras do capturar)
+  painel-ramais actions                                          (lista fixa de actions AMI, uma por linha)
   painel-ramais token --sub <texto> [--ttl 60s]
   painel-ramais version
 `)

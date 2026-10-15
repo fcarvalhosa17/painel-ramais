@@ -109,3 +109,28 @@ func TestCapturarAnonymizesAndRefusesToOverwrite(t *testing.T) {
 		t.Errorf("sem --saida: %d", code)
 	}
 }
+
+// --saida - escreve a captura no stdout (o instalar.py homologar le pelo pipe) e o resumo no stderr.
+func TestCapturarSaidaStdout(t *testing.T) {
+	sim, err := amisim.New(amisim.Config{Mode: amisim.ModePJSIP, Exts: 10, User: "painel-ramais", Secret: "segredo-do-ami"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sim.Listen("127.0.0.1:0"); err != nil {
+		t.Skipf("sem loopback: %v", err)
+	}
+	defer sim.Close()
+	r := newRig(t)
+	cfg, _ := daemonConfig(t, r, sim.Addr())
+	os.WriteFile(cfg.AMI.SecretFile, []byte("segredo-do-ami\n"), 0o600)
+	if code := r.run("", "capturar", "--minutos", "0.02", "--saida", "-", "--anonimizar", "--config", r.cfg); code != 0 {
+		t.Fatalf("capturar: %d %q", code, r.err.String())
+	}
+	_, frames, end, err := capture.Read(strings.NewReader(r.out.String()))
+	if err != nil || end == nil || len(frames) < 30 {
+		t.Fatalf("stdout nao e uma captura valida: err=%v end=%v frames=%d", err, end, len(frames))
+	}
+	if strings.Contains(r.out.String(), "segredo-do-ami") || !strings.Contains(r.err.String(), "quadros gravados") {
+		t.Errorf("segredo no stdout ou resumo fora do stderr: %q", r.err.String())
+	}
+}

@@ -144,3 +144,46 @@ func TestEnrichCompletaNomeEUserAgent(t *testing.T) {
 		t.Fatalf("perdeu dados no PeerStatus: %+v", r)
 	}
 }
+
+// Regra de produto: o IP exibido e o IPaddress que o Asterisk devolve; valor fora do padrao IPv4
+// aparece como texto e NAO interrompe o processamento dos demais peers.
+func TestIPForaDoPadraoIPv4EExibidoComoTexto(t *testing.T) {
+	body := "Response: Success\r\nEventList: start\r\n\r\n"
+	for _, p := range []struct{ name, ip string }{
+		{"2001", "(Unspecified)"}, {"2002", "pbx.exemplo.invalid"}, {"2003", "2001:db8::1"}, {"2004", "192.0.2.31"},
+	} {
+		body += "Event: PeerEntry\r\nChanneltype: SIP\r\nObjectName: " + p.name + "\r\nIPaddress: " + p.ip + "\r\nStatus: OK (12 ms)\r\n\r\n"
+	}
+	body += "Event: PeerlistComplete\r\nEventList: Complete\r\nListItems: 4\r\n\r\n"
+	f := t.TempDir() + "/peers.txt"
+	if err := os.WriteFile(f, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, ctx := connect(t, map[string]string{
+		"SIPpeers": f, "DeviceStateList": td + "sip/devicestate.txt", "CoreShowChannels": td + "sip/channels.txt",
+	})
+	var got []string
+	a := New(func(ev model.Event) { got = append(got, amitest.Render(ev)) })
+	if err := a.Snapshot(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	has := func(want string) bool {
+		for _, g := range got {
+			if g == want {
+				return true
+			}
+		}
+		return false
+	}
+	for _, want := range []string{
+		"RegistrationChanged{Name=2001 State=registered IP=(Unspecified) LatencyMs=12}",
+		"RegistrationChanged{Name=2002 State=registered IP=pbx.exemplo.invalid LatencyMs=12}",
+		"RegistrationChanged{Name=2003 State=registered IP=2001:db8::1 LatencyMs=12}",
+		"RegistrationChanged{Name=2004 State=registered IP=192.0.2.31 LatencyMs=12}",
+		"DeviceStateChanged{Name=2001 State=inuse}", // o restante do snapshot seguiu
+	} {
+		if !has(want) {
+			t.Errorf("faltou %q em:\n%v", want, got)
+		}
+	}
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -29,7 +30,7 @@ const (
 func (c *cli) capturar(args []string) int {
 	fs, cfgPath := c.flagSet("capturar")
 	minutes := fs.Float64("minutos", 0, "duracao da captura ao vivo, em minutos (obrigatorio)")
-	out := fs.String("saida", "", "arquivo de saida (obrigatorio; nao pode existir)")
+	out := fs.String("saida", "", "arquivo de saida (obrigatorio; nao pode existir; - = stdout)")
 	anon := fs.Bool("anonimizar", false, "troca numeros externos, nomes e IPs por valores ficticios (LGPD)")
 	digits := fs.Int("digitos-externos", 7, "tamanho minimo de um numero externo ao anonimizar")
 	pos, err := parseArgs(fs, args)
@@ -46,15 +47,22 @@ func (c *cli) capturar(args []string) int {
 		c.errf("%v", err)
 		return exitEnv
 	}
-	f, err := os.OpenFile(*out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // tem dados de chamadas
-	if err != nil {
-		c.errf("arquivo de saida: %v", err)
-		return exitEnv
+	var dst io.Writer = c.stdout // --saida - : o chamador (instalar.py homologar, como root) recebe pelo pipe, sem ler arquivo do usuario do servico
+	summary := c.stdout
+	if *out == "-" {
+		summary = c.stderr
+	} else {
+		f, err := os.OpenFile(*out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // tem dados de chamadas
+		if err != nil {
+			c.errf("arquivo de saida: %v", err)
+			return exitEnv
+		}
+		defer f.Close()
+		dst = f
 	}
-	defer f.Close()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	cw, err := capture.NewWriter(f, capture.NewSanitizer(capture.SanitizeOptions{Anonymize: *anon, ExternalDigits: *digits}), map[string]any{
+	cw, err := capture.NewWriter(dst, capture.NewSanitizer(capture.SanitizeOptions{Anonymize: *anon, ExternalDigits: *digits}), map[string]any{
 		"versao_daemon": version, "inicio": time.Now().UTC().Format(time.RFC3339), "minutos": *minutes,
 		"anonimizado": *anon, "digitos_externos": *digits,
 	})
@@ -68,7 +76,7 @@ func (c *cli) capturar(args []string) int {
 		c.errf("captura: %v", err)
 		return exitEnv
 	}
-	fmt.Fprintf(c.stdout, "%d quadros gravados em %s (revise o arquivo antes de compartilhar)\n", cw.Frames(), *out)
+	fmt.Fprintf(summary, "%d quadros gravados em %s (revise o arquivo antes de compartilhar)\n", cw.Frames(), *out)
 	return exitOK
 }
 
