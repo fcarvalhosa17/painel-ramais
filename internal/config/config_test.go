@@ -33,7 +33,7 @@ func TestInvalid(t *testing.T) {
 		"listen publico":         "listen: 0.0.0.0:8790\n",
 		"listen nome":            "listen: localhost:8790\n",
 		"listen sem porta":       "listen: 127.0.0.1\n",
-		"ami nao loopback":       "ami:\n  address: 10.0.0.1:5038\n",
+		"ami nao loopback":       "ami:\n  address: 192.0.2.1:5038\n",
 		"technology":             "technology: iax\n",
 		"log_level":              "log_level: trace\n",
 		"regex":                  "extension_pattern: '('\n",

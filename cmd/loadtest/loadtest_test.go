@@ -93,7 +93,7 @@ func TestTrackerPeerAmbiguoNaoPesa(t *testing.T) {
 
 func TestCompareView(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	want := View{Number: "1", Registration: "registered", IP: "10.0.0.1", DeviceState: "inuse",
+	want := View{Number: "1", Registration: "registered", IP: "192.0.2.1", DeviceState: "inuse",
 		Calls: []amisim.CallView{{ID: "9.1", Direction: "inbound", State: "talking", StartedAt: now, AnsweredAt: now, Peer: amisim.PeerView{Kind: "external", Number: "119"}}}}
 	got := want
 	got.Technology, got.Group = "pjsip", "Sem grupo"

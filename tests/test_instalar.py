@@ -332,7 +332,7 @@ class Fluxos(unittest.TestCase):
                 mock.patch.object(instalar, "definir_tecnologia", return_value=False), \
                 mock.patch.object(instalar, "esperar_health", return_value=health), \
                 mock.patch.object(instalar, "testar_apache", return_value=(True, "")), \
-                mock.patch.object(instalar, "endereco_servidor", return_value="10.0.0.5"), \
+                mock.patch.object(instalar, "endereco_servidor", return_value="192.0.2.5"), \
                 mock.patch.object(instalar, "ler_porta", return_value=8790):
             rc = instalar.cmd_instalar(args(sim=True))
         return rc, fr.chamadas

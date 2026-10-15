@@ -8,7 +8,7 @@ ObjectName: 2001
 MaxContacts: 5
 TotalContacts: 1
 ContactsRegistered: 1
-Contacts: 2001/sip:2001@10.0.5.23:5060
+Contacts: 2001/sip:2001@192.0.2.23:5060
 
 Event: AorList
 ObjectType: aor

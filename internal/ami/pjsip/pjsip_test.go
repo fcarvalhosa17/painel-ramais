@@ -61,13 +61,13 @@ func TestSnapshotComContatos(t *testing.T) {
 	})
 	want := []string{
 		"EndpointSeen{Name=2001 CallerIDName=Maria Souza Technology=pjsip}",
-		"RegistrationChanged{Name=2001 State=registered IP=10.0.5.23 UserAgent=Yealink SIP-T46U 108.86.0.20 LatencyMs=12}",
+		"RegistrationChanged{Name=2001 State=registered IP=192.0.2.23 UserAgent=Yealink SIP-T46U 108.86.0.20 LatencyMs=12}",
 		"EndpointSeen{Name=2002 CallerIDName=João Lima Technology=pjsip}",
-		"RegistrationChanged{Name=2002 State=unreachable IP=10.0.5.24 UserAgent=Grandstream GXP1625}",
+		"RegistrationChanged{Name=2002 State=unreachable IP=192.0.2.24 UserAgent=Grandstream GXP1625}",
 		"EndpointSeen{Name=2003 Technology=pjsip}",
 		"RegistrationChanged{Name=2003 State=unregistered}",
 		"EndpointSeen{Name=2004 CallerIDName=Dois Contatos Technology=pjsip}",
-		"RegistrationChanged{Name=2004 State=registered IP=10.0.5.31 UserAgent=Softphone B}",
+		"RegistrationChanged{Name=2004 State=registered IP=192.0.2.31 UserAgent=Softphone B}",
 		"EndpointSeen{Name=trunk-acme Technology=pjsip}",
 		"RegistrationChanged{Name=trunk-acme State=unregistered}",
 		"DeviceStateChanged{Name=2001 State=inuse}",
@@ -96,7 +96,7 @@ func TestSnapshotFallbackAors(t *testing.T) {
 	if !slices.Contains(actions, "PJSIPShowAors") {
 		t.Fatalf("não usou o fallback: %v", actions)
 	}
-	if got[1] != "RegistrationChanged{Name=2001 State=registered IP=10.0.5.23}" {
+	if got[1] != "RegistrationChanged{Name=2001 State=registered IP=192.0.2.23}" {
 		t.Errorf("2001 pelo AOR: %s", got[1])
 	}
 	if got[5] != "RegistrationChanged{Name=2003 State=unregistered}" {
@@ -129,9 +129,9 @@ func TestEventosDeRegistroAoVivo(t *testing.T) {
 	a := New(func(model.Event) {})
 	got := liveEvents(t, a, td+"pjsip/live_registration.txt")
 	want := []string{
-		"RegistrationChanged{Name=2005 State=registered IP=10.0.5.50 UserAgent=Fanvil X3}",
-		"RegistrationChanged{Name=2005 State=registered IP=10.0.5.50 UserAgent=Fanvil X3 LatencyMs=8}",
-		"RegistrationChanged{Name=2005 State=unreachable IP=10.0.5.50 UserAgent=Fanvil X3}",
+		"RegistrationChanged{Name=2005 State=registered IP=192.0.2.50 UserAgent=Fanvil X3}",
+		"RegistrationChanged{Name=2005 State=registered IP=192.0.2.50 UserAgent=Fanvil X3 LatencyMs=8}",
+		"RegistrationChanged{Name=2005 State=unreachable IP=192.0.2.50 UserAgent=Fanvil X3}",
 		"RegistrationChanged{Name=2005 State=unregistered}",
 		"DeviceStateChanged{Name=2005 State=ringing}",
 	}
@@ -143,7 +143,7 @@ func TestVariosContatosAgregam(t *testing.T) {
 	a := New(func(model.Event) {})
 	status := func(uri, st string) model.RegistrationChanged {
 		evs := a.Translate(ami.NewMessage("Event", "ContactStatus", "URI", uri, "ContactStatus", st,
-			"EndpointName", "2010", "ViaAddress", "10.0.0.1:5060"))
+			"EndpointName", "2010", "ViaAddress", "192.0.2.1:5060"))
 		return evs[0].(model.RegistrationChanged)
 	}
 	steps := []struct {

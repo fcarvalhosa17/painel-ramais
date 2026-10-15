@@ -1,8 +1,10 @@
-# Equivalente ao Makefile. Uso: .\build.ps1 [build|test|rpm|bundle|all] [-Version 0.1.1]
+# Equivalente ao Makefile. Uso: .\build.ps1 [build|test|rpm|bundle|all|release] [-Version 0.1.1] [-DryRun]
+# release: testa, gera RPM + tar.gz + dist/SHA256SUMS, cria a tag v<Version> e publica a Release via gh. Com -DryRun nao cria tag nem Release.
 # Ferramentas: go e nfpm do PATH ou de .tools\ (go\bin\go.exe, nfpm.exe, nfpm\nfpm.exe).
 param(
-    [ValidateSet('build', 'test', 'rpm', 'bundle', 'all')][string]$Target = 'build',
-    [string]$Version = '0.1.1'  # fonte unica: vai para o binario (-X main.version), o RPM (VERSION) e o bundle
+    [ValidateSet('build', 'test', 'rpm', 'bundle', 'all', 'release')][string]$Target = 'build',
+    [string]$Version = '0.1.1',  # fonte unica: vai para o binario (-X main.version), o RPM (VERSION) e o bundle
+    [switch]$DryRun              # so vale em release: roda as conferencias e o build, sem tag nem Release
 )
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
@@ -60,6 +62,58 @@ function Bundle {
     Invoke-Checked $py.Source @('-I', 'tools/bundle.py', $Version)
 }
 
+function Get-Sha256([string]$path) {  # .NET direto: Get-FileHash falha quando o PSModulePath esta poluido
+    $sha = [Security.Cryptography.SHA256]::Create()
+    $fs = [IO.File]::OpenRead((Resolve-Path $path).Path)
+    try { return ([BitConverter]::ToString($sha.ComputeHash($fs)) -replace '-', '').ToLower() } finally { $fs.Dispose(); $sha.Dispose() }
+}
+
+function Release {
+    $tag = "v$Version"
+    $falhas = New-Object System.Collections.Generic.List[string]
+    # Em release real a primeira falha aborta; em -DryRun todas sao listadas e o exit final e 1.
+    function Falha([string]$msg) {
+        if (-not $DryRun) { throw $msg }
+        Write-Host "[FALHA] $msg"; $falhas.Add($msg)
+    }
+    $git = Find-Tool 'git' @() 'Instale o Git.'
+    $gh = Find-Tool 'gh' @() 'Instale o GitHub CLI (cli.github.com).'
+
+    if (git status --porcelain) { Falha 'arvore de trabalho suja (commit ou descarte antes de publicar).' } else { Write-Host '[ok] arvore limpa' }
+    & $git fetch --tags --quiet
+    if ($LASTEXITCODE -ne 0) { Falha 'git fetch falhou.' }
+    if (git tag -l $tag) { Falha "tag $tag ja existe localmente." }
+    elseif (git ls-remote --tags origin "refs/tags/$tag") { Falha "tag $tag ja existe no origin." }
+    else { Write-Host "[ok] tag $tag livre" }
+    if (git rev-list 'origin/main..HEAD') { Falha 'HEAD tem commits que nao estao em origin/main (faca push antes).' } else { Write-Host '[ok] HEAD publicado em origin/main' }
+    & $gh auth status *> $null
+    if ($LASTEXITCODE -ne 0) { Falha 'gh nao autenticado (rode: gh auth login).' } else { Write-Host '[ok] gh autenticado' }
+
+    Test; Rpm; Bundle
+
+    $rpm = "painel-ramais-$Version-1.x86_64.rpm"
+    $tgz = "painel-ramais-$Version.tar.gz"
+    $linhas = foreach ($f in @($rpm, $tgz)) {
+        $path = Join-Path 'dist' $f
+        if (-not (Test-Path $path)) { throw "artefato ausente: $path" }
+        '{0}  {1}' -f (Get-Sha256 $path), $f
+    }
+    [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'dist\SHA256SUMS'), (($linhas -join "`n") + "`n"), (New-Object Text.UTF8Encoding $false))
+    Write-Host 'SHA256SUMS:'; $linhas | ForEach-Object { Write-Host "  $_" }
+
+    $anexos = @("dist/$rpm", "dist/$tgz", 'dist/SHA256SUMS')
+    if ($DryRun) {
+        Write-Host "DRY-RUN: nada criado. Faria: git tag -a $tag; git push origin $tag; gh release create $tag $($anexos -join ' ')"
+        if ($falhas.Count -gt 0) { throw "dry-run: $($falhas.Count) conferencia(s) falhariam no release real." }
+        return
+    }
+    Invoke-Checked $git @('tag', '-a', $tag, '-m', "Painel de Ramais $Version")
+    Invoke-Checked $git @('push', 'origin', $tag)
+    Invoke-Checked $gh (@('release', 'create', $tag, '--verify-tag', '--title', "Painel de Ramais $Version", '--notes', "Painel de Ramais $Version. Confira os arquivos com: sha256sum -c SHA256SUMS") + $anexos)
+    Write-Host "OK: Release $tag publicada."
+}
+
+
 try {
     switch ($Target) {
         'build' { Build }
@@ -67,6 +121,7 @@ try {
         'rpm'   { Rpm }
         'bundle' { Rpm; Bundle }
         'all'   { Test; Rpm; Bundle }
+        'release' { Release }
     }
 }
 catch {

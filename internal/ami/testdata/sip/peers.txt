@@ -6,7 +6,7 @@ Event: PeerEntry
 Channeltype: SIP
 ObjectName: 2001
 ChanObjectType: peer
-IPaddress: 10.0.5.23
+IPaddress: 192.0.2.23
 IPport: 5060
 Dynamic: yes
 Status: OK (12 ms)
@@ -15,7 +15,7 @@ Event: PeerEntry
 Channeltype: SIP
 ObjectName: 2002
 ChanObjectType: peer
-IPaddress: 10.0.5.24
+IPaddress: 192.0.2.24
 IPport: 5060
 Dynamic: yes
 Status: UNREACHABLE
@@ -33,7 +33,7 @@ Event: PeerEntry
 Channeltype: SIP
 ObjectName: 2004
 ChanObjectType: peer
-IPaddress: 10.0.5.30
+IPaddress: 192.0.2.30
 IPport: 5060
 Dynamic: yes
 Status: LAGGED (850 ms)
@@ -42,7 +42,7 @@ Event: PeerEntry
 Channeltype: SIP
 ObjectName: trunk-acme
 ChanObjectType: peer
-IPaddress: 200.1.2.3
+IPaddress: 203.0.113.3
 IPport: 5060
 Dynamic: no
 Status: OK (30 ms)

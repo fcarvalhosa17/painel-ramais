@@ -59,15 +59,15 @@ func TestSnapshotSIPpeers(t *testing.T) {
 	}
 	want := []string{
 		"EndpointSeen{Name=2001 Technology=sip}",
-		"RegistrationChanged{Name=2001 State=registered IP=10.0.5.23 LatencyMs=12}",
+		"RegistrationChanged{Name=2001 State=registered IP=192.0.2.23 LatencyMs=12}",
 		"EndpointSeen{Name=2002 Technology=sip}",
-		"RegistrationChanged{Name=2002 State=unreachable IP=10.0.5.24}",
+		"RegistrationChanged{Name=2002 State=unreachable IP=192.0.2.24}",
 		"EndpointSeen{Name=2003 Technology=sip}",
 		"RegistrationChanged{Name=2003 State=unregistered}",
 		"EndpointSeen{Name=2004 Technology=sip}",
-		"RegistrationChanged{Name=2004 State=registered IP=10.0.5.30 LatencyMs=850}",
+		"RegistrationChanged{Name=2004 State=registered IP=192.0.2.30 LatencyMs=850}",
 		"EndpointSeen{Name=trunk-acme Technology=sip}",
-		"RegistrationChanged{Name=trunk-acme State=registered IP=200.1.2.3 LatencyMs=30}",
+		"RegistrationChanged{Name=trunk-acme State=registered IP=203.0.113.3 LatencyMs=30}",
 		"DeviceStateChanged{Name=2001 State=inuse}",
 		"DeviceStateChanged{Name=2002 State=unavailable}",
 		"DeviceStateChanged{Name=2004 State=not_inuse}",
@@ -100,10 +100,10 @@ func TestEventosDeRegistroAoVivo(t *testing.T) {
 		}
 	}
 	want := []string{
-		"RegistrationChanged{Name=2005 State=registered IP=10.0.5.50 UserAgent=Fanvil X3}",
-		"RegistrationChanged{Name=2005 State=registered IP=10.0.5.50 UserAgent=Fanvil X3 LatencyMs=9}",
-		"RegistrationChanged{Name=2005 State=registered IP=10.0.5.50 UserAgent=Fanvil X3 LatencyMs=700}",
-		"RegistrationChanged{Name=2005 State=unreachable IP=10.0.5.50 UserAgent=Fanvil X3}",
+		"RegistrationChanged{Name=2005 State=registered IP=192.0.2.50 UserAgent=Fanvil X3}",
+		"RegistrationChanged{Name=2005 State=registered IP=192.0.2.50 UserAgent=Fanvil X3 LatencyMs=9}",
+		"RegistrationChanged{Name=2005 State=registered IP=192.0.2.50 UserAgent=Fanvil X3 LatencyMs=700}",
+		"RegistrationChanged{Name=2005 State=unreachable IP=192.0.2.50 UserAgent=Fanvil X3}",
 		"RegistrationChanged{Name=2005 State=unregistered}",
 		"RegistrationChanged{Name=2006 State=unregistered}",
 		"DeviceStateChanged{Name=2005 State=onhold}",
@@ -127,7 +127,7 @@ func TestEnrichCompletaNomeEUserAgent(t *testing.T) {
 	})
 	var got []string
 	a := New(func(ev model.Event) { got = append(got, amitest.Render(ev)) })
-	a.last["2001"] = model.RegistrationChanged{Name: "2001", State: model.RegRegistered, IP: "10.0.5.23"}
+	a.last["2001"] = model.RegistrationChanged{Name: "2001", State: model.RegRegistered, IP: "192.0.2.23"}
 	a.last["trunk-acme"] = model.RegistrationChanged{Name: "trunk-acme"}
 	isExt := func(n string) bool { return n != "trunk-acme" }
 	if err := a.Enrich(ctx, c, 1000, isExt); err != nil {
@@ -135,12 +135,12 @@ func TestEnrichCompletaNomeEUserAgent(t *testing.T) {
 	}
 	want := []string{
 		"EndpointSeen{Name=2001 CallerIDName=Maria Souza Technology=sip}",
-		"RegistrationChanged{Name=2001 State=registered IP=10.0.5.23 UserAgent=Yealink SIP-T46U 108.86.0.20}",
+		"RegistrationChanged{Name=2001 State=registered IP=192.0.2.23 UserAgent=Yealink SIP-T46U 108.86.0.20}",
 	}
 	diff(t, got, want)
 	// e o PeerStatus seguinte preserva o user agent
 	evs := a.Translate(ami.NewMessage("Event", "PeerStatus", "Peer", "SIP/2001", "PeerStatus", "Reachable", "Time", "5"))
-	if r := evs[0].(model.RegistrationChanged); r.UserAgent == "" || r.IP != "10.0.5.23" {
+	if r := evs[0].(model.RegistrationChanged); r.UserAgent == "" || r.IP != "192.0.2.23" {
 		t.Fatalf("perdeu dados no PeerStatus: %+v", r)
 	}
 }

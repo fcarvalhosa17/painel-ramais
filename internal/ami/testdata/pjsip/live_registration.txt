@@ -1,36 +1,36 @@
 Event: ContactStatus
 Privilege: system,all
-URI: sip:2005@10.0.5.50:5060
+URI: sip:2005@192.0.2.50:5060
 ContactStatus: Created
 AOR: 2005
 EndpointName: 2005
 RoundtripUsec: 0
 UserAgent: Fanvil X3
-ViaAddress: 10.0.5.50:5060
+ViaAddress: 192.0.2.50:5060
 
 Event: ContactStatus
-URI: sip:2005@10.0.5.50:5060
+URI: sip:2005@192.0.2.50:5060
 ContactStatus: Reachable
 EndpointName: 2005
 RoundtripUsec: 8400
 UserAgent: Fanvil X3
-ViaAddress: 10.0.5.50:5060
+ViaAddress: 192.0.2.50:5060
 
 Event: ContactStatus
-URI: sip:2005@10.0.5.50:5060
+URI: sip:2005@192.0.2.50:5060
 ContactStatus: Unreachable
 EndpointName: 2005
 RoundtripUsec: 0
 UserAgent: Fanvil X3
-ViaAddress: 10.0.5.50:5060
+ViaAddress: 192.0.2.50:5060
 
 Event: ContactStatus
-URI: sip:2005@10.0.5.50:5060
+URI: sip:2005@192.0.2.50:5060
 ContactStatus: Removed
 EndpointName: 2005
 RoundtripUsec: 0
 UserAgent: Fanvil X3
-ViaAddress: 10.0.5.50:5060
+ViaAddress: 192.0.2.50:5060
 
 Event: DeviceStateChange
 Device: PJSIP/2005

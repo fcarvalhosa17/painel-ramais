@@ -563,7 +563,7 @@ func TestHealthAndDebugAreLocalOnly(t *testing.T) {
 
 	for _, p := range []string{"/api/health", "/debug"} {
 		for _, h := range []string{"X-Forwarded-For", "X-Forwarded-Host"} {
-			e.expect(e.do("GET", p, "", map[string]string{h: "10.0.0.9"}), localOnlyStatus, "not_found")
+			e.expect(e.do("GET", p, "", map[string]string{h: "192.0.2.9"}), localOnlyStatus, "not_found")
 		}
 	}
 	b := e.expect(e.do("GET", "/api/health", "", nil), 200, "")
@@ -670,7 +670,7 @@ func TestWSDeltaIsCoalescedFromRealState(t *testing.T) {
 	c, _, _ := dialWS(t, e, cookie, nil)
 	hello(t, c, snap.epoch, snap.version)
 	for _, st := range []model.Registration{model.RegRegistered, model.RegUnreachable, model.RegUnregistered, model.RegRegistered} {
-		ev <- model.RegistrationChanged{At: at, Name: "2001", State: st, IP: "10.0.0.1"}
+		ev <- model.RegistrationChanged{At: at, Name: "2001", State: st, IP: "192.0.2.1"}
 	}
 	ev <- model.RegistrationChanged{At: at, Name: "2002", State: model.RegRegistered}
 	f := readFrame(t, c)

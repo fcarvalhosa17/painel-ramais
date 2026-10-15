@@ -9,7 +9,7 @@ dist/
 *.db
 *.db-shm
 *.db-wal
-*.sqlite
+*.sqlite*
 
 
 # segredos e credenciais (nunca versionar)
@@ -19,8 +19,15 @@ ami-secret
 *senha*.txt
 respostas.ini
 .env
+.env.*
+!.env.example
 *.pem
 *.key
+*.p12
+*.pfx
+
+# capturas reais da homologacao (podem conter dados do cliente)
+docs/homologacao/capturas/
 
 # editores / SO
 .vscode/

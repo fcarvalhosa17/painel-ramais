@@ -1,3 +1,5 @@
+Copyright (c) 2026 Fabio Carvalhosa Sanchez. Todos os direitos reservados.
+
 # Painel de Ramais (Fase 1: coletor, empacotamento e instalador)
 
 Painel **somente leitura** que substitui a visão do FOP em servidores **Issabel 5** (Rocky Linux 8 ou 9). Esta fase entrega o
@@ -6,6 +8,21 @@ Fase 2; o link no menu do Issabel é a Fase 3. O painel não executa nenhuma aç
 
 Documentos de referência: `docs/CONTRATOS.md` (contratos), `docs/adr/` (decisões), `docs/PROMPT-FASE-1.md` e
 `docs/ADENDO-FASE-1-INSTALADOR.md` (especificação). **Este README resume; em caso de divergência vale o CONTRATOS.**
+
+## Download e verificação
+
+Os artefatos de cada versão ficam na página de Releases do GitHub. Baixe os três arquivos e confira o SHA256 antes de instalar:
+
+```sh
+VERSAO=0.1.1   # troque pela versao desejada
+BASE=https://github.com/fcarvalhosa17/painel-ramais/releases/download/v${VERSAO}
+curl -fLO ${BASE}/painel-ramais-${VERSAO}-1.x86_64.rpm
+curl -fLO ${BASE}/painel-ramais-${VERSAO}.tar.gz
+curl -fLO ${BASE}/SHA256SUMS
+sha256sum -c SHA256SUMS          # todas as linhas devem terminar em ": OK"
+```
+
+Se alguma linha falhar, não instale: baixe de novo. Instalação a partir do `.tar.gz`: seção 1 e `packaging/LEIAME-INSTALACAO.md`.
 
 ## 1. Instalação em campo (recomendado)
 
@@ -157,7 +174,7 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
         "technology": "pjsip",
         "group": "Suporte",
         "registration": "registered",
-        "ip": "10.0.5.23",
+        "ip": "192.0.2.23",
         "user_agent": "Yealink SIP-T46U 108.86.0.20",
         "latency_ms": 12,
         "device_state": "inuse",
@@ -178,7 +195,7 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
         "technology": "pjsip",
         "group": "Suporte",
         "registration": "unreachable",
-        "ip": "10.0.5.24",
+        "ip": "192.0.2.24",
         "user_agent": null,
         "latency_ms": null,
         "device_state": "unavailable",
@@ -222,7 +239,7 @@ Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes 
       "technology": "pjsip",
       "group": "Suporte",
       "registration": "registered",
-      "ip": "10.0.5.24",
+      "ip": "192.0.2.24",
       "user_agent": "Grandstream GXP1625 1.0.11.23",
       "latency_ms": 9,
       "device_state": "ringing",

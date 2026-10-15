@@ -18,7 +18,7 @@ func CallerName(cid string) string {
 	return cid
 }
 
-// HostOnly tira a porta de "10.0.5.23:5060" (sem porta, devolve o próprio texto).
+// HostOnly tira a porta de "192.0.2.23:5060" (sem porta, devolve o próprio texto).
 func HostOnly(s string) string {
 	if h, _, err := net.SplitHostPort(s); err == nil {
 		return h

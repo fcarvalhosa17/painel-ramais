@@ -212,7 +212,7 @@ func parseContact(m ami.Message, status, via string) contact {
 	return c
 }
 
-// uriHost extrai o host de "sip:2001@10.0.5.23:5060;ob".
+// uriHost extrai o host de "sip:2001@192.0.2.23:5060;ob".
 func uriHost(uri string) string {
 	_, rest, ok := strings.Cut(uri, ":")
 	if !ok {

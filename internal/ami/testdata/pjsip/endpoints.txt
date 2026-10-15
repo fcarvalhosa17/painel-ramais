@@ -8,7 +8,7 @@ ObjectName: 2001
 Transport: transport-udp
 Aor: 2001
 Auths: 2001
-Contacts: 2001/sip:2001@10.0.5.23:5060
+Contacts: 2001/sip:2001@192.0.2.23:5060
 DeviceState: In use
 ActiveChannels: PJSIP/2001-00000010
 Callerid: "Maria Souza" <2001>
@@ -19,7 +19,7 @@ ObjectName: 2002
 Transport: transport-udp
 Aor: 2002
 Auths: 2002
-Contacts: 2002/sip:2002@10.0.5.24:5060
+Contacts: 2002/sip:2002@192.0.2.24:5060
 DeviceState: Unavailable
 Callerid: "João Lima" <2002>
 

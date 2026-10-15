@@ -1,15 +1,33 @@
 # Painel de Ramais - instalacao em campo
 
-Pacote offline: nada e baixado da internet no servidor. Requisitos: Issabel 5 em Rocky Linux 8 ou 9,
+O instalador e offline: nada e baixado da internet durante a instalacao (o download do pacote e o passo 1). Requisitos: Issabel 5 em Rocky Linux 8 ou 9,
 acesso root. O Python 3 nao precisa estar instalado (no Rocky 8 minimo o instalador usa o platform-python).
 
 ## Passo a passo (um servidor)
 
-1. Copie o pacote e extraia:
+1. Obtenha o pacote. Em qualquer caso, confira o SHA256 ANTES de rodar o instalador.
 
-       scp painel-ramais-VERSAO.tar.gz root@SERVIDOR:/root/
-       ssh root@SERVIDOR
-       tar xzf painel-ramais-VERSAO.tar.gz && cd painel-ramais-VERSAO
+   **(a) PBX com internet** (baixar direto no servidor, como root):
+
+       VERSAO=0.1.1   # troque pela versao desejada
+       BASE=https://github.com/fcarvalhosa17/painel-ramais/releases/download/v${VERSAO}
+       curl -fLO ${BASE}/painel-ramais-${VERSAO}.tar.gz
+       curl -fLO ${BASE}/SHA256SUMS
+       sha256sum -c SHA256SUMS --ignore-missing    # deve mostrar: painel-ramais-${VERSAO}.tar.gz: OK
+
+   **(b) PBX sem internet** (baixar no computador e copiar com scp):
+
+       # no computador, com VERSAO e BASE definidos como acima
+       curl -fLO ${BASE}/painel-ramais-${VERSAO}.tar.gz
+       curl -fLO ${BASE}/SHA256SUMS
+       sha256sum -c SHA256SUMS --ignore-missing    # conferir no computador
+       scp painel-ramais-${VERSAO}.tar.gz SHA256SUMS root@SERVIDOR:/root/
+       # no servidor: confira de novo, a copia tambem pode corromper
+       ssh root@SERVIDOR 'cd /root && sha256sum -c SHA256SUMS --ignore-missing'
+
+   Se a linha nao terminar em OK, pare e baixe de novo. Depois extraia (no servidor, em /root):
+
+       tar xzf painel-ramais-${VERSAO}.tar.gz && cd painel-ramais-${VERSAO}
 
 2. Verifique o ambiente (nao altera nada; relatorio em /var/log/painel-ramais/):
 

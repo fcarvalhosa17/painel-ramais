@@ -41,8 +41,8 @@ func (h *harness) online() {
 		model.EndpointSeen{At: at, Name: "2001", CallerIDName: "Maria", Technology: model.TechPJSIP},
 		model.EndpointSeen{At: at, Name: "2002", CallerIDName: "Joao", Technology: model.TechPJSIP},
 		model.EndpointSeen{At: at, Name: "operadora", Technology: model.TechPJSIP},
-		model.RegistrationChanged{At: at, Name: "2001", State: model.RegRegistered, IP: "10.0.0.1"},
-		model.RegistrationChanged{At: at, Name: "2002", State: model.RegRegistered, IP: "10.0.0.2"},
+		model.RegistrationChanged{At: at, Name: "2001", State: model.RegRegistered, IP: "192.0.2.1"},
+		model.RegistrationChanged{At: at, Name: "2002", State: model.RegRegistered, IP: "192.0.2.2"},
 		model.SyncFinished{At: at},
 	)
 	h.s.Flush() // consome o Reset
@@ -309,7 +309,7 @@ func TestBatchCoalescesAndVersions(t *testing.T) {
 	for _, st := range []model.Registration{model.RegUnreachable, model.RegUnregistered, model.RegRegistered, model.RegUnregistered} {
 		h.feed(model.RegistrationChanged{At: at, Name: "2001", State: st})
 	}
-	h.feed(model.RegistrationChanged{At: at, Name: "2002", State: model.RegRegistered, IP: "10.0.0.2"}) // sem mudanca
+	h.feed(model.RegistrationChanged{At: at, Name: "2002", State: model.RegRegistered, IP: "192.0.2.2"}) // sem mudanca
 	b, ok := h.s.Flush().(model.Batch)
 	if !ok {
 		t.Fatal("esperava Batch")
@@ -392,7 +392,7 @@ func TestBurstOf3000Unregistrations(t *testing.T) {
 	h.feed(model.SyncStarted{At: at, Technology: model.TechPJSIP, Reason: model.SyncConnect})
 	for i := 0; i < 10000; i++ {
 		n := strconv.Itoa(2000 + i)
-		h.feed(model.EndpointSeen{At: at, Name: n}, model.RegistrationChanged{At: at, Name: n, State: model.RegRegistered, IP: "10.0.0.1"})
+		h.feed(model.EndpointSeen{At: at, Name: n}, model.RegistrationChanged{At: at, Name: n, State: model.RegRegistered, IP: "192.0.2.1"})
 	}
 	h.feed(model.SyncFinished{At: at})
 	if r, ok := h.s.Flush().(model.Reset); !ok || len(r.Extensions) != 10000 {

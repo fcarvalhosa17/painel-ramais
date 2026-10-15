@@ -34,10 +34,10 @@ func TestAnonymizeIsConsistentAndKeepsStructure(t *testing.T) {
 	a := string(s.Frame(frame(
 		"Event: Newchannel", "Channel: PJSIP/operadora-00000012", "CallerIDNum: 11987654321", `CallerIDName: ACME LTDA`,
 		"ConnectedLineNum: 2001", "ConnectedLineName: Maria Souza", "Exten: 01133334444", "Uniqueid: 1791901712.4521", "Linkedid: 1791901712.4521",
-		`Callerid: "Maria Souza" <2001>`, "Contacts: 2001/sip:2001@10.0.5.23:5060", "Address: 127.0.0.1", "Duration: 00:01:12")))
-	b := string(s.Frame(frame("Event: Dial", "CallerIDNum: 11987654321", "DestCallerIDName: ACME LTDA", "DialString: PJSIP/01133334444@operadora", "Peer: 10.0.5.23")))
+		`Callerid: "Maria Souza" <2001>`, "Contacts: 2001/sip:2001@192.0.2.23:5060", "Address: 127.0.0.1", "Duration: 00:01:12")))
+	b := string(s.Frame(frame("Event: Dial", "CallerIDNum: 11987654321", "DestCallerIDName: ACME LTDA", "DialString: PJSIP/01133334444@operadora", "Peer: 192.0.2.23")))
 
-	for _, leaked := range []string{"11987654321", "ACME LTDA", "Maria Souza", "01133334444", "10.0.5.23"} {
+	for _, leaked := range []string{"11987654321", "ACME LTDA", "Maria Souza", "01133334444", "192.0.2.23"} {
 		if strings.Contains(a+b, leaked) {
 			t.Errorf("vazou %q:\n%s\n%s", leaked, a, b)
 		}

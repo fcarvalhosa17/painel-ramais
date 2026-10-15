@@ -3,7 +3,7 @@ Privilege: system,all
 ChannelType: SIP
 Peer: SIP/2005
 PeerStatus: Registered
-Address: 10.0.5.50:5060
+Address: 192.0.2.50:5060
 
 Event: PeerStatus
 ChannelType: SIP
