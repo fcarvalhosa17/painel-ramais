@@ -14,12 +14,17 @@ on:
         description: 'Aquecimento depois do preenchimento de nomes, fora da regressao do heap (formato Go)'
         default: '10m'
         required: true
+      rodar_pjsip:
+        description: 'Rodar o job pjsip-5h (desmarcar para validar so o sip-30min)'
+        type: boolean
+        default: true
 permissions:
   contents: read
 jobs:
   # 10 min de aquecimento + 5 h de regime + ~20 min de subida, preenchimento de nomes,
   # matriz, rajada, queda e final = ~330 min. Teto do runner hospedado: 360 min.
   pjsip-5h:
+    if: ${{ inputs.rodar_pjsip }}
     runs-on: ubuntu-24.04
     timeout-minutes: 345
     steps:
