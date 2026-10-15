@@ -106,6 +106,9 @@ func criteria(r *Result) []criterion {
 		}
 	}
 	c = append(c, criterion{"chamadas em andamento restauradas corretamente pelo snapshot apos reconexao (tocando, atendida, transferida)", len(r.Restore) > 0 && rok == len(r.Restore), fmt.Sprintf("%d/%d cenario x rodada", rok, len(r.Restore)), true})
+	if r.Heap.On {
+		add("heap Go pos-GC sem crescimento continuo (HeapInuse e HeapAlloc < 1 MiB/h)", r.Heap.ok(), "%s: %s; n=%d", r.Heap.Verdict, r.Heap.Why, r.Heap.N)
+	}
 	add("log do simulador so com actions da allowlist", r.Actions.OnlyAllow && len(r.Actions.Counts) > 0, "violacoes=%v", r.Actions.Violations)
 	for _, ch := range r.Checks {
 		add(ch.Name, ch.OK, "%s", ch.Detail)
@@ -441,6 +444,18 @@ func writeReport(path string, o opts, rs []*Result, daemonErr string) error {
 	t.row("erro de leitura de processo", rs, func(r *Result) string { return firstStr(r.Mem.Err, "nenhum") })
 	w("%s", t)
 
+	if hasHeap(rs) {
+		w("### Heap Go pos-GC (inclinacao, R2 e veredito)\n\n")
+		w("Amostra de `HeapInuse`/`HeapAlloc` depois de `runtime.GC()`, 1 por minuto, so depois do aquecimento (%s depois do preenchimento de nomes). Regressao linear por minimos quadrados. Limite: inclinacao < %.0f MiB/h nos dois. Perfis `inicio-<modo>.pb.gz` e `fim-<modo>.pb.gz` (GC forcado) e o diff `diff-pprof-<modo>.txt` (`go tool pprof -base inicio fim -top -inuse_space`): se REPROVA, a estrutura que cresce aparece no topo do diff.\n\n", o.warmup, heapMaxSlopeMiBh)
+		t = newTable("Medida", modes)
+		t.row("amostras pos-aquecimento (n)", rs, func(r *Result) string { return fmt.Sprint(r.Heap.N) })
+		t.row("HeapInuse: inclinacao (MiB/h) / R2", rs, func(r *Result) string { return fmt.Sprintf("%.3f / %.3f", r.Heap.InuseSlope, r.Heap.InuseR2) })
+		t.row("HeapAlloc: inclinacao (MiB/h) / R2", rs, func(r *Result) string { return fmt.Sprintf("%.3f / %.3f", r.Heap.AllocSlope, r.Heap.AllocR2) })
+		t.row("**Veredito**", rs, func(r *Result) string { return "**" + r.Heap.Verdict + "** (" + r.Heap.Why + ")" })
+		t.row("erro de medicao", rs, func(r *Result) string { return firstStr(r.Heap.Err, "nenhum") })
+		w("%s", t)
+	}
+
 	w("## /api/health durante o teste\n\n")
 	t = newTable("Medida", modes)
 	t.row("amostras", rs, func(r *Result) string { return fmt.Sprint(r.Health.Samples) })
@@ -456,7 +471,9 @@ func writeReport(path string, o opts, rs []*Result, daemonErr string) error {
 	w("%s", t)
 
 	w("## O que so vale em Linux\n\n")
-	w("- Memoria: o criterio \"sem crescimento continuo\" pede 30 min de carga em Linux; aqui foi uma execucao curta no %s e a inclinacao acima nao e conclusiva.\n", osName)
+	if !hasHeap(rs) {
+		w("- Memoria: o criterio \"sem crescimento continuo\" e decidido pelo heap pos-GC (`-heap`, secao propria); a inclinacao de RSS acima, sozinha, nao decide.\n")
+	}
 	w("- CPU do daemon: medida pelo tempo de CPU do processo; o agendador e o custo de syscalls do Windows diferem do Linux. Refazer em Linux.\n")
 	w("- `rpm -i/-U/-e`, systemd, SELinux, Apache e `instalar.py`: fora do alcance deste teste (criterios C5, C6, A1 a A9).\n")
 	w("- Reproduzir em Linux (WSL2/container/Rocky), com o simulador e o cliente no mesmo processo:\n\n```\nGOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o painel-ramais ./cmd/painel-ramais\nGOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o loadtest ./cmd/loadtest\n./loadtest -daemon ./painel-ramais -duration 30m -out docs/relatorio-carga-linux.md\n```\n\n")
@@ -513,4 +530,13 @@ func firstNonEmpty(rs []*Result, f func(*Result) string) string {
 		}
 	}
 	return "desconhecida"
+}
+
+func hasHeap(rs []*Result) bool {
+	for _, r := range rs {
+		if r != nil && r.Heap.On {
+			return true
+		}
+	}
+	return false
 }

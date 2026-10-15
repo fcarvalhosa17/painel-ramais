@@ -87,6 +87,7 @@ const (
 
 type Daemon struct {
 	bin, dir, cfg, addr string
+	dbg                 string // endereco do endpoint de debug do daemon (so com -heap)
 	cmd                 *exec.Cmd
 	logf                *os.File
 	cookie              string
@@ -149,6 +150,12 @@ func startDaemon(o opts, amiAddr, amiUser, amiSecret, tech string) (*Daemon, err
 		return nil, err
 	}
 	d.cmd = exec.Command(bin, "serve", "--config", d.cfg)
+	if o.heap {
+		if d.dbg, err = freeAddr(); err != nil {
+			return nil, err
+		}
+		d.cmd.Env = append(os.Environ(), "PAINEL_DEBUG_ADDR="+d.dbg)
+	}
 	d.cmd.Stdout, d.cmd.Stderr = d.logf, d.logf
 	if err := d.cmd.Start(); err != nil {
 		return nil, err

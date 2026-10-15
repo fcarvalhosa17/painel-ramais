@@ -223,3 +223,36 @@ func TestTornAceitaDispositivoDeOutroInstante(t *testing.T) {
 		t.Fatal("dispositivo inexistente nao pode ser aceito")
 	}
 }
+
+func TestLinregEVeredito(t *testing.T) {
+	// y = 2x + 1 exato: inclinacao 2, R2 1
+	sl, r2 := linreg([]float64{0, 1, 2, 3}, []float64{1, 3, 5, 7})
+	if sl < 1.999 || sl > 2.001 || r2 < 0.999 {
+		t.Fatalf("slope=%v r2=%v", sl, r2)
+	}
+	if sl, r2 = linreg([]float64{0, 1, 2}, []float64{5, 5, 5}); sl != 0 || r2 != 1 {
+		t.Fatalf("constante: slope=%v r2=%v", sl, r2)
+	}
+	mk := func(n int, mibPerHour float64, warmed bool) []HeapSample {
+		t0 := time.Now()
+		var ss []HeapSample
+		for i := 0; i < n; i++ {
+			b := uint64((100 + mibPerHour*float64(i)/60) * mib)
+			ss = append(ss, HeapSample{T: t0.Add(time.Duration(i) * time.Minute), Inuse: b, Alloc: b, Warmed: warmed})
+		}
+		return ss
+	}
+	if h := evalHeap(mk(120, 0.2, true), ""); h.Verdict != "APROVA" || h.N != 120 || h.InuseSlope < 0.19 || h.InuseSlope > 0.21 {
+		t.Fatalf("0,2 MiB/h deveria APROVAR: %+v", h)
+	}
+	if h := evalHeap(mk(120, 5, true), ""); h.Verdict != "REPROVA" {
+		t.Fatalf("5 MiB/h deveria REPROVAR: %+v", h)
+	}
+	if h := evalHeap(mk(5, 0, true), ""); h.Verdict != "REPROVA" {
+		t.Fatalf("poucas amostras deveria REPROVAR: %+v", h)
+	}
+	// amostras de aquecimento nao entram
+	if h := evalHeap(mk(120, 50, false), ""); h.N != 0 || h.Verdict != "REPROVA" {
+		t.Fatalf("aquecimento fora da regressao: %+v", h)
+	}
+}

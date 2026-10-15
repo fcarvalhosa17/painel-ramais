@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -35,9 +36,17 @@ func main() {
 		captures = flag.String("captures", "testdata/capturas", "pasta de capturas para o \"com quem fala\" por reproducao (vazio desliga)")
 		replaySp = flag.Float64("replay-speed", 20, "velocidade da reproducao das capturas")
 		noMatrix = flag.Bool("skip-matrix", false, "pula os cenarios passo a passo")
+		heap     = flag.Bool("heap", false, "mede heap Go pos-GC (1/min), perfis pprof inicio/fim e veredito de crescimento; liga o endpoint de debug do daemon (loopback)")
+		warmup   = flag.Duration("warmup", 0, "aquecimento depois do preenchimento de nomes, fora da regressao do heap (10m no CI)")
+		_        = flag.Duration("heap-every", time.Minute, "intervalo das amostras de heap (so para teste de fumaca; padrao 1 min)")
 	)
 	flag.Parse()
-	o := opts{daemon: *daemon, exts: *exts, calls: *calls, burst: *burst, duration: *duration, talk: *talk, dropFor: *drop, asterisk: *ast, skipMatrix: *noMatrix, fillRate: *fillRate, fillTimeout: *fillTO, capturesDir: *captures, replaySpeed: *replaySp}
+	if f := flag.Lookup("heap-every"); f != nil {
+		if d, err := time.ParseDuration(f.Value.String()); err == nil && d > 0 {
+			heapEvery = d
+		}
+	}
+	o := opts{daemon: *daemon, exts: *exts, calls: *calls, burst: *burst, duration: *duration, talk: *talk, dropFor: *drop, asterisk: *ast, skipMatrix: *noMatrix, fillRate: *fillRate, fillTimeout: *fillTO, capturesDir: *captures, replaySpeed: *replaySp, heap: *heap, warmup: *warmup, outDir: filepath.Dir(*out)}
 	for _, m := range strings.Split(*modes, ",") {
 		if m = strings.TrimSpace(m); m != "" {
 			o.modes = append(o.modes, m)

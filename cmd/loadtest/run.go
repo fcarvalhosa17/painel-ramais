@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -32,6 +33,9 @@ type opts struct {
 	fillTimeout             time.Duration
 	replaySpeed             float64
 	capturesDir             string
+	heap                    bool          // mede heap pos-GC e perfis pprof (daemon com PAINEL_DEBUG_ADDR)
+	warmup                  time.Duration // aquecimento depois do preenchimento de nomes, fora da regressao
+	outDir                  string        // onde gravar CSV/pb.gz do heap
 }
 
 type Check struct {
@@ -185,6 +189,7 @@ type Result struct {
 	Drop               DropRes
 	Final              FinalRes
 	Mem                MemRes
+	Heap               HeapRes
 	Health             HealthRes
 	Actions            ActionsRes
 	NamesFilled        int
@@ -1018,7 +1023,35 @@ func (x *runner) regime() {
 	f := &r.Fill
 	f.rateCfg = o.fillRate
 	post := time.Time{}
+	var heap []HeapSample
+	var heapErr string
+	var heapNext, warmEnd time.Time
+	var inicioDone bool
+	heapAt := func(now time.Time) { // 1 amostra de heap pos-GC; Warmed depois do aquecimento
+		in, al, err := x.d.HeapStats()
+		if err != nil {
+			heapErr = err.Error()
+			return
+		}
+		heap = append(heap, HeapSample{T: now, Inuse: in, Alloc: al, Warmed: !now.Before(warmEnd)})
+	}
 	for {
+		if o.heap && f.Complete {
+			now := time.Now()
+			if heapNext.IsZero() {
+				heapNext, warmEnd = now, now.Add(o.warmup)
+			}
+			if !now.Before(heapNext) {
+				heapAt(now)
+				heapNext = heapNext.Add(heapEvery)
+			}
+			if !inicioDone && !now.Before(warmEnd) {
+				inicioDone = true
+				if err := x.d.HeapProfile(filepath.Join(o.outDir, "inicio-"+r.Mode+".pb.gz")); err != nil {
+					heapErr = err.Error()
+				}
+			}
+		}
 		filled, correct, total, err := x.d.NameProgress()
 		if err == nil {
 			f.Total = total
@@ -1034,7 +1067,7 @@ func (x *runner) regime() {
 				post = time.Now()
 			}
 		}
-		if f.Complete && time.Since(post) >= o.duration {
+		if f.Complete && time.Since(post) >= o.warmup+o.duration {
 			break
 		}
 		if !f.Complete && time.Since(t0) >= o.fillTimeout {
@@ -1044,6 +1077,19 @@ func (x *runner) regime() {
 		time.Sleep(10 * time.Second)
 	}
 	f.RegimeDur = time.Since(t0)
+	if o.heap {
+		heapAt(time.Now())
+		if err := x.d.HeapProfile(filepath.Join(o.outDir, "fim-"+r.Mode+".pb.gz")); err != nil {
+			heapErr = err.Error()
+		}
+		if !f.Complete {
+			heapErr = firstStr(heapErr, "preenchimento de nomes nao terminou: sem aquecimento nem regime medido")
+		}
+		r.Heap = evalHeap(heap, heapErr)
+		if err := writeHeapCSV(o.outDir, r.Mode, heap); err != nil {
+			r.Heap.Err = firstStr(r.Heap.Err, err.Error())
+		}
+	}
 	if n := len(f.Samples); n >= 2 {
 		end := n - 1
 		for i, sm := range f.Samples { // ate a primeira amostra com todos os nomes
