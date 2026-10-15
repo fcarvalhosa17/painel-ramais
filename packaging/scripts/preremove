@@ -1,6 +1,6 @@
 #!/bin/sh
 # painel-ramais %preun. $1: 0 = remocao, 1 = upgrade (upgrade nao para nada).
-if [ "${1:-}" = "0" ] && command -v systemctl >/dev/null 2>&1; then
+if [ "${1:-}" = "0" ] && [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
   # 1o a conf do Apache (senao, com o socket parado, a 8790 fica livre enquanto o proxy ainda aponta para ela)
   if [ -f /etc/httpd/conf.d/painel-ramais.conf ]; then
     rm -f /etc/httpd/conf.d/painel-ramais.conf
@@ -11,4 +11,5 @@ if [ "${1:-}" = "0" ] && command -v systemctl >/dev/null 2>&1; then
   systemctl disable --now painel-ramais.service >/dev/null 2>&1
   systemctl disable --now painel-ramais.socket >/dev/null 2>&1
 fi
+[ "${1:-}" = "0" ] && { [ -d /run/systemd/system ] || echo "painel-ramais: systemd nao esta em execucao; servico nao parado (nada a parar)"; }
 exit 0

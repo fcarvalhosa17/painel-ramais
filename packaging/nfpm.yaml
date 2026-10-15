@@ -4,7 +4,7 @@ name: painel-ramais
 arch: amd64
 platform: linux
 version: ${VERSION}
-release: "1"
+release: "${RELEASE}"
 section: default
 priority: optional
 maintainer: "Painel de Ramais <root@localhost>"

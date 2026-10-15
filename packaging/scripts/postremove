@@ -7,6 +7,9 @@
 
 warn() { echo "painel-ramais: AVISO: $*" >&2; }
 
+HAVE_SYSTEMD=
+[ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1 && HAVE_SYSTEMD=1
+
 MANAGER_CUSTOM=/etc/asterisk/manager_custom.conf
 # Leitura e escrita como o usuario asterisk (dono de /etc/asterisk): symlink plantado nao escala para root.
 if command -v runuser >/dev/null 2>&1 && getent passwd asterisk >/dev/null 2>&1 && [ -e "$MANAGER_CUSTOM" ]; then
@@ -31,7 +34,7 @@ fi
 
 if [ -f /etc/httpd/conf.d/painel-ramais.conf ]; then
   rm -f /etc/httpd/conf.d/painel-ramais.conf
-  if command -v httpd >/dev/null 2>&1 && command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet httpd; then
+  if command -v httpd >/dev/null 2>&1 && [ -n "$HAVE_SYSTEMD" ] && systemctl is-active --quiet httpd; then
     if httpd -t >/dev/null 2>&1; then
       systemctl reload httpd || warn "reload do httpd falhou"
     else
@@ -41,5 +44,9 @@ if [ -f /etc/httpd/conf.d/painel-ramais.conf ]; then
 fi
 
 rm -rf /etc/systemd/system/painel-ramais.socket.d
-command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload
+if [ -n "$HAVE_SYSTEMD" ]; then
+  systemctl daemon-reload
+else
+  echo "painel-ramais: systemd nao esta em execucao; daemon-reload ignorado"
+fi
 exit 0

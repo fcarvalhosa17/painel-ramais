@@ -17,6 +17,10 @@ END_MARK='; END painel-ramais'
 log()  { echo "painel-ramais: $*"; command -v logger >/dev/null 2>&1 && logger -t painel-ramais-rpm "$*"; return 0; }
 warn() { echo "painel-ramais: AVISO: $*" >&2; command -v logger >/dev/null 2>&1 && logger -t painel-ramais-rpm "AVISO: $*"; return 0; }
 
+# systemd so conta se for o init em execucao (container/chroot pode ter o binario systemctl sem systemd rodando)
+HAVE_SYSTEMD=
+[ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1 && HAVE_SYSTEMD=1
+
 # --- segredo HMAC (base64 de 32 bytes) e senha AMI (hex de 32 bytes): so se nao existirem ---
 if [ ! -s "$CONF_DIR/secret" ]; then
   ( umask 077; head -c 32 /dev/urandom | base64 -w0 > "$CONF_DIR/secret" )
@@ -137,7 +141,7 @@ if command -v httpd >/dev/null 2>&1 && [ -d /etc/httpd/conf.d ] && [ -f "$HTTPD_
     elif ! httpd -M 2>&1 | grep -q proxy_wstunnel_module; then
       rm -f "$HTTPD_CONF"
       warn "mod_proxy_wstunnel nao carregado; $HTTPD_CONF removido e httpd NAO recarregado"
-    elif command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet httpd; then
+    elif [ -n "$HAVE_SYSTEMD" ] && systemctl is-active --quiet httpd; then
       if systemctl reload httpd; then log "proxy Apache ativo em /painel-ramais/ (porta $PORT)"; else warn "systemctl reload httpd falhou"; fi
     else
       log "$HTTPD_CONF gravado; httpd inativo, sera lido na proxima subida"
@@ -168,7 +172,7 @@ if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce)" = "Enforcing" ]; t
 fi
 
 # --- systemd ---
-if command -v systemctl >/dev/null 2>&1; then
+if [ -n "$HAVE_SYSTEMD" ]; then
   systemctl daemon-reload
   # o .socket segura a porta; o .service (Requires=socket) coleta do AMI mesmo sem conexoes HTTP
   systemctl enable "$SVC.socket" "$SVC.service" >/dev/null 2>&1
@@ -180,7 +184,7 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl start "$SVC.service" || warn "start do $SVC falhou; ver 'journalctl -u $SVC'"
   fi
 else
-  warn "systemctl ausente; servico nao habilitado"
+  warn "systemd nao esta em execucao (sem /run/systemd/system ou sem systemctl, ex.: container); servico nao habilitado nem iniciado. Instalacao do pacote segue normal; em um host real: systemctl enable --now painel-ramais.socket painel-ramais.service"
 fi
 
 exit 0
