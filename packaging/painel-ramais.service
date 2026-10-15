@@ -33,6 +33,8 @@ RestrictNamespaces=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
+# bloqueia ptrace/process_vm_*/perf_event_open (@debug); systemd 239 (Rocky 8) ja suporta o grupo
+SystemCallFilter=~@debug
 UMask=0077
 
 [Install]

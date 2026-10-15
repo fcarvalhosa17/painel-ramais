@@ -4,7 +4,7 @@
 # Python 3.6+, somente biblioteca padrao. Poliglota: a linha 2 e comando sh e expressao python.
 # Papel: orquestrar e validar. NUNCA edita manager_custom.conf, Apache ou SELinux (isso e o %post do RPM)
 # e nunca grava no SQLite (usa a CLI do daemon).
-# Uso: ./instalar.py {verificar|instalar|status|rollback|remover} [--respostas arq.ini] [--sim] [--purge]
+# Uso: ./instalar.py {verificar|instalar|status|rollback|remover|homologar} [--respostas arq.ini] [--sim] [--purge] [--duracao MIN] [--saida DIR]
 
 import argparse
 import configparser
@@ -12,17 +12,22 @@ import datetime
 import getpass
 import glob
 import hashlib
+import http.client
 import io
 import json
 import os
 import re
+import select
 import shutil
+import signal
 import socket
 import stat
 import sqlite3
 import ssl
 import subprocess
 import sys
+import tarfile
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -94,18 +99,33 @@ def dizer(msg=""):
     log(msg)
 
 
-def run(cmd, entrada=None, timeout=120):
-    """Executa comando (lista). Retorna (rc, stdout+stderr). Tudo no log; a entrada (senha) nunca."""
-    log("$ " + " ".join(cmd) + ("   [stdin omitido]" if entrada is not None else ""))
+def _isolar(cmd, entrada=None):
+    """Argumentos extras do subprocess quando o comando roda como OUTRO usuario (runuser): sessao nova (sem o terminal de
+    controle, entao o outro usuario nao injeta teclas no terminal do root via TIOCSTI) e stdin fechado, salvo se ha entrada."""
+    if not cmd or cmd[0] != "runuser":
+        return {}
+    kw = {"start_new_session": True}
+    if entrada is None:
+        kw["stdin"] = subprocess.DEVNULL
+    return kw
+
+
+def run(cmd, entrada=None, timeout=120, registrar=True):
+    """Executa comando (lista). Retorna (rc, stdout+stderr). Tudo no log; a entrada (senha) nunca.
+    registrar=False: nao grava no log (laco de snapshots do homologar, que roda milhares de vezes)."""
+    if registrar:
+        log("$ " + " ".join(cmd) + ("   [stdin omitido]" if entrada is not None else ""))
     try:
         p = subprocess.run(cmd, input=entrada, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                           universal_newlines=True, timeout=timeout)
+                           universal_newlines=True, encoding="utf-8", errors="replace", timeout=timeout,
+                           **_isolar(cmd, entrada))
         rc, out = p.returncode, p.stdout or ""
     except FileNotFoundError:
         rc, out = 127, "comando nao encontrado: %s" % cmd[0]
     except subprocess.TimeoutExpired:
         rc, out = 124, "tempo esgotado (%ss)" % timeout
-    log("[rc=%s] %s" % (rc, out.rstrip()))
+    if registrar:
+        log("[rc=%s] %s" % (rc, out.rstrip()))
     return rc, out
 
 
@@ -124,9 +144,20 @@ def _ver(txt):
     return tuple(int(x) for x in re.findall(r"\d+", txt)[:3])
 
 
+def _rpm_tokens(txt):
+    """Segmentos como o rpmvercmp: '~' < fim < letras < numeros; separadores sao ignorados.
+    O marcador de fim em cada chave faz '1.2~rc1' < '1.2' e '1.2' < '1.2.1' com a comparacao de tuplas."""
+    out = []
+    for t in re.findall(r"~|\d+|[A-Za-z]+", txt):
+        out.append((0,) if t == "~" else (3, int(t)) if t.isdigit() else (2, t))
+    return tuple(out) + ((1,),)
+
+
 def _vr(txt):
-    """Versao-release completa ('0.1.0-2' -> (0, 1, 0, 2)) para comparar upgrade/downgrade."""
-    return tuple(int(x) for x in re.findall(r"\d+", txt))
+    """Chave de ordem de 'versao-release' como o RPM ordena (para upgrade/downgrade). Release de pre-lancamento
+    '0.1.rc.N' fica ANTES da final '1': '0.1.2-1' > '0.1.2-0.1.rc.2' > '0.1.2-0.1.rc.1' > '0.1.1-1'; rc.10 > rc.2."""
+    versao, _, release = txt.partition("-")
+    return (_rpm_tokens(versao), _rpm_tokens(release))
 
 
 def ler_config():
@@ -178,7 +209,7 @@ def achar_rpm():
 
 
 def versao_do_rpm(caminho):
-    m = re.match(PKG + r"-(\d[^-]*)-(\d+)\.", os.path.basename(caminho))
+    m = re.match(PKG + r"-(\d[^-]*)-(.+)\.[^.]+\.rpm$", os.path.basename(caminho))  # release pode ter pontos (0.1.rc.1)
     return (m.group(1) + "-" + m.group(2)) if m else None
 
 
@@ -979,6 +1010,553 @@ def cmd_remover(args):
     return EXIT_OK
 
 
+# ---------------------------------------------------------------- homologar
+
+DURACAO_HOMOLOGAR_MIN = 45
+DURACAO_HOMOLOGAR_MAX_MIN = 720      # mesmo teto do `painel-ramais capturar`
+INTERVALO_SNAPSHOT = 2.0             # segundos entre snapshots (os testes encurtam)
+ESPERA_CAPTURA_FINAL = 180           # o capturar grava um snapshot final (ate 2 min) depois do prazo
+COOKIE_PAINEL = "painel_session"
+WORK_BASE = "/var/tmp"
+MARCA_ARQUIVO = b"@@@@PAINEL-HOMOLOGACAO-ARQUIVO@@@@ "
+# Filtro unico de mascara: o proprio binario do painel (internal/capture). Roda como "nobody": ele so le o stdin e escreve
+# o stdout (arquivos abertos pelo root), sem precisar do config, do banco nem do segredo do painel.
+FILTRO_CMD = ["runuser", "-u", "nobody", "--", BIN, "filtrar"]
+FILTRO_TIMEOUT = 1800
+
+LEGENDA_ROTEIRO = [
+    "A, B e C = tres ramais de teste (telefones ou softphones registrados).",
+    "T = tronco  |  X = seu celular (numero externo)  |  F = fila  |  R = ring group.",
+]
+# (titulo, o que fazer). docs/homologacao/ROTEIRO-MANUAL.md repete estes passos (um teste confere os titulos).
+PASSOS_HOMOLOGACAO = [
+    ("Chamada interna", "A liga para B, B atende, conversam 20 s, A desliga."),
+    ("Entrada por tronco", "De X, ligue para o numero do tronco T; A atende, 20 s, desligue."),
+    ("Saida por tronco", "A liga para X (com o prefixo de saida), atenda, 20 s, desligue."),
+    ("Transferencia cega", "X liga para A; A atende e transfere (cega) para B; B atende, 10 s, desliga. "
+                           "Repita com chamada interna: B liga para A e A transfere para C."),
+    ("Transferencia assistida", "X liga para A; A consulta C (assistida), C atende, A completa a transferencia; "
+                                "10 s, desliga. Repita cancelando a consulta (A volta para X)."),
+    ("Chamada em espera", "A em chamada com B coloca B em espera, 15 s, retoma, desliga."),
+    ("Fila", "De X, ligue para F; um agente atende; 15 s; desligue. Faca outra deixando tocar ate o transbordo."),
+    ("Ring group", "Ligue para R; um dos ramais atende; 15 s; desligue. Faca outra em que ninguem atende."),
+    ("Chamada nao atendida", "A liga para B e B nao atende (deixe cair no timeout ou no correio de voz). "
+                             "Repita desligando do lado de A antes de tocar muito."),
+    ("Ramal desregistrando e voltando", "Tire o telefone de C da rede por 40 s, religue e espere registrar. "
+                                        "Repita com C em chamada."),
+    ("Restart do Asterisk no meio de uma chamada", "Com A falando com B e X ligando para F (tocando), rode em OUTRO "
+                                                   "terminal: systemctl restart asterisk. Espere o painel reconectar."),
+]
+
+LEIA_ME_PACOTE = """Pacote de homologacao / coleta de suporte do Painel de Ramais
+=============================================================
+Gerado por: ./instalar.py homologar. Tudo aqui passou pelo filtro `painel-ramais filtrar`
+(as mesmas regras do `painel-ramais capturar`): senhas e segredos viram ***; numeros externos, nomes,
+usuarios, hosts e IPs viram valores ficticios (o mesmo original = o mesmo ficticio em todo o pacote).
+
+Arquivos
+  meta.json        versao, tecnologia, duracao, como terminou
+  pre.txt          estado antes do roteiro: versao do Asterisk, `manager show command <Action>` de cada action da
+                   lista fixa, getenforce, systemctl status (socket e servico), systemd-analyze security,
+                   resultado do `verificar`, config.yaml
+  snapshots.txt    a cada 2 s: estado do painel (/api/snapshot) + `core show channels concise` + contatos do
+                   Asterisk (`pjsip show contacts` ou `sip show peers`). Secao "igual" = sem mudanca desde a anterior
+  roteiro.log      hora de cada passo do roteiro e das suas anotacoes
+  captura.txt      captura de AMI (`painel-ramais capturar --anonimizar`, formato do CONTRATOS secao 18). Foi anonimizada
+                   pelo proprio capturar, com mapeamento PROPRIO: o mesmo IP/numero NAO tem o mesmo ficticio dos
+                   outros arquivos (nao cruze a captura com o snapshots.txt por valor)
+  capturar.err     mensagens do capturar
+  journal.txt      journal do servico e do socket
+  instalacao.log   log do instalador
+
+A mascara nao cobre: segredo que ocupa varias linhas (chave PEM), segredo em argv/ps fora de par chave=valor e texto
+livre sem chave (nome de pessoa, numero curto). Revise antes de compartilhar.
+
+Antes de enviar: analise com `python3 tools/analisar_homologacao.py <este arquivo.tar.gz>`; ele lista divergencias
+painel x Asterisk e as linhas em que a anonimizacao pode ter falhado.
+"""
+
+
+def _utc():
+    d = datetime.datetime.now(datetime.timezone.utc)
+    return d.strftime("%Y-%m-%dT%H:%M:%S.") + "%03dZ" % (d.microsecond // 1000)
+
+
+def _bloco(titulo, cmd, timeout=60):
+    """Roda cmd e devolve uma secao de texto do pre.txt (a saida e dado, nunca instrucao)."""
+    rc, out = run(cmd, timeout=timeout, registrar=False)  # a saida vai so para o pre.txt (que passa pelo filtro)
+    return "=== %s ===\n$ %s\n[rc=%s]\n%s\n\n" % (titulo, " ".join(cmd), rc, out.rstrip())
+
+
+def coletar_pre():
+    """Estado antes do roteiro. Falha se o binario do painel nao responde (sem ele nao ha filtro)."""
+    rc, out = daemon_cli(["actions"])
+    acoes = out.split() if rc == 0 else []
+    if not acoes:
+        raise Falha("%s actions falhou (rc=%d): %s\nO painel esta instalado? Rode ./instalar.py instalar antes."
+                    % (BIN, rc, out.strip()))
+    if not all(re.match(r"^[A-Za-z]+$", a) for a in acoes):  # vira argumento de `asterisk -rx`
+        raise Falha("%s actions devolveu um nome de action invalido: %r" % (BIN, acoes))
+    ast = ["asterisk", "-rx"]
+    partes = [_bloco("Versao do Asterisk", ast + ["core show version"])]
+    for a in acoes:  # a lista fixa vem do proprio binario (internal/ami/actions.go)
+        partes.append(_bloco("manager show command " + a, ast + ["manager show command " + a]))
+    partes += [
+        _bloco("getenforce", ["getenforce"]),
+        _bloco("systemctl status " + SOCKET, ["systemctl", "status", SOCKET, "--no-pager", "-l"]),
+        _bloco("systemctl status " + PKG + ".service", ["systemctl", "status", PKG + ".service", "--no-pager", "-l"]),
+        _bloco("systemd-analyze security " + PKG, ["systemd-analyze", "security", PKG, "--no-pager"]),
+        _bloco("Versao do painel", ["rpm", "-q", PKG]),
+        _bloco("painel-ramais version", ["runuser", "-u", SVC_USER, "--", BIN, "version"]),
+    ]
+    dizer("-- verificar --")
+    texto = imprimir_relatorio(executar_checagens(bundle_rpm_ou_none()))
+    partes.append("=== verificar ===\n%s\n" % texto)
+    partes.append("=== config.yaml ===\n%s\n" % (ler_config() or "(ilegivel ou ausente)"))
+    return "".join(partes)
+
+
+def tecnologia_do_painel():
+    try:
+        t = ler_health(ler_porta())["ami"]["technology"]
+    except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError):
+        t = None
+    if t in ("sip", "pjsip"):
+        return t
+    sip, pj = tecnologia_ativa()
+    return "sip" if sip and not pj else "pjsip"
+
+
+class SessaoPainel(object):
+    """Le /api/snapshot pela porta interna com um token de uso unico (CLI `token`) trocado por sessao."""
+
+    def __init__(self, porta):
+        self.url = "http://%s:%d" % (ler_host(), porta)
+        self.cookie = None
+
+    def _abrir(self):
+        # direto no subprocess: o token nao vai para o log do instalador
+        p = subprocess.run(["runuser", "-u", SVC_USER, "--", BIN, "token", "--sub", "homologacao", "--ttl", "60s"],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+                           encoding="utf-8", errors="replace", timeout=15, **_isolar(["runuser"]))
+        if p.returncode != 0:
+            raise OSError("painel-ramais token falhou (rc=%d): %s" % (p.returncode, p.stderr.strip()[:200]))
+        req = urllib.request.Request(self.url + "/api/token", data=json.dumps({"token": p.stdout.strip()}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        r = urllib.request.urlopen(req, timeout=5)
+        m = re.search(COOKIE_PAINEL + r"=([^;\s]+)", r.headers.get("Set-Cookie", ""))
+        if not m:
+            raise OSError("o painel nao devolveu cookie de sessao")
+        self.cookie = m.group(1)
+
+    def fechar(self):
+        """POST /api/logout: a sessao do homologar nao fica viva no banco. Qualquer falha e ignorada."""
+        cookie, self.cookie = self.cookie, None
+        if not cookie:
+            return
+        try:
+            req = urllib.request.Request(self.url + "/api/logout", data=b"{}",
+                                         headers={"Content-Type": "application/json", "Cookie": COOKIE_PAINEL + "=" + cookie})
+            urllib.request.urlopen(req, timeout=5).read()
+        except (OSError, ValueError, http.client.HTTPException):
+            pass
+
+    def snapshot(self):
+        """Texto JSON do /api/snapshot. Uma renovacao de sessao se vier 401."""
+        for tentativa in (1, 2):
+            if not self.cookie:
+                self._abrir()
+            req = urllib.request.Request(self.url + "/api/snapshot", headers={"Cookie": COOKIE_PAINEL + "=" + self.cookie})
+            try:
+                return urllib.request.urlopen(req, timeout=5).read().decode("utf-8", "replace")
+            except urllib.error.HTTPError as e:
+                if e.code != 401 or tentativa == 2:
+                    raise
+                self.cookie = None
+
+
+def _compactar_painel(corpo):
+    """(linha JSON compacta, chave de comparacao sem server_time) do /api/snapshot."""
+    obj = json.loads(corpo)
+    dados = obj.get("data") if isinstance(obj, dict) else None
+    base = dict(dados) if isinstance(dados, dict) else {}
+    base.pop("server_time", None)
+    chave = json.dumps(base, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(obj, separators=(",", ":"), ensure_ascii=False), chave
+
+
+class Snapshots(object):
+    """snapshots.txt: secoes "@@ <hora UTC> <painel|canais|contatos> [igual|erro]" seguidas do texto."""
+
+    def __init__(self, caminho, painel, tec):
+        self.f = io.open(caminho, "a", encoding="utf-8")
+        self.painel, self.ultimo = painel, {}
+        self.contatos_cmd = ["asterisk", "-rx", "pjsip show contacts" if tec == "pjsip" else "sip show peers"]
+
+    def fechar(self):
+        self.f.close()
+
+    def _secao(self, ts, nome, texto, chave=None, erro=False):
+        chave = (("ERRO:" if erro else "") + texto) if chave is None else chave
+        if self.ultimo.get(nome) == chave:
+            self.f.write("@@ %s %s igual\n" % (ts, nome))
+            return
+        self.ultimo[nome] = chave
+        self.f.write("@@ %s %s%s\n%s\n" % (ts, nome, " erro" if erro else "", texto.rstrip("\n")))
+
+    def tirar(self):
+        ts = _utc()
+        try:
+            linha, chave = _compactar_painel(self.painel.snapshot())
+            self._secao(ts, "painel", linha, chave)
+        except (OSError, ValueError, http.client.HTTPException, subprocess.SubprocessError) as e:  # URLError/HTTPError sao OSError
+            self._secao(ts, "painel", "%s: %s" % (type(e).__name__, e), erro=True)
+        for nome, cmd in (("canais", ["asterisk", "-rx", "core show channels concise"]), ("contatos", self.contatos_cmd)):
+            rc, out = run(cmd, timeout=10, registrar=False)
+            self._secao(ts, nome, out if rc == 0 else "rc=%s\n%s" % (rc, out), erro=rc != 0)
+        self.f.flush()
+
+
+def _esperar_linha(timeout):
+    """Uma linha digitada no terminal, ou None ao fim de `timeout` s. Sem terminal, so espera."""
+    timeout = max(0.0, timeout)
+    try:
+        interativo = sys.stdin.isatty()
+    except (AttributeError, ValueError):
+        interativo = False
+    if not interativo:
+        time.sleep(timeout)
+        return None
+    pronto = select.select([sys.stdin], [], [], timeout)[0]
+    return sys.stdin.readline().rstrip("\r\n") if pronto else None
+
+
+def _tela_passo(i):
+    titulo, texto = PASSOS_HOMOLOGACAO[i]
+    return "\n>>> PASSO %d/%d: %s\n    %s\n" % (i + 1, len(PASSOS_HOMOLOGACAO), titulo, texto)
+
+
+def iniciar_captura(minutos, fout, ferr):
+    """`painel-ramais capturar` como o usuario do servico; a captura sai pelo stdout (arquivo aberto pelo root),
+    entao o root nunca le arquivo dentro de area do usuario do servico."""
+    cmd = ["runuser", "-u", SVC_USER, "--", BIN, "capturar", "--minutos", "%.3f" % minutos, "--saida", "-", "--anonimizar"]
+    log("$ " + " ".join(cmd))
+    return subprocess.Popen(cmd, stdout=fout, stderr=ferr, **_isolar(cmd))
+
+
+def _sinalizar(proc, sig):
+    try:
+        proc.send_signal(sig)
+    except (OSError, ValueError):
+        pass
+
+
+def matar_captura(cap):
+    """terminate e espera curta; kill se nao sair. Nunca levanta."""
+    try:
+        if cap.poll() is None:
+            cap.terminate()
+        cap.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        try:
+            cap.kill()
+            cap.wait(timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    except OSError:
+        pass
+
+
+def encerrar_captura(cap, motivo):
+    """Fim do roteiro: deixa o capturar gravar o snapshot final e espera (ate ESPERA_CAPTURA_FINAL s). Como o capturar
+    roda em sessao propria, o Ctrl-C do terminal nao chega nele: no fim antecipado o SIGINT e enviado aqui."""
+    if cap.poll() is None:
+        if motivo != "prazo":
+            _sinalizar(cap, signal.SIGINT)
+        dizer("Aguardando o capturar gravar o snapshot final (ate %d s). Ctrl-C de novo abandona a captura e segue."
+              % ESPERA_CAPTURA_FINAL)
+    try:
+        cap.wait(timeout=ESPERA_CAPTURA_FINAL)
+    except KeyboardInterrupt:
+        dizer("Captura abandonada a seu pedido; seguindo com o que foi gravado.")
+        matar_captura(cap)
+    except subprocess.TimeoutExpired:
+        dizer("O capturar nao fechou a tempo; encerrando.")
+        matar_captura(cap)
+
+
+class SinalRecebido(BaseException):
+    """SIGTERM/SIGHUP: sobe ate o finally do homologar (apaga os dados brutos, para a captura) sem gerar pacote."""
+
+    def __init__(self, signum):
+        BaseException.__init__(self, signum)
+        self.signum = signum
+
+
+def _ao_sinal(signum, frame):
+    raise SinalRecebido(signum)
+
+
+def _instalar_sinais():
+    antigos = {}
+    for nome in ("SIGTERM", "SIGHUP"):
+        sig = getattr(signal, nome, None)
+        if sig is not None:
+            antigos[sig] = signal.signal(sig, _ao_sinal)
+    return antigos
+
+
+def _restaurar_sinais(antigos):
+    for sig, antigo in antigos.items():
+        try:
+            signal.signal(sig, antigo)
+        except (ValueError, OSError, TypeError):
+            pass
+
+
+def executar_roteiro(wd, duracao_s, snaps, cap=None):
+    """Laco principal: snapshots a cada INTERVALO_SNAPSHOT, relogio e passo atual no terminal. Retorna como terminou."""
+    tty = sys.stdout.isatty()
+    roteiro = io.open(os.path.join(wd, "roteiro.log"), "a", encoding="utf-8")
+
+    def anotar(msg):
+        roteiro.write("%s %s\n" % (_utc(), msg))
+        roteiro.flush()
+
+    passo, motivo = 0, "prazo"
+    t0 = time.time()
+    fim, proximo, ultimo_status = t0 + duracao_s, t0, 0
+    cap_avisado = False
+    anotar("inicio duracao_s=%.1f intervalo_s=%.1f" % (duracao_s, INTERVALO_SNAPSHOT))
+    for ln in LEGENDA_ROTEIRO:
+        dizer(ln)
+    dizer("Enter = proximo passo; qualquer texto + Enter = anotacao; Ctrl-C = encerra e gera o pacote.")
+    anotar("passo 1/%d %s" % (len(PASSOS_HOMOLOGACAO), PASSOS_HOMOLOGACAO[0][0]))
+    print(_tela_passo(0))
+    try:
+        while time.time() < fim:
+            agora = time.time()
+            if agora >= proximo:
+                snaps.tirar()
+                proximo += INTERVALO_SNAPSHOT
+                if proximo < agora:  # tick lento: nao acumula atraso
+                    proximo = agora + INTERVALO_SNAPSHOT
+            if cap is not None and not cap_avisado and cap.poll() is not None:
+                cap_avisado = True
+                aviso = ("AVISO: o capturar terminou (rc=%s) antes do fim; os snapshots seguem. Veja capturar.err no pacote."
+                         % cap.returncode)
+                print("\n" + aviso)
+                anotar(aviso)
+            restante = max(0, int(fim - time.time()))
+            status = "[%s] restam %02d:%02d | passo %d/%d: %s | Enter = proximo" % (
+                time.strftime("%H:%M:%S"), restante // 60, restante % 60, passo + 1, len(PASSOS_HOMOLOGACAO),
+                PASSOS_HOMOLOGACAO[passo][0])
+            if tty:
+                sys.stdout.write("\r" + status.ljust(100)[:100])
+                sys.stdout.flush()
+            elif agora - ultimo_status >= 60:
+                print(status)
+                ultimo_status = agora
+            linha = _esperar_linha(min(1.0, proximo - time.time(), fim - time.time()))
+            if linha is None:
+                continue
+            if linha.strip() == "":
+                if passo + 1 < len(PASSOS_HOMOLOGACAO):
+                    passo += 1
+                    anotar("passo %d/%d %s" % (passo + 1, len(PASSOS_HOMOLOGACAO), PASSOS_HOMOLOGACAO[passo][0]))
+                    print("\n" + _tela_passo(passo))
+                else:
+                    print("\nRoteiro concluido. Aguarde o relogio zerar ou use Ctrl-C para encerrar agora.")
+            else:
+                anotar("anotacao " + linha.strip())
+    except KeyboardInterrupt:
+        motivo = "interrupcao"
+    except BaseException:  # SinalRecebido ou erro inesperado: sobe, mas sem deixar o arquivo aberto
+        roteiro.close()
+        raise
+    snaps.tirar()  # estado final
+    anotar("fim motivo=" + motivo)
+    roteiro.close()
+    print("")
+    return motivo
+
+
+class FalhaMascara(Falha):
+    pass
+
+
+# Nome curto comum: trocar "issabel"/"asterisk"/"pbx" em todo o texto estraga o diagnostico ("host-001.invalid -rx core show
+# version"), entao so o FQDN (com ponto) vai para o --host; o nome curto so se nao estiver nesta lista.
+NOMES_CURTOS_COMUNS = ("issabel", "asterisk", "pbx", "elastix", "freepbx", "localhost")
+
+
+def nomes_da_maquina():
+    """hostname e FQDN deste servidor para o `filtrar --host`."""
+    out = []
+    for f in (socket.getfqdn, socket.gethostname):
+        try:
+            n = f().strip()
+        except (OSError, UnicodeError):
+            n = ""
+        if not n or n.lower().startswith("localhost") or n in out:
+            continue
+        if "." not in n and n.lower() in NOMES_CURTOS_COMUNS:
+            continue
+        out.append(n)
+    return out
+
+
+def _filtrar(extra, fin, fout):
+    """Roda o filtro (stdin/stdout em arquivos abertos pelo root; sessao nova). Qualquer falha e FalhaMascara."""
+    try:
+        p = subprocess.run(FILTRO_CMD + extra, stdin=fin, stdout=fout, stderr=subprocess.PIPE, timeout=FILTRO_TIMEOUT,
+                           start_new_session=True)
+    except subprocess.TimeoutExpired:
+        raise FalhaMascara("O filtro de mascara excedeu %d s." % FILTRO_TIMEOUT)
+    except OSError as e:
+        raise FalhaMascara("Nao consegui executar o filtro de mascara: %s" % e)
+    if p.returncode != 0:
+        raise FalhaMascara("O filtro de mascara falhou (rc=%d): %s"
+                           % (p.returncode, p.stderr.decode("utf-8", "replace").strip()[:300]))
+
+
+def montar_pacote(wd, nomes, leia_me, destino_dir, selo):
+    """Passa os arquivos brutos de wd pelo filtro (UMA execucao: o mesmo original vira o mesmo ficticio em todos),
+    junta a captura (so segredos, ja anonimizada na origem) e escreve homologacao-<selo>.tar.gz com modo 0600."""
+    fluxo, saida = os.path.join(wd, "fluxo.bruto"), os.path.join(wd, "fluxo.limpo")
+    with open(fluxo, "wb") as f:
+        for nome in nomes:
+            f.write(MARCA_ARQUIVO + nome.encode() + b"\n")
+            with open(os.path.join(wd, nome), "rb") as src:
+                dados = src.read()
+            f.write(dados if dados.endswith(b"\n") or not dados else dados + b"\n")
+    hosts = []
+    for h in nomes_da_maquina():
+        hosts += ["--host", h]
+    with open(fluxo, "rb") as i, open(saida, "wb") as o:
+        _filtrar(["--anonimizar"] + hosts, i, o)
+    limpo = {}
+    atual = None
+    with open(saida, "rb") as f:
+        for ln in f:
+            if ln.startswith(MARCA_ARQUIVO):
+                atual = ln[len(MARCA_ARQUIVO):].strip().decode()
+                limpo[atual] = []
+            elif atual is not None:
+                limpo[atual].append(ln)
+    if sorted(limpo) != sorted(nomes):
+        raise FalhaMascara("O filtro devolveu arquivos diferentes dos enviados (%s)." % sorted(limpo))
+    # captura: ja anonimizada pelo capturar; passa de novo pelo filtro so para garantir a mascara de segredos
+    with open(os.path.join(wd, "captura.txt"), "rb") as i, open(os.path.join(wd, "captura.limpa"), "wb") as o:
+        _filtrar([], i, o)
+    base = "homologacao-" + selo
+    destino = os.path.join(destino_dir, base + ".tar.gz")
+    fd = os.open(destino, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as raw, tarfile.open(fileobj=raw, mode="w:gz") as tar:
+            itens = [(n, b"".join(limpo[n])) for n in nomes]
+            with open(os.path.join(wd, "captura.limpa"), "rb") as cf:
+                itens.append(("captura.txt", cf.read()))
+            mtime = int(time.time())
+            for nome, dados in itens + [("LEIA-ME.txt", leia_me.encode("utf-8"))]:
+                ti = tarfile.TarInfo(base + "/" + nome)
+                ti.size, ti.mtime, ti.mode = len(dados), mtime, 0o600
+                tar.addfile(ti, io.BytesIO(dados))
+    except BaseException:
+        try:
+            os.remove(destino)  # nunca deixa um pacote pela metade
+        except OSError:
+            pass
+        raise
+    return destino
+
+
+def copiar_log_instalador(destino):
+    try:
+        shutil.copyfile(LOG_FILE, destino)
+    except (OSError, IOError):
+        with open(destino, "w") as f:
+            f.write("(sem %s)\n" % LOG_FILE)
+
+
+def copiar_log_instalador(destino):
+    try:
+        shutil.copyfile(LOG_FILE, destino)
+    except (OSError, IOError):
+        with open(destino, "w") as f:
+            f.write("(sem %s)\n" % LOG_FILE)
+
+
+def cmd_homologar(args):
+    exigir_root()
+    minutos = args.duracao
+    if not 0 < minutos <= DURACAO_HOMOLOGAR_MAX_MIN:
+        raise Uso("--duracao deve ficar entre 0 e %d minutos." % DURACAO_HOMOLOGAR_MAX_MIN)
+    destino_dir = args.saida or os.getcwd()
+    if not os.path.isdir(destino_dir):
+        raise Uso("--saida: diretorio inexistente: " + destino_dir)
+    if not versao_instalada():
+        raise Falha("Painel nao instalado: rode ./instalar.py instalar antes.")
+    dizer("== Homologacao (%g min; snapshots a cada %g s) ==" % (minutos, INTERVALO_SNAPSHOT))
+    selo = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    antigos = _instalar_sinais()  # SIGTERM/SIGHUP (ssh caiu): sobe pelo finally, apaga os dados brutos e para a captura
+    wd, manter, painel, snaps = None, False, None, None
+    try:
+        wd = tempfile.mkdtemp(prefix="painel-homologacao-", dir=WORK_BASE)  # root, 0700: dados brutos so existem aqui
+        inicio = _utc()
+        dizer("Coletando o estado antes do roteiro (leva alguns segundos)...")
+        with open(os.path.join(wd, "pre.txt"), "w", encoding="utf-8") as f:
+            f.write(coletar_pre())
+        tec = tecnologia_do_painel()
+        painel = SessaoPainel(ler_porta())
+        snaps = Snapshots(os.path.join(wd, "snapshots.txt"), painel, tec)
+        with open(os.path.join(wd, "captura.txt"), "wb") as cap_out, open(os.path.join(wd, "capturar.err"), "wb") as cap_err:
+            try:
+                cap = iniciar_captura(minutos, cap_out, cap_err)
+            except OSError as e:
+                raise Falha("Nao consegui iniciar o capturar: %s" % e)
+            try:
+                motivo = executar_roteiro(wd, minutos * 60.0, snaps, cap)
+                snaps.fechar()
+                painel.fechar()  # logout: a sessao do homologar nao fica viva
+                encerrar_captura(cap, motivo)
+            except BaseException:
+                matar_captura(cap)
+                raise
+        dizer("Captura encerrada (rc=%s). Montando o pacote..." % cap.returncode)
+        if cap.returncode != 0:
+            dizer("AVISO: o capturar nao terminou bem; veja capturar.err no pacote (os snapshots continuam validos).")
+        desde = (datetime.datetime.now() - datetime.timedelta(minutes=minutos + 15)).strftime("%Y-%m-%d %H:%M:%S")
+        rc, out = run(["journalctl", "-u", PKG + ".service", "-u", SOCKET, "--since", desde, "--no-pager", "-o", "short-iso"],
+                      timeout=120, registrar=False)
+        with open(os.path.join(wd, "journal.txt"), "w", encoding="utf-8") as f:
+            f.write("[rc=%s]\n%s" % (rc, out))
+        copiar_log_instalador(os.path.join(wd, "instalacao.log"))
+        meta = {"inicio_utc": inicio, "fim_utc": _utc(), "duracao_min": minutos, "intervalo_s": INTERVALO_SNAPSHOT,
+                "tecnologia": tec, "extension_pattern": ler_pattern().pattern, "versao_painel": versao_instalada(),
+                "encerrado_por": motivo, "captura_rc": cap.returncode, "passos": [p[0] for p in PASSOS_HOMOLOGACAO]}
+        with open(os.path.join(wd, "meta.json"), "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=1, sort_keys=True)
+        nomes = ["meta.json", "pre.txt", "snapshots.txt", "roteiro.log", "capturar.err", "journal.txt", "instalacao.log"]
+        pacote = montar_pacote(wd, nomes, LEIA_ME_PACOTE, destino_dir, selo)
+    except FalhaMascara:
+        manter = True
+        dizer("Os dados BRUTOS (sem mascara, NAO envie) ficaram em %s para nova tentativa." % wd)
+        raise
+    finally:
+        if snaps is not None:
+            snaps.fechar()
+        if painel is not None:
+            painel.fechar()
+        if wd and not manter:
+            shutil.rmtree(wd, ignore_errors=True)
+        _restaurar_sinais(antigos)
+    dizer("")
+    dizer("Pacote: %s (%d KiB, modo 0600)" % (pacote, os.path.getsize(pacote) // 1024))
+    dizer("Mascara aplicada a todo o conteudo. Antes de enviar, analise: python3 tools/analisar_homologacao.py " + pacote)
+    return EXIT_OK
+
+
 # ---------------------------------------------------------------- main
 
 class _Parser(argparse.ArgumentParser):
@@ -990,10 +1568,13 @@ class _Parser(argparse.ArgumentParser):
 
 def montar_parser():
     p = _Parser(prog="instalar.py", description="Instalador do Painel de Ramais")
-    p.add_argument("comando", choices=["verificar", "instalar", "status", "rollback", "remover"])
+    p.add_argument("comando", choices=["verificar", "instalar", "status", "rollback", "remover", "homologar"])
     p.add_argument("--respostas", metavar="ARQ.ini", help="respostas nao interativas (senha por ARQUIVO 0600)")
     p.add_argument("--sim", action="store_true", help="aceita as confirmacoes")
     p.add_argument("--purge", action="store_true", help="(remover) apaga tambem dados e configuracao")
+    p.add_argument("--duracao", type=float, default=DURACAO_HOMOLOGAR_MIN, metavar="MIN",
+                   help="(homologar) duracao em minutos (padrao %d)" % DURACAO_HOMOLOGAR_MIN)
+    p.add_argument("--saida", metavar="DIR", help="(homologar) pasta do .tar.gz (padrao: pasta atual)")
     return p
 
 
@@ -1002,7 +1583,7 @@ def main(argv=None):
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     args = montar_parser().parse_args(argv)
     cmds = {"verificar": cmd_verificar, "instalar": cmd_instalar, "status": cmd_status,
-            "rollback": cmd_rollback, "remover": cmd_remover}
+            "rollback": cmd_rollback, "remover": cmd_remover, "homologar": cmd_homologar}
     CMD_ATUAL[0] = args.comando
     log("=== instalar.py %s ===" % args.comando)
     try:
@@ -1018,6 +1599,9 @@ def main(argv=None):
     except KeyboardInterrupt:
         dizer("Interrompido.")
         return 130
+    except SinalRecebido as e:
+        log("encerrado pelo sinal %s" % e.signum)
+        return 128 + e.signum
 
 
 if __name__ == "__main__":

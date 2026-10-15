@@ -181,6 +181,29 @@ class Verificacoes(unittest.TestCase):
             self.assertEqual(instalar.c_painel("/x/painel-ramais-0.1.0-1.x86_64.rpm")[0], instalar.ERRO)
             self.assertEqual(instalar.c_painel("/x/painel-ramais-0.2.0-1.x86_64.rpm")[0], instalar.OK)
 
+    def test_ordem_de_versao_rpm_com_prerelease(self):
+        vr = instalar._vr
+        ordem = ["0.1.1-1", "0.1.2-0.1.rc.1", "0.1.2-0.1.rc.2", "0.1.2-0.1.rc.10", "0.1.2-1", "0.1.2-2", "0.1.10-1", "0.2.0-0.1.rc.1"]
+        for menor, maior in zip(ordem, ordem[1:]):
+            self.assertTrue(vr(maior) > vr(menor), "%s deveria ser maior que %s" % (maior, menor))
+            self.assertFalse(vr(menor) > vr(maior))
+        self.assertTrue(vr("0.1.2-1") == vr("0.1.2-1"))
+        # til ordena antes de tudo, inclusive antes da propria versao sem sufixo
+        self.assertTrue(vr("0.1.2~rc.1-1") < vr("0.1.2~rc.2-1") < vr("0.1.2-1"))
+        self.assertTrue(vr("0.1.2~rc.1-1") > vr("0.1.1-1"))
+
+    def test_versao_do_rpm_com_release_de_prerelease(self):
+        self.assertEqual(instalar.versao_do_rpm("/x/painel-ramais-0.1.2-0.1.rc.1.x86_64.rpm"), "0.1.2-0.1.rc.1")
+        self.assertEqual(instalar.versao_do_rpm("painel-ramais-0.1.2-1.x86_64.rpm"), "0.1.2-1")
+        self.assertEqual(instalar.versao_do_rpm("painel-ramais-0.1.2~rc.1-1.x86_64.rpm"), "0.1.2~rc.1-1")
+
+    def test_rc_para_final_e_upgrade_e_final_para_rc_e_downgrade(self):
+        with mock.patch.object(instalar, "run", fake_run([("rpm -q", 0, "0.1.2-0.1.rc.1")])):
+            self.assertEqual(instalar.c_painel("/x/painel-ramais-0.1.2-1.x86_64.rpm")[0], instalar.OK)
+            self.assertEqual(instalar.c_painel("/x/painel-ramais-0.1.2-0.1.rc.2.x86_64.rpm")[0], instalar.OK)
+        with mock.patch.object(instalar, "run", fake_run([("rpm -q", 0, "0.1.2-1")])):
+            self.assertEqual(instalar.c_painel("/x/painel-ramais-0.1.2-0.1.rc.2.x86_64.rpm")[0], instalar.ERRO)
+
     def test_ler_porta(self):
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "config.yaml")
@@ -670,7 +693,7 @@ class Seguranca(unittest.TestCase):
         with open(os.path.join(RAIZ, "packaging", "painel-ramais.service")) as f:
             unit = f.read()
         for dif in ("CapabilityBoundingSet=", "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6", "ProtectKernelLogs=yes",
-                    "MemoryDenyWriteExecute=yes", "UMask=0077", "RestrictNamespaces=yes", "LockPersonality=yes"):
+                    "MemoryDenyWriteExecute=yes", "SystemCallFilter=~@debug", "UMask=0077", "RestrictNamespaces=yes", "LockPersonality=yes"):
             self.assertIn(dif, unit)
 
 
