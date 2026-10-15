@@ -1,0 +1,4 @@
+# vermin fixado com hash (pip install --require-hashes -r). Sem dependencias.
+vermin==1.8.0 \
+    --hash=sha256:6f2b98ad697a16ed3442e81a0f0baabfc38c185b78aaab1b1fecd87bdd6640b8 \
+    --hash=sha256:3621955ac2a2950175c5b4a9b2fc3bd24bd416da0388893c9eb6971264e4ca1f

@@ -1,0 +1,49 @@
+name: Carga 30 min
+on:
+  workflow_dispatch:
+    inputs:
+      duracao:
+        description: 'Duracao do regime sob carga (formato Go)'
+        default: '30m'
+        required: true
+permissions:
+  contents: read
+jobs:
+  carga:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        modo: [pjsip, sip]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Build do daemon e do loadtest (linux/amd64)
+        run: |
+          CGO_ENABLED=0 go build -trimpath -o painel-ramais ./cmd/painel-ramais
+          CGO_ENABLED=0 go build -trimpath -o loadtest ./cmd/loadtest
+      - name: Carga com 10.000 ramais (simulador + daemon), CPU e RSS por minuto
+        env:
+          MODO: ${{ matrix.modo }}
+          DURACAO: ${{ inputs.duracao }}
+        run: |
+          mkdir -p saida
+          sh tools/amostrar-proc.sh painel-ramais "saida/cpu-rss-$MODO.csv" 60 &
+          amostrador=$!
+          rc=0
+          ./loadtest -daemon ./painel-ramais -modes "$MODO" -exts 10000 -duration "$DURACAO" -skip-matrix -captures "" -out "saida/relatorio-carga-$MODO.md" || rc=$?
+          kill "$amostrador" 2>/dev/null || true
+          echo "loadtest saiu com $rc"
+          exit "$rc"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: carga-${{ matrix.modo }}
+          path: saida/
+          retention-days: 30
+          if-no-files-found: error

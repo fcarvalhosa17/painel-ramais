@@ -1,0 +1,67 @@
+name: RPM em Rocky
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: rpm-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      versao: ${{ steps.v.outputs.versao }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - id: v
+        run: echo "versao=$(grep -m1 -oE "Version = '[0-9.]+'" build.ps1 | cut -d"'" -f2)" >> "$GITHUB_OUTPUT"
+      - name: Build dos RPMs
+        env:
+          VERSAO: ${{ steps.v.outputs.versao }}
+        run: sh tools/ci-build.sh "$VERSAO"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rpms
+          path: |
+            dist/painel-ramais-*.x86_64.rpm
+          retention-days: 7
+          if-no-files-found: error
+
+  rocky:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # imagens fixadas por digest (indice multi-arch); o comentario diz o tag de origem
+        include:
+          - nome: rocky8
+            imagem: rockylinux@sha256:9794037624aaa6212aeada1d28861ef5e0a935adaf93e4ef79837119f2a2d04c # rockylinux:8
+          - nome: rocky9
+            imagem: rockylinux@sha256:d7be1c094cc5845ee815d4632fe377514ee6ebcf8efaed6892889657e5ddaaa6 # rockylinux:9
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rpms
+          path: rpms
+      - name: rpm -i / -U / -e + instalar.py verificar em ${{ matrix.nome }}
+        env:
+          IMAGEM: ${{ matrix.imagem }}
+          VERSAO: ${{ needs.build.outputs.versao }}
+        run: |
+          docker run --rm -v "$PWD:/w:ro" -e SMOKE_LOG=/tmp/rpm-smoke "$IMAGEM" \
+            sh /w/tools/rpm-smoke.sh "/w/rpms/painel-ramais-0.0.9-1.x86_64.rpm" "/w/rpms/painel-ramais-$VERSAO-1.x86_64.rpm" "$VERSAO-1" /w/instalar.py "/w/rpms/painel-ramais-$VERSAO-0.1.rc.1.x86_64.rpm"

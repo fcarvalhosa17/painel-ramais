@@ -1,0 +1,56 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verificar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Fim de linha LF (CRLF em arquivo versionado quebra script no Rocky)
+        run: |
+          # capturas de AMI sao binarias de proposito (CRLF e tamanho exato por quadro): .gitattributes as isenta
+          achados=$(git ls-files --eol | grep -E '^i/(crlf|mixed)|[[:space:]]w/(crlf|mixed)' | grep -v 'testdata/capturas/' || true)
+          if [ -n "$achados" ]; then echo "CRLF/misto encontrado:"; echo "$achados"; exit 1; fi
+          echo "ok: nenhum CRLF fora de testdata/capturas"
+
+      - name: gofmt
+        run: |
+          fora=$(gofmt -l .)
+          if [ -n "$fora" ]; then echo "gofmt -d necessario em:"; echo "$fora"; gofmt -d .; exit 1; fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test -race
+        run: go test -race ./...
+
+      - name: Testes do instalar.py
+        run: python -I -m unittest discover -s tests -v
+
+      - name: vermin (instalar.py deve rodar em Python 3.6, o platform-python do Rocky 8)
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes -r tools/requirements-vermin.txt
+          vermin -t=3.6- --violations --no-tips instalar.py tools tests
+
+      - name: Build do RPM e do tar.gz
+        run: |
+          versao=$(grep -m1 -oE "Version = '[0-9.]+'" build.ps1 | cut -d"'" -f2)
+          sh tools/ci-build.sh "$versao"
+          test -s "dist/painel-ramais-$versao-1.x86_64.rpm"
+          test -s "dist/painel-ramais-$versao.tar.gz"
