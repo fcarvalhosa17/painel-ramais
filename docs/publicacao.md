@@ -109,3 +109,14 @@ Verificação:
 1. Pôr o gitleaks no pre-commit e no CI, com um `.gitleaks.toml` que libere só os 5 vetores de teste acima (por fingerprint), para que um segredo novo quebre o build.
 2. Fazer o daemon recusar subir se `/etc/painel-ramais/secret` for o vetor publicado `AAECAw...Hh8=` (bytes 0x00 a 0x1f). Hoje ele só checa o tamanho, e quem copiar o exemplo do `CONTRATOS.md` aceita tokens que qualquer pessoa consegue assinar.
 3. Opcional: trocar `empresa.com.br` (domínio que pode existir de verdade) por um nome em `.invalid` ou `example.com` em `internal/capture/anonymize_test.go`, e o usuário de teste `fabio` por um nome genérico.
+
+## 5. Nova varredura antes da pré-release 0.1.2-rc.1 (2026-10-15)
+
+Ferramenta: gitleaks 8.30.1 (`.tools/gitleaks/gitleaks.exe`), regras padrão, `--redact`.
+
+| Escopo | Comando | Achados |
+|---|---|---|
+| Histórico inteiro | `gitleaks git . --redact --no-banner` | 5 |
+| Árvore de trabalho (rastreados e não rastreados, respeitando `.gitignore`, inclui `.github/workflows/`) | `gitleaks dir <cópia de git ls-files -co --exclude-standard> --redact --no-banner` | 5 |
+
+Os 5 são os mesmos já conhecidos (regra `generic-api-key`, todos fictícios, de teste): `internal/api/sec_test.go:40`, `internal/auth/auth_test.go:19`, `internal/auth/auth_test.go:21`, `internal/api/api_test.go:242` e `docs/CONTRATOS.md:185` (segredo HMAC de teste 0x00 a 0x1f, tokens assinados com ele e a senha `senha-correta-123`). Nenhum achado novo nos arquivos acrescentados nesta rodada (máscara/filtro de capturas, `homologar`, analisador, workflows, scripts de CI).
