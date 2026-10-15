@@ -26,8 +26,10 @@ respostas.ini
 *.p12
 *.pfx
 
-# capturas reais da homologacao (podem conter dados do cliente)
+# pacotes e capturas reais da homologacao (podem conter dados do cliente; so revisados vao para testdata/)
+docs/homologacao/entrada/
 docs/homologacao/capturas/
+homologacao-*.tar.gz
 
 # editores / SO
 .vscode/

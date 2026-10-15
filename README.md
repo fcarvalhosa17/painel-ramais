@@ -326,21 +326,23 @@ Sem a classe `system` as actions `PJSIPShow*` e `ModuleCheck` não funcionam, e 
 Cada action usada pelo painel e a classe que ela exige (**a confirmar no Asterisk real com `manager show command <Action>`**; o
 `./instalar.py verificar` coleta isso no relatório):
 
-| Action | Uso | Tecnologia | Classe esperada (`write` do usuário AMI) |
-|---|---|---|---|
-| `Login` | autenticar a conexão única | ambas | nenhuma |
-| `Logoff` | encerramento limpo | ambas | nenhuma |
-| `Ping` | keepalive | ambas | nenhuma |
-| `CoreSettings` | versão do Asterisk (recusa abaixo de 13) | ambas | system ou reporting |
-| `ModuleCheck` | detectar `chan_pjsip.so` e `chan_sip.so` no modo auto | ambas | system |
-| `PJSIPShowEndpoints` | lista de endpoints (ramais e troncos) | pjsip | system |
-| `PJSIPShowEndpoint` | nome (callerid) de um ramal, em segundo plano e com taxa limitada (decisão 4) | pjsip | system |
-| `PJSIPShowContacts` | contatos, IP, user agent, latência | pjsip | system |
-| `PJSIPShowAors` | fallback quando `PJSIPShowContacts` não existe | pjsip | system |
-| `SIPpeers` | lista de peers, IP, status, latência | sip | system ou reporting |
-| `SIPshowpeer` | nome (callerid) e user agent de um peer, em segundo plano e com taxa limitada (decisão 4) | sip | system ou reporting |
-| `DeviceStateList` | estado de dispositivo inicial | ambas | call ou reporting |
-| `CoreShowChannels` | chamadas já em andamento (com `BridgeId` e `Duration`) | ambas | system ou reporting |
+| Action | Uso | Tecnologia | Classe esperada (`write` do usuário AMI) | Classe confirmada (Asterisk real) |
+|---|---|---|---|---|
+| `Login` | autenticar a conexão única | ambas | nenhuma | a confirmar na homologacao |
+| `Logoff` | encerramento limpo | ambas | nenhuma | a confirmar na homologacao |
+| `Ping` | keepalive | ambas | nenhuma | a confirmar na homologacao |
+| `CoreSettings` | versão do Asterisk (recusa abaixo de 13) | ambas | system ou reporting | a confirmar na homologacao |
+| `ModuleCheck` | detectar `chan_pjsip.so` e `chan_sip.so` no modo auto | ambas | system | a confirmar na homologacao |
+| `PJSIPShowEndpoints` | lista de endpoints (ramais e troncos) | pjsip | system | a confirmar na homologacao |
+| `PJSIPShowEndpoint` | nome (callerid) de um ramal, em segundo plano e com taxa limitada (decisão 4) | pjsip | system | a confirmar na homologacao |
+| `PJSIPShowContacts` | contatos, IP, user agent, latência | pjsip | system | a confirmar na homologacao |
+| `PJSIPShowAors` | fallback quando `PJSIPShowContacts` não existe | pjsip | system | a confirmar na homologacao |
+| `SIPpeers` | lista de peers, IP, status, latência | sip | system ou reporting | a confirmar na homologacao |
+| `SIPshowpeer` | nome (callerid) e user agent de um peer, em segundo plano e com taxa limitada (decisão 4) | sip | system ou reporting | a confirmar na homologacao |
+| `DeviceStateList` | estado de dispositivo inicial | ambas | call ou reporting | a confirmar na homologacao |
+| `CoreShowChannels` | chamadas já em andamento (com `BridgeId` e `Duration`) | ambas | system ou reporting | a confirmar na homologacao |
+
+**Classes de privilégio confirmadas: nenhuma até agora.** A coluna "Classe confirmada" só recebe um valor depois da homologação em Asterisk real, e só com o que o Asterisk respondeu. Como preencher: rode `./instalar.py homologar` (seção 13 e `docs/homologacao/ROTEIRO-MANUAL.md`); o `pre.txt` do pacote traz, para cada action da lista fixa, a saída de `manager show command <Action>`; copie dali a linha `Privilege:` (a classe exigida pela action) e a versão do Asterisk em que foi lida. Se a classe exigida for maior que o `write = system,reporting` da conta, a action falha com permissão negada: registre isso no lugar de ajustar a tabela. Enquanto a célula disser "a confirmar na homologacao", a coluna "Classe esperada" continua sendo só a expectativa.
 
 Fonte: `docs/CONTRATOS.md`, seção 7.1 (em caso de divergência vale o CONTRATOS).
 Proibidas em qualquer hipótese: `Command`, `Originate`, `Redirect`, `Hangup`, `Atxfer`, `Setvar`, `Reload`, `ModuleLoad`, `UpdateConfig`, `GetConfig`, `Filter` e qualquer outra fora da lista.
@@ -536,6 +538,8 @@ Comportamento decidido (chaves de configuração no `config.yaml`, ver seção 3
 ## 13. Captura de AMI real: roteiro de chamadas (homologação)
 
 O subcomando `painel-ramais capturar` está descrito no CONTRATOS, seção 18. Texto abaixo copiado de `docs/ROTEIRO-CAPTURA.md`.
+
+Na VM de homologação o caminho recomendado é `./instalar.py homologar`: roda esta captura junto de snapshots do painel e do Asterisk e mostra os passos abaixo no terminal (roteiro completo em `docs/homologacao/ROTEIRO-MANUAL.md`; análise do pacote com `tools/analisar_homologacao.py`).
 
 Objetivo: gravar o tráfego AMI de um Asterisk real durante um conjunto conhecido de chamadas, para que o simulador reproduza o arquivo e os testes de "com quem fala" rodem sobre dados reais (hoje as amostras foram escritas de memória). Texto para o README (seção de homologação); o formato do arquivo está no `docs/CONTRATOS.md`, seção 18.
 

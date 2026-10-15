@@ -577,7 +577,9 @@ painel-ramais session purge [--all]
 painel-ramais group list
 painel-ramais group del <grupo>
 painel-ramais token --sub <texto> [--ttl 60s]
-painel-ramais capturar --minutos N --saida <arquivo> [--anonimizar] [--digitos-externos 7]
+painel-ramais capturar --minutos N --saida <arquivo|-> [--anonimizar] [--digitos-externos 7]
+painel-ramais filtrar [--anonimizar] [--digitos-externos 7] [--host NOME]...
+painel-ramais actions
 painel-ramais version
 ```
 
@@ -586,6 +588,9 @@ painel-ramais version
 - `user passwd` e `user del` apagam as sessões do usuário (no `del`, via `ON DELETE CASCADE`).
 - `group import ... -` lê o CSV do stdin (o `/dev/stdin` também funciona no Linux).
 - `capturar` (decisão da homologação) grava frames brutos do AMI real, só com a allowlist, em arquivo novo (modo 0600; recusa sobrescrever): conecta, faz o snapshot e uma amostra de consultas de nome, grava o tráfego ao vivo por `--minutos` (fracionário; máx. 720; Ctrl-C encerra antes) e termina com um snapshot final. Segredos (`Secret`, `Password`, `Md5Cred`, `Challenge`…) saem sempre mascarados (`***`). `--anonimizar` troca números externos (sequências de pelo menos `--digitos-externos` dígitos), nomes, usuários/contas, hosts, IPv4 e IPv6 por ficcionais, sempre o mesmo ficcional para o mesmo original; é melhor esforço (limites na seção 18): revise o arquivo antes de compartilhar. Formato do arquivo: seção 18.
+- `capturar --saida -` escreve a captura no stdout (e o resumo no stderr): o `instalar.py homologar`, como root, lê pelo pipe e nunca abre arquivo da área do usuário do serviço.
+- `filtrar` lê texto do stdin e escreve no stdout com as **mesmas regras** do `capturar` (`internal/capture`, `Sanitizer.Text`): segredos viram `***` sempre (formatos `Chave: valor`, `chave=valor` e `"chave":"valor"`; chaves `secret`, `passw*`, `pass`, `pwd`, `senha`, `token`, `*key`, `auth*`, `cookie`, `session`, `hmac`, `signature`, `credential`, `private`, `md5`, `challenge`; o valor inteiro: com aspas (duplas ou simples) até a aspa que fecha, sem aspas até o **fim da linha** (escolha de segurança; inclui valor dentro de aspas, URL com `?session=X` e repr de Python); cabeçalhos `Cookie`/`Set-Cookie`/`Authorization` na linha toda; senha de `usuario:senha@host`; `response`/`nonce` de Digest); com `--anonimizar`, números externos, nomes, usuários, hosts, IPv4 e IPv6 viram ficcionais, o mesmo ficcional para o mesmo original durante a execução; `--host NOME` (repetível) troca o hostname/FQDN em qualquer ponto do texto. Não cobre segredo de várias linhas (PEM), segredo em argv/`ps` fora de par chave=valor nem texto livre sem chave (`filtrar --help`). É o único filtro de máscara do pacote de homologação (não há segunda rotina em Python).
+- `actions` imprime a lista fixa de actions AMI do daemon (seção 7.1), uma por linha, ordenada. O `instalar.py homologar` registra `manager show command <Action>` para cada uma.
 - `session purge` apaga as sessões vencidas; `--all` apaga todas (todo mundo faz login de novo) e manda o SIGHUP para o daemon fechar os WebSockets. Imprime a quantidade removida.
 - `token` imprime o token no stdout e nada mais. `--ttl` máximo 60 s. Uso: testes e diagnóstico.
 - Depois de `user ...` ou `group ...` com sucesso, a CLI pega o PID com `systemctl show -p MainPID --value painel-ramais` e manda SIGHUP (mesmo usuário, não precisa de root). Daemon parado: avisa e sai 0. Falha no sinal: avisa `rode: systemctl reload painel-ramais` e sai 0 (o banco já foi gravado).
@@ -889,6 +894,7 @@ exec "$(command -v python3 || echo /usr/libexec/platform-python)" "$0" "$@"
 ./instalar.py status
 ./instalar.py rollback [--sim]
 ./instalar.py remover [--purge] [--sim]
+./instalar.py homologar [--duracao MIN] [--saida DIR]
 ```
 
 | Código | Significado |
@@ -899,6 +905,7 @@ exec "$(command -v python3 || echo /usr/libexec/platform-python)" "$0" "$@"
 | 3 | uso inválido: argumento, arquivo de respostas com chave desconhecida, arquivo de senha com permissão errada, pergunta sem resposta sem terminal |
 | 4 | cancelado pelo operador (confirmação negada) |
 
+- `homologar` (root; padrão 45 min, máx. 720): registra o estado antes do roteiro (`manager show command` de cada action, versão do Asterisk, `getenforce`, `systemctl status` do socket e do serviço, `systemd-analyze security`, resultado do `verificar`), roda `painel-ramais capturar --anonimizar` em paralelo, tira um snapshot a cada 2 s (painel + `core show channels concise` + `pjsip show contacts` ou `sip show peers`) mostrando relógio e o passo atual do roteiro (Enter = próximo passo, texto = anotação), e ao fim gera `homologacao-<data-hora>.tar.gz` (0600) com tudo, o journal do serviço e o log do instalador, passando todo o texto pelo `painel-ramais filtrar --anonimizar --host <hostname> --host <fqdn>`, executado como `nobody`; `capturar`, `token` e todo `runuser` rodam em sessão nova (`setsid`) e sem stdin; o `capturar` recebe SIGINT explícito no fim antecipado e a sessão do painel termina com `POST /api/logout`. Se o filtro falhar ou estourar o tempo, nenhum pacote é gerado; SIGTERM/SIGHUP apagam os dados brutos e não geram pacote. Ctrl-C encerra antes e ainda gera o pacote. Análise do pacote: `tools/analisar_homologacao.py`.
 - Todos exigem root (no `verificar`, falta de root é um item ERRO; nos outros, aborta com 3).
 - Sem terminal (stdin não é TTY, caso do laço ssh) e sem a resposta no `--respostas`: sai com 3 e diz qual resposta faltou. Nunca fica esperando entrada.
 - `--sim` responde "sim" a toda confirmação, inclusive a do `--purge` (no modo não interativo, `remover --purge --sim` são dois sinais explícitos).
