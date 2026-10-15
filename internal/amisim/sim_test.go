@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -249,7 +250,7 @@ func TestRajadaGeraEventosDoModo(t *testing.T) {
 			}
 			time.Sleep(50 * time.Millisecond)
 			for i, st := range stamps {
-				if st.At == 0 {
+				if atomic.LoadInt64(&st.At) == 0 {
 					t.Fatalf("carimbo %d sem hora de gravacao", i)
 				}
 			}
