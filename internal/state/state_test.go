@@ -580,3 +580,21 @@ func TestNameCacheHintsAndLearning(t *testing.T) {
 		t.Error("nome aprendido precisa sair em delta")
 	}
 }
+
+// Regressao do vazamento de heap medido no carga: a view publicada herdava
+// isBuilding=true da montagem e guardava para sempre o Uniqueid de cada Hangup.
+func TestHangupAfterSyncDoesNotAccumulate(t *testing.T) {
+	h := newHarness(t)
+	h.online()
+	for i := 0; i < 1000; i++ {
+		uid := "u" + strconv.Itoa(i)
+		at := h.step()
+		h.feed(chn(at, uid, uid, "PJSIP/2001-"+uid, "2001", "2001", "", "2002"), model.ChannelHungup{At: at, Uniqueid: uid})
+	}
+	if n := len(h.s.cur.hungup); n != 0 {
+		t.Errorf("view publicada lembrou %d Hangups; devia ser 0", n)
+	}
+	if len(h.s.cur.chans) != 0 {
+		t.Errorf("canais residuais: %d", len(h.s.cur.chans))
+	}
+}

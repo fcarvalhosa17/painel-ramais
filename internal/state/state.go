@@ -190,6 +190,8 @@ func (s *State) onSyncFinished(e model.SyncFinished) {
 		return
 	}
 	s.cur, s.building = s.building, nil
+	s.cur.isBuilding = false // virou a publicada: nao lembra mais de Hangups
+	s.cur.hungup = nil
 	s.cur.inferDialEdges()
 	s.cur.recalcAll()
 	if s.onSync != nil {
