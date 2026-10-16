@@ -35,8 +35,8 @@ fi
 chown painel-ramais:painel-ramais "$CONF_DIR/secret" "$CONF_DIR/ami-secret"
 chmod 0600 "$CONF_DIR/secret" "$CONF_DIR/ami-secret"
 
-# NOTA: 'eventfilter = Event: Reload' dispara o refazer dos nomes (decisao 4). Confirmar no Asterisk real se `read = system,call`
-# entrega o Reload (docs/ROTEIRO-CAPTURA.md, item 12); se nao entregar, o ciclo de 6 h continua valendo.
+# NOTA: os eventos Reload, ModuleLoadReport e FullyBooted (reloadEvents no supervisor do daemon) disparam a releitura dos ramais (decisao 4). Confirmar no Asterisk real se `read = system,call`
+# entrega o Reload (docs/ROTEIRO-CAPTURA.md, item 12); se nao entregar, a rede de seguranca e o ami.inventory_refresh (padrao 10 min).
 # --- bloco AMI em manager_custom.conf (nunca manager.conf) ---
 ami_block() {
   cat <<AMIEOF
@@ -65,6 +65,8 @@ eventfilter = Event: Hangup
 eventfilter = Event: Hold
 eventfilter = Event: Unhold
 eventfilter = Event: Reload
+eventfilter = Event: ModuleLoadReport
+eventfilter = Event: FullyBooted
 $END_MARK
 AMIEOF
 }

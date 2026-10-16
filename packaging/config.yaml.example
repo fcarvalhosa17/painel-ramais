@@ -15,6 +15,8 @@ ami:
   secret_file: /etc/painel-ramais/ami-secret
   # Teto de consultas de nome (PJSIPShowEndpoint/SIPshowpeer) em segundo plano, por segundo (1 a 200).
   name_fill_per_second: 20
+  # Opcional: releitura completa dos ramais do PBX (padrao 10m, faixa 1m a 24h).
+  # inventory_refresh: 10m
 
 auth:
   secret_file: /etc/painel-ramais/secret
