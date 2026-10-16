@@ -1,6 +1,7 @@
 import argparse
 import io
 import os
+import stat
 import sys
 import tempfile
 import unittest
@@ -97,10 +98,33 @@ class Verificacoes(unittest.TestCase):
         with mock.patch.object(instalar, "run", fake_run([])):
             self.assertEqual(instalar.c_tecnologia()[0][0], instalar.ERRO)
 
-    def test_tecnologia_ambas_e_aviso(self):
-        t = [("module show like", 0, "chan_sip.so\nchan_pjsip.so")]
+    def _ambas(self, pj, sip):
+        t = [("module show like", 0, "chan_sip.so\nchan_pjsip.so"),
+             ("pjsip show endpoints", 0,
+              "".join(" Endpoint:  %d/%d   Not in use\n" % (k, k) for k in range(2000, 2000 + pj))
+              + " Endpoint:  tronco1   Not in use\n"),
+             ("sip show peers", 0, "Name/username  Host  Dyn\n" +
+              "".join("%d/%d   10.0.0.1  D\n" % (k, k) for k in range(3000, 3000 + sip)))]
         with mock.patch.object(instalar, "run", fake_run(t)):
-            self.assertEqual(instalar.c_tecnologia()[0][0], instalar.AVISO)
+            return instalar.c_tecnologia()
+
+    def test_tecnologia_ambas_mais_pjsip_cita_padrao_do_issabel5_e_contagens(self):
+        r, tec = self._ambas(3, 1)
+        self.assertEqual((r[0], tec), (instalar.AVISO, "pjsip"))
+        self.assertIn("padrao do Issabel 5", r[2])
+        self.assertIn("modo auto usa pjsip", r[2])
+        self.assertIn("pjsip=3, sip=1", r[2])
+
+    def test_tecnologia_ambas_mais_sip(self):
+        r, tec = self._ambas(1, 4)
+        self.assertEqual((r[0], tec), (instalar.AVISO, "sip"))
+        self.assertIn("modo auto usa sip", r[2])
+        self.assertIn("pjsip=1, sip=4", r[2])
+
+    def test_tecnologia_ambas_empate_e_pjsip(self):
+        r, tec = self._ambas(2, 2)
+        self.assertEqual(tec, "pjsip")
+        self.assertIn("pjsip=2, sip=2", r[2])
 
     def test_manager_include(self):
         with tempfile.TemporaryDirectory() as d:
@@ -217,42 +241,42 @@ class Verificacoes(unittest.TestCase):
 
 
 class Respostas(unittest.TestCase):
-    def _ini(self, d, senha_modo=0o600, tec="auto"):
-        senha = os.path.join(d, "senha")
-        with open(senha, "w") as f:
-            f.write("segredo-longo-123\n")
-        os.chmod(senha, senha_modo)
+    def _ini(self, d, tec="auto", extra=""):
         ini = os.path.join(d, "r.ini")
         with open(ini, "w") as f:
-            f.write("[painel]\ntecnologia = %s\nadmin_usuario = admin\nadmin_senha_arquivo = %s\n" % (tec, senha))
+            f.write("[painel]\ntecnologia = %s\n%s" % (tec, extra))
         return ini
 
-    @unittest.skipIf(os.name == "nt", "modo POSIX")
-    def test_senha_permissao_frouxa_recusada(self):
-        with tempfile.TemporaryDirectory() as d:
-            with self.assertRaises(instalar.Falha):
-                instalar.coletar_respostas(args(respostas=self._ini(d, 0o644)))
-
-    @unittest.skipIf(os.name == "nt" or not hasattr(os, "geteuid") or os.geteuid() != 0, "exige root em POSIX")
-    def test_respostas_ok(self):
+    def test_respostas_ok_sem_usuario_nem_senha(self):
         with tempfile.TemporaryDirectory() as d:
             r = instalar.coletar_respostas(args(respostas=self._ini(d)))
-        self.assertEqual((r["usuario"], r["senha"], r["tecnologia"]), ("admin", "segredo-longo-123", "auto"))
+        self.assertEqual(r, {"tecnologia": "auto", "csv": None})
 
-    @unittest.skipIf(os.name == "nt", "modo POSIX")
+    def test_respostas_da_fase_1_dao_aviso_e_nao_falham(self):
+        with tempfile.TemporaryDirectory() as d:
+            ini = self._ini(d, extra="admin_usuario = admin\nadmin_senha_arquivo = /nao/existe\n")
+            with mock.patch.object(instalar, "dizer") as dz:
+                r = instalar.coletar_respostas(args(respostas=ini))
+        self.assertEqual(r["tecnologia"], "auto")
+        avisos = [c[0][0] for c in dz.call_args_list if c[0][0].startswith("AVISO")]
+        self.assertEqual(len(avisos), 2)
+        self.assertIn("admin_usuario", avisos[0])
+        self.assertIn("admin_senha_arquivo", avisos[1])
+
+    def test_interativo_so_pergunta_tecnologia_e_csv_sem_prompt_de_senha(self):
+        with mock.patch.object(instalar.sys.stdin, "isatty", return_value=True), \
+                mock.patch("builtins.input", side_effect=["pjsip", ""]) as inp, \
+                mock.patch("getpass.getpass", side_effect=AssertionError("pediu senha")):
+            r = instalar.coletar_respostas(args())
+        self.assertEqual(inp.call_count, 2)
+        self.assertEqual(r, {"tecnologia": "pjsip", "csv": None})
+
     def test_chave_desconhecida_e_codigo_3(self):
         with tempfile.TemporaryDirectory() as d:
-            ini = self._ini(d)
-            with open(ini, "a") as f:
-                f.write("senha = x\n")
+            ini = self._ini(d, extra="senha = x\n")
             with self.assertRaises(instalar.Falha) as cm:
                 instalar.coletar_respostas(args(respostas=ini))
             self.assertEqual(cm.exception.codigo, instalar.EXIT_USO)
-
-    def test_senha_curta_recusada(self):
-        with self.assertRaises(instalar.Falha):
-            instalar.validar_senha("curta")
-        instalar.validar_senha("uma-senha-boa")
 
     def test_arquivo_inexistente(self):
         with self.assertRaises(instalar.Falha) as cm:
@@ -407,12 +431,13 @@ class Fluxos(unittest.TestCase):
                             ("INSTALADOR_DIR", self.tmp.name + "/inst"),
                             ("RPM_ANTERIOR", self.tmp.name + "/inst/rpm-anterior"),
                             ("RPM_ATUAL", self.tmp.name + "/inst/rpm-instalado"),
-                            ("DB_FILE", self.tmp.name + "/state/painel.db")):
+                            ("DB_FILE", self.tmp.name + "/state/painel.db"),
+                            ("SENHA_EMERGENCIA", self.tmp.name + "/etc/admin-emergencia")):
             p = mock.patch.object(instalar, nome, valor)
             p.start()
             self.addCleanup(p.stop)
         # bits POSIX de dono/modo nao existem no Windows: os testes de seguranca abaixo exercitam as funcoes reais
-        for nome in ("dir_do_root_seguro", "rpm_e_nosso", "verificar_sha256sums"):
+        for nome in ("dir_do_root_seguro", "rpm_e_nosso", "verificar_sha256sums", "_checar_arquivo_senha"):
             p = mock.patch.object(instalar, nome)
             p.start()
             self.addCleanup(p.stop)
@@ -432,11 +457,13 @@ class Fluxos(unittest.TestCase):
                 instalar.cmd_instalar(args())
         self.assertEqual(cm.exception.codigo, instalar.EXIT_USO)
 
-    def _instalar_com(self, instalado, user_rc=0):
+    def _instalar_com(self, instalado, user_rc=0, passwd_rc=0):
+        os.makedirs(os.path.dirname(instalar.SENHA_EMERGENCIA), exist_ok=True)
         fr = fake_run([("rpm -q --qf", 0 if instalado else 1, instalado or "not installed"),
-                       ("user add", user_rc, ""), ("group list", 0, "Vendas\t2000-2099\n"),
+                       ("user add", user_rc, ""), ("user passwd", passwd_rc, ""),
+                       ("group list", 0, "Vendas\t2000-2099\n"),
                        ("version", 0, "painel-ramais 0.2.0 schema 1")])
-        resp = {"tecnologia": "auto", "usuario": "admin", "senha": "senha-bem-longa", "csv": None}
+        resp = {"tecnologia": "auto", "csv": None}
         health = {"ami": {"connected": True, "technology": "pjsip"}, "extensions": {"total": 2}}
         with mock.patch.object(instalar, "run", fr), mock.patch.object(instalar, "eh_root", return_value=True), \
                 mock.patch.object(instalar, "verificar_ambiente", return_value=([], 0)), \
@@ -450,16 +477,127 @@ class Fluxos(unittest.TestCase):
             rc = instalar.cmd_instalar(args(sim=True))
         return rc, fr.chamadas
 
+    def _senha_arq(self):
+        with open(instalar.SENHA_EMERGENCIA) as f:
+            return f.read()
+
     def test_instalacao_nova_usa_rpm_i_e_senha_so_via_stdin(self):
         rc, ch = self._instalar_com(None)
         self.assertEqual(rc, 0)
         self.assertTrue(any(c[0][:2] == ["rpm", "-i"] for c in ch))
-        self.assertFalse(any("senha-bem-longa" in " ".join(c[0]) for c in ch), "senha apareceu em argv")
-        add = [c for c in ch if "add" in c[0]][0]
-        self.assertEqual(add[1], "senha-bem-longa\n")
+        conteudo = self._senha_arq()
+        senha = conteudo.rstrip("\n")
+        self.assertEqual(len(senha), 24)
+        self.assertTrue(conteudo.endswith("\n"))
+        self.assertFalse(any(senha in " ".join(c[0]) for c in ch), "senha apareceu em argv")
+        add = [c for c in ch if c[0][-3:-1] == ["add", "emergencia"] or "add" in c[0]][0]
+        self.assertEqual(add[1], conteudo)
         self.assertEqual(add[0][:4], ["runuser", "-u", "painel-ramais", "--"])
-        self.assertIn("--password-stdin", add[0])
+        self.assertEqual(add[0][4:], ["/usr/bin/painel-ramais", "user", "add", "emergencia", "--password-stdin"])
+        self.assertFalse(any("passwd" in c[0] for c in ch))
+        with open(instalar.LOG_FILE) as f:
+            self.assertNotIn(senha, f.read())
         self.assertTrue(os.path.isfile(instalar.RPM_ATUAL + "/versao.txt"))
+
+    @unittest.skipIf(os.name == "nt", "modo POSIX")
+    def test_arquivo_de_emergencia_nasce_0600(self):
+        self._instalar_com(None)
+        self.assertEqual(stat.S_IMODE(os.stat(instalar.SENHA_EMERGENCIA).st_mode), 0o600)
+
+    def test_arquivo_e_criado_com_o_excl(self):
+        with mock.patch("os.open", wraps=os.open) as op:
+            self._instalar_com(None)
+        chamada = [c for c in op.call_args_list if c[0][0] == instalar.SENHA_EMERGENCIA][0]
+        self.assertTrue(chamada[0][1] & os.O_EXCL and chamada[0][1] & os.O_CREAT)
+        self.assertEqual(chamada[0][2], 0o600)
+
+    def test_arquivo_existente_nao_e_reescrito_e_sua_senha_segue_pelo_stdin(self):
+        os.makedirs(os.path.dirname(instalar.SENHA_EMERGENCIA), exist_ok=True)
+        with open(instalar.SENHA_EMERGENCIA, "w") as f:
+            f.write("senha-antiga-do-arquivo\n")
+        rc, ch = self._instalar_com(None)
+        self.assertEqual(rc, 0)
+        self.assertEqual(self._senha_arq(), "senha-antiga-do-arquivo\n")
+        add = [c for c in ch if "add" in c[0]][0]
+        self.assertEqual(add[1], "senha-antiga-do-arquivo\n")
+
+    def test_rc3_com_arquivo_novo_troca_a_senha_por_passwd(self):
+        rc, ch = self._instalar_com(None, user_rc=3)
+        self.assertEqual(rc, 0)
+        pw = [c for c in ch if "passwd" in c[0]][0]
+        self.assertEqual(pw[0][4:], ["/usr/bin/painel-ramais", "user", "passwd", "emergencia", "--password-stdin"])
+        self.assertEqual(pw[1], self._senha_arq())
+        self.assertNotIn(self._senha_arq().rstrip("\n"), " ".join(" ".join(c[0]) for c in ch))
+
+    def test_rc3_com_arquivo_antigo_segue_sem_passwd(self):
+        os.makedirs(os.path.dirname(instalar.SENHA_EMERGENCIA), exist_ok=True)
+        with open(instalar.SENHA_EMERGENCIA, "w") as f:
+            f.write("senha-antiga-do-arquivo\n")
+        rc, ch = self._instalar_com(None, user_rc=3)
+        self.assertEqual(rc, 0)
+        self.assertFalse(any("passwd" in c[0] for c in ch))
+
+    def test_passwd_falho_apaga_o_arquivo_novo(self):
+        with self.assertRaises(instalar.Falha):
+            self._instalar_com(None, user_rc=3, passwd_rc=1)
+        self.assertFalse(os.path.exists(instalar.SENHA_EMERGENCIA))
+
+    def test_add_falho_com_arquivo_novo_apaga_o_arquivo(self):
+        with self.assertRaises(instalar.Falha):
+            self._instalar_com(None, user_rc=1)
+        self.assertFalse(os.path.exists(instalar.SENHA_EMERGENCIA))
+
+    def test_add_falho_com_arquivo_antigo_mantem_o_arquivo(self):
+        os.makedirs(os.path.dirname(instalar.SENHA_EMERGENCIA), exist_ok=True)
+        with open(instalar.SENHA_EMERGENCIA, "w") as f:
+            f.write("senha-antiga-do-arquivo\n")
+        with self.assertRaises(instalar.Falha):
+            self._instalar_com(None, user_rc=1)
+        self.assertTrue(os.path.exists(instalar.SENHA_EMERGENCIA))
+
+    def test_arquivo_ilegivel_ou_nao_utf8_vira_falha_sem_traceback(self):
+        os.makedirs(os.path.dirname(instalar.SENHA_EMERGENCIA), exist_ok=True)
+        with open(instalar.SENHA_EMERGENCIA, "wb") as f:
+            f.write(b"\xff\xfe\x80\n")
+        with self.assertRaises(instalar.Falha):
+            self._instalar_com(None)
+        with mock.patch("os.open", side_effect=PermissionError("negado")):
+            with self.assertRaises(instalar.Falha):
+                instalar.senha_de_emergencia()
+
+    def test_gravacao_falha_vira_falha_e_nao_deixa_arquivo(self):
+        os.makedirs(os.path.dirname(instalar.SENHA_EMERGENCIA), exist_ok=True)
+        with mock.patch("os.fdopen", side_effect=OSError("disco cheio")):
+            with self.assertRaises(instalar.Falha):
+                instalar.senha_de_emergencia()
+        self.assertFalse(os.path.exists(instalar.SENHA_EMERGENCIA))
+
+    def test_atualizacao_encerra_sessoes_antigas_e_instalacao_nova_nao(self):
+        _, ch = self._instalar_com("0.1.0-1")
+        self.assertTrue(any(c[0][-3:] == ["session", "purge", "--all"] for c in ch))
+        self.setUp()
+        _, ch = self._instalar_com(None)
+        self.assertFalse(any("session" in c[0] for c in ch))
+
+    def test_arquivo_vazio_e_falha_sem_chamar_a_cli(self):
+        os.makedirs(os.path.dirname(instalar.SENHA_EMERGENCIA), exist_ok=True)
+        open(instalar.SENHA_EMERGENCIA, "w").close()
+        with self.assertRaises(instalar.Falha):
+            self._instalar_com(None)
+
+    def test_sem_rpm_ao_lado_diz_que_e_o_codigo_fonte_e_nao_toca_no_sistema(self):
+        fr = fake_run([])
+        with mock.patch.object(instalar, "run", fr), mock.patch.object(instalar, "eh_root", return_value=True), \
+                mock.patch.object(instalar, "verificar_ambiente", return_value=([], 0)), \
+                mock.patch.object(instalar.glob, "glob", return_value=[]):
+            with self.assertRaises(instalar.Falha) as cm:
+                instalar.cmd_instalar(args())
+        msg = str(cm.exception)
+        self.assertEqual(cm.exception.codigo, instalar.EXIT_FALHA)
+        self.assertIn("esta pasta e o codigo-fonte; baixe o pacote da Release", msg)
+        self.assertIn("gh release download", msg)
+        self.assertIn("releases/download/<tag>/", msg)
+        self.assertEqual(fr.chamadas, [])
 
     def test_mesma_versao_usa_replacepkgs(self):
         rc, ch = self._instalar_com("0.2.0-1")
@@ -480,7 +618,7 @@ class Fluxos(unittest.TestCase):
         with mock.patch.object(instalar, "run", fr), mock.patch.object(instalar, "eh_root", return_value=True), \
                 mock.patch.object(instalar, "verificar_ambiente", return_value=([], 0)), \
                 mock.patch.object(instalar, "achar_rpm", return_value=self.rpm), \
-                mock.patch.object(instalar, "coletar_respostas", return_value={"tecnologia": "auto", "usuario": "a", "senha": "x" * 12, "csv": None}):
+                mock.patch.object(instalar, "coletar_respostas", return_value={"tecnologia": "auto", "csv": None}):
             with self.assertRaises(instalar.Falha):
                 instalar.cmd_instalar(args(sim=True))
         self.assertFalse(os.path.exists(instalar.RPM_ANTERIOR))
@@ -820,17 +958,25 @@ class Pacote(unittest.TestCase):
 
 
 class Apache(unittest.TestCase):
-    def test_proxy_ok_quando_raiz_json_e_health_404_sem_json(self):
-        resp = {"https://127.0.0.1/painel-ramais/": (404, '{"success": false}'),
-                "https://127.0.0.1/painel-ramais/api/health": (404, "<html>Not Found</html>")}
+    SESS = "https://127.0.0.1/painel-ramais/api/session"
+    HEALTH = "https://127.0.0.1/painel-ramais/api/health"
+    ENV401 = '{"success": false, "data": null, "error": {"code": "unauthorized", "message": "x"}, "meta": null}'
+
+    def _testar(self, resp):
         with mock.patch.object(instalar, "http_get", side_effect=lambda u, c=None: resp[u]):
-            self.assertTrue(instalar.testar_apache()[0])
+            return instalar.testar_apache()[0]
+
+    def test_proxy_ok_quando_session_da_401_com_envelope_e_health_404_sem_json(self):
+        self.assertTrue(self._testar({self.SESS: (401, self.ENV401), self.HEALTH: (404, "<html>Not Found</html>")}))
+
+    def test_recusa_200_html_na_session(self):
+        self.assertFalse(self._testar({self.SESS: (200, "<html>tela</html>"), self.HEALTH: (404, "<html/>")}))
+
+    def test_recusa_401_sem_envelope(self):
+        self.assertFalse(self._testar({self.SESS: (401, "<html>Unauthorized</html>"), self.HEALTH: (404, "<html/>")}))
 
     def test_falha_se_health_vaza_pelo_proxy(self):
-        resp = {"https://127.0.0.1/painel-ramais/": (404, '{"success": false}'),
-                "https://127.0.0.1/painel-ramais/api/health": (200, '{"success": true}')}
-        with mock.patch.object(instalar, "http_get", side_effect=lambda u, c=None: resp[u]):
-            self.assertFalse(instalar.testar_apache()[0])
+        self.assertFalse(self._testar({self.SESS: (401, self.ENV401), self.HEALTH: (200, '{"success": true}')}))
 
 
 class Main(unittest.TestCase):
@@ -843,6 +989,30 @@ class Main(unittest.TestCase):
         with self.assertRaises(SystemExit) as cm, mock.patch("sys.stderr"):
             instalar.main(["comando-que-nao-existe"])
         self.assertEqual(cm.exception.code, 3)
+
+class ArquivoDaSenha(unittest.TestCase):
+    """Reuso do arquivo existente: dono root, sem bits de grupo/outros, sem symlink (POSIX)."""
+
+    def _st(self, mode=0o100600, uid=0):
+        return os.stat_result((mode, 0, 0, 1, uid, 0, 0, 0, 0, 0))
+
+    @unittest.skipUnless(hasattr(os, "geteuid"), "bits POSIX")
+    def test_modo_dono_e_tipo(self):
+        instalar._checar_arquivo_senha(self._st())
+        for st in (self._st(mode=0o100640), self._st(mode=0o100604), self._st(uid=1000), self._st(mode=0o120777),
+                   self._st(mode=0o040700)):
+            with self.assertRaises(instalar.Falha):
+                instalar._checar_arquivo_senha(st)
+
+    @unittest.skipIf(os.name == "nt", "symlink e O_NOFOLLOW POSIX")
+    def test_symlink_recusado(self):
+        with tempfile.TemporaryDirectory() as d:
+            alvo = os.path.join(d, "alvo")
+            open(alvo, "w").write("x\n")
+            os.symlink(alvo, os.path.join(d, "link"))
+            with mock.patch.object(instalar, "SENHA_EMERGENCIA", os.path.join(d, "link")):
+                with self.assertRaises(instalar.Falha):
+                    instalar._ler_senha_existente()
 
 
 if __name__ == "__main__":

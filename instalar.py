@@ -9,7 +9,6 @@
 import argparse
 import configparser
 import datetime
-import getpass
 import glob
 import hashlib
 import http.client
@@ -17,6 +16,7 @@ import io
 import json
 import os
 import re
+import secrets
 import select
 import shutil
 import signal
@@ -64,6 +64,9 @@ CLI_EXISTE = 3
 OK, AVISO, ERRO = "OK", "AVISO", "ERRO"
 TECNOLOGIAS = ("auto", "sip", "pjsip")
 CHAVES_RESPOSTAS = ("tecnologia", "admin_usuario", "admin_senha_arquivo", "grupos_csv")
+CHAVES_IGNORADAS = ("admin_usuario", "admin_senha_arquivo")  # fase 1; a fase 2 nao pergunta senha (ADR-004)
+USUARIO_EMERGENCIA = "emergencia"  # mesmo texto da constante do daemon (PLANO C5)
+SENHA_EMERGENCIA = CONF_DIR + "/admin-emergencia"
 CMD_ATUAL = ["-"]
 
 
@@ -204,7 +207,12 @@ def achar_rpm():
     aqui = os.path.dirname(os.path.abspath(__file__))
     rpms = sorted(glob.glob(os.path.join(aqui, PKG + "-*.rpm")))
     if not rpms:
-        raise Falha("RPM %s-*.rpm nao encontrado ao lado do instalar.py." % PKG)
+        raise Falha("RPM %s-*.rpm nao encontrado ao lado do instalar.py.\n"
+                    "Se voce rodou a partir de um clone do repositorio: esta pasta e o codigo-fonte; baixe o pacote da Release "
+                    "e rode o instalar.py de dentro dele:\n"
+                    "  gh release download \"$TAG\" -R fcarvalhosa17/painel-ramais -p 'painel-ramais-*.tar.gz' -p SHA256SUMS\n"
+                    "  (ou: curl -fLO https://github.com/fcarvalhosa17/painel-ramais/releases/download/<tag>/painel-ramais-<versao>.tar.gz)"
+                    % PKG)
     return rpms[-1]
 
 
@@ -319,11 +327,16 @@ def c_tecnologia():
     sip, pj = tecnologia_ativa()
     if not sip and not pj:
         return (ERRO, "Tecnologia", "Nem chan_sip nem chan_pjsip carregado. Verifique o Asterisk."), None
-    if sip and pj:
-        return (AVISO, "Tecnologia",
-                "chan_sip e chan_pjsip carregados juntos; o painel usara a que tiver ramais (o padrao e usar so uma)."), "pjsip"
-    nomes = nomes_endpoints(pj)
     pat = ler_pattern()
+    if sip and pj:
+        # mesma regra do detect.go (modo auto): conta ramais das duas; sip so se sip > pjsip (empate = pjsip)
+        np = len([n for n in nomes_endpoints(True) if pat.match(n)])
+        ns = len([n for n in nomes_endpoints(False) if pat.match(n)])
+        tec = "sip" if ns > np else "pjsip"
+        return (AVISO, "Tecnologia",
+                "chan_pjsip.so e chan_sip.so carregados juntos (padrao do Issabel 5); modo auto usa %s "
+                "(ramais: pjsip=%d, sip=%d)." % (tec, np, ns)), tec
+    nomes = nomes_endpoints(pj)
     ramais = [n for n in nomes if pat.match(n)]
     return (OK, "Tecnologia %s" % ("PJSIP" if pj else "SIP"),
             "%d ramais, %d troncos/outros; exemplos: %s" % (len(ramais), len(nomes) - len(ramais),
@@ -551,27 +564,6 @@ def cmd_verificar(args):
 
 # ---------------------------------------------------------------- respostas / entrada
 
-def ler_senha_arquivo(caminho):
-    try:
-        st = os.stat(caminho)
-    except OSError:
-        raise Uso("Arquivo de senha nao encontrado: " + caminho)
-    if (st.st_mode & 0o777) not in (0o600, 0o400):
-        raise Uso("%s deve ter permissao 0600 ou 0400 (chmod 600)." % caminho)
-    if hasattr(os, "geteuid") and st.st_uid != 0:
-        raise Uso("%s deve pertencer ao root." % caminho)
-    with open(caminho) as f:
-        s = f.readline().rstrip("\r\n")
-    if not s:
-        raise Uso("Arquivo de senha vazio: " + caminho)
-    return s
-
-
-def validar_senha(s):
-    if len(s) < 10 or len(s.encode("utf-8")) > 72:
-        raise Uso("Senha do admin: minimo 10 caracteres e maximo 72 bytes.")
-
-
 def pedir(msg, padrao=None):
     if not sys.stdin.isatty():
         raise Uso("Resposta necessaria sem terminal: '%s'. Use --respostas arquivo.ini" % msg)
@@ -580,8 +572,8 @@ def pedir(msg, padrao=None):
 
 
 def coletar_respostas(args):
-    """Todas as respostas antes de alterar qualquer coisa. Retorna dict tecnologia, usuario, senha, csv."""
-    r = {"tecnologia": "auto", "usuario": None, "senha": None, "csv": None}
+    """Todas as respostas antes de alterar qualquer coisa. Retorna dict tecnologia, csv. Nao pergunta senha."""
+    r = {"tecnologia": "auto", "csv": None}
     if args.respostas:
         cp = configparser.ConfigParser()
         if not cp.read(args.respostas):
@@ -593,25 +585,16 @@ def coletar_respostas(args):
             raise Uso("Chave desconhecida no arquivo de respostas: " + ", ".join(desconhecidas))
         s = cp["painel"]
         r["tecnologia"] = s.get("tecnologia", "auto") or "auto"
-        r["usuario"] = s.get("admin_usuario")
         r["csv"] = s.get("grupos_csv") or None
-        if not s.get("admin_senha_arquivo"):
-            raise Uso("Resposta faltando: admin_senha_arquivo")
-        r["senha"] = ler_senha_arquivo(s.get("admin_senha_arquivo"))
-        if not r["usuario"]:
-            raise Uso("Resposta faltando: admin_usuario")
+        for k in CHAVES_IGNORADAS:
+            if k in s:
+                dizer("AVISO: '%s' ignorada: o painel nao pede mais usuario nem senha na instalacao "
+                      "(acesso pelo menu do Issabel; senha de emergencia em %s)." % (k, SENHA_EMERGENCIA))
     else:
         r["tecnologia"] = pedir("Tecnologia (auto/sip/pjsip)", "auto")
-        r["usuario"] = pedir("Usuario admin do painel")
-        r["senha"] = getpass.getpass("Senha do admin: ")
-        if r["senha"] != getpass.getpass("Repita a senha: "):
-            raise Uso("As senhas nao conferem.")
         r["csv"] = pedir("Caminho do CSV de grupos (opcional, Enter para pular)", "") or None
     if r["tecnologia"] not in TECNOLOGIAS:
         raise Uso("tecnologia invalida '%s' (use auto, sip ou pjsip)." % r["tecnologia"])
-    if not r["usuario"] or not re.match(r"^[A-Za-z0-9_.-]{1,64}$", r["usuario"]):
-        raise Uso("Usuario admin invalido (use letras, numeros, . _ -).")
-    validar_senha(r["senha"] or "")
     if r["csv"] and not os.path.isfile(r["csv"]):
         raise Uso("CSV de grupos nao encontrado: " + r["csv"])
     return r
@@ -727,12 +710,80 @@ def daemon_cli(partes, entrada=None):
     return run(["runuser", "-u", SVC_USER, "--", BIN] + partes, entrada=entrada)
 
 
-def criar_admin(usuario, senha):
-    rc, out = daemon_cli(["user", "add", usuario, "--password-stdin"], entrada=senha + "\n")
-    if rc == CLI_EXISTE:
-        dizer("AVISO: usuario '%s' ja existe; senha mantida (use 'painel-ramais user passwd' para trocar)." % usuario)
-    elif rc != 0:
-        raise Falha("Falha ao criar o usuario admin (rc=%d): %s\nDiagnostico: %s" % (rc, out.strip(), LOG_FILE))
+def _checar_arquivo_senha(st):
+    if not stat.S_ISREG(st.st_mode):
+        raise Falha("%s nao e um arquivo regular." % SENHA_EMERGENCIA)
+    if hasattr(os, "geteuid"):  # bits POSIX; no Windows (desenvolvimento) nao existem
+        if st.st_uid != 0:
+            raise Falha("%s deve pertencer ao root." % SENHA_EMERGENCIA)
+        if st.st_mode & 0o077:
+            raise Falha("%s deve ter modo 0600 (chmod 600)." % SENHA_EMERGENCIA)
+
+
+def _ler_senha_existente():
+    """Reaproveita o arquivo existente: sem seguir symlink, do root e sem acesso para grupo/outros."""
+    try:
+        fd = os.open(SENHA_EMERGENCIA, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(fd, "r", encoding="utf-8") as f:
+            st = os.fstat(f.fileno())
+            _checar_arquivo_senha(st)
+            senha = f.readline().rstrip("\r\n")
+    except (OSError, UnicodeDecodeError) as e:
+        raise Falha("Nao consegui ler %s: %s" % (SENHA_EMERGENCIA, e))
+    if not senha:
+        raise Falha("Arquivo da senha de emergencia vazio: %s (apague-o e rode de novo)." % SENHA_EMERGENCIA)
+    return senha
+
+
+def _apagar_senha_nova():
+    try:
+        os.unlink(SENHA_EMERGENCIA)
+    except OSError:
+        pass
+
+
+def senha_de_emergencia():
+    """(senha, nova). Arquivo root 0600 criado com O_EXCL so se nao existir; existente nunca e reescrito."""
+    try:
+        fd = os.open(SENHA_EMERGENCIA, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return _ler_senha_existente(), False
+    except OSError as e:
+        raise Falha("Nao consegui criar %s: %s" % (SENHA_EMERGENCIA, e))
+    senha = secrets.token_urlsafe(18)  # 24 caracteres
+    f = None
+    try:
+        f = os.fdopen(fd, "w", encoding="utf-8")
+        with f:
+            f.write(senha + "\n")
+    except OSError as e:
+        if f is None:
+            os.close(fd)
+        _apagar_senha_nova()
+        raise Falha("Nao consegui gravar %s: %s" % (SENHA_EMERGENCIA, e))
+    return senha, True
+
+
+def criar_admin():
+    """Usuario 'emergencia' (unico login por senha). A senha so trafega pelo stdin; nunca em argv nem no log."""
+    senha, nova = senha_de_emergencia()
+    rc, out = daemon_cli(["user", "add", USUARIO_EMERGENCIA, "--password-stdin"], entrada=senha + "\n")
+    if rc == CLI_EXISTE and nova:
+        rc, out = daemon_cli(["user", "passwd", USUARIO_EMERGENCIA, "--password-stdin"], entrada=senha + "\n")
+    elif rc == CLI_EXISTE:
+        dizer("AVISO: usuario '%s' ja existe; senha mantida (arquivo %s)." % (USUARIO_EMERGENCIA, SENHA_EMERGENCIA))
+        return
+    if rc != 0:
+        if nova:
+            _apagar_senha_nova()  # senha que nao chegou ao daemon nao pode ficar como se valesse
+        raise Falha("Falha ao criar o usuario de emergencia (rc=%d): %s\nDiagnostico: %s" % (rc, out.strip(), LOG_FILE))
+
+
+def encerrar_sessoes_antigas():
+    """Atualizacao: sessoes de senha da fase 1 nao valem mais. Idempotente."""
+    rc, out = daemon_cli(["session", "purge", "--all"])
+    if rc != 0:
+        raise Falha("Falha ao encerrar as sessoes antigas (rc=%d): %s" % (rc, out.strip()))
 
 
 def importar_grupos(csv):
@@ -768,15 +819,23 @@ def eh_json(txt):
         return False
 
 
+def envelope_nao_autorizado(txt):
+    try:
+        env = json.loads(txt)
+        return env["success"] is False and env["error"]["code"] == "unauthorized"
+    except (ValueError, KeyError, TypeError):
+        return False
+
+
 def testar_apache():
-    """Raiz do painel responde o envelope JSON do daemon; /api/health responde 404 do Apache, sem JSON (D5)."""
+    """/api/session responde 401 com o envelope do daemon (a raiz agora e HTML); /api/health responde 404 do Apache, sem JSON."""
     ctx = ssl._create_unverified_context()  # certificado do Issabel costuma ser autoassinado; so loopback
     base = "https://127.0.0.1/painel-ramais/"
-    raiz = http_get(base, ctx)
-    if raiz is None:
-        return False, "sem resposta em " + base
-    if not eh_json(raiz[1]):
-        return False, "%s respondeu %s sem JSON do daemon: o proxy nao chega ao painel" % (base, raiz[0])
+    sess = http_get(base + "api/session", ctx)
+    if sess is None:
+        return False, "sem resposta em " + base + "api/session"
+    if sess[0] != 401 or not envelope_nao_autorizado(sess[1]):
+        return False, "%sapi/session deveria dar 401 com o envelope do daemon (obtido: %s): o proxy nao chega ao painel" % (base, sess[0])
     h = http_get(base + "api/health", ctx)
     if h is None or h[0] != 404 or eh_json(h[1]):
         return False, "%sapi/health deveria dar 404 do Apache sem JSON (obtido: %s)" % (base, h[0] if h else "sem resposta")
@@ -824,8 +883,11 @@ def cmd_instalar(args):
         registrar_rpm_atual(rpm)
         passo = "tecnologia"
         mudou = definir_tecnologia(resp["tecnologia"])
-        passo = "usuario admin"
-        criar_admin(resp["usuario"], resp["senha"])
+        passo = "usuario de emergencia"
+        criar_admin()
+        if atual:
+            passo = "sessoes antigas"
+            encerrar_sessoes_antigas()
         if resp["csv"]:
             passo = "grupos"
             importar_grupos(resp["csv"])
@@ -859,6 +921,7 @@ def cmd_instalar(args):
     dizer("Ramais:      " + json.dumps(h.get("extensions", {})))
     dizer("Grupos:      " + (str(ng) if ng is not None else "?"))
     dizer("Acesso:      https://%s/painel-ramais/" % endereco_servidor())
+    dizer("Senha de emergencia: " + SENHA_EMERGENCIA)
     dizer("Log:         " + LOG_FILE)
     return EXIT_OK
 

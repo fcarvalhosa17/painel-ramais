@@ -35,7 +35,7 @@ acesso root. O Python 3 nao precisa estar instalado (no Rocky 8 minimo o instala
 
    Cada item sai como OK, AVISO ou ERRO, com a explicacao de como corrigir. Corrija todos os ERROs.
 
-3. Instale (interativo: tecnologia, usuario admin, senha, CSV de grupos opcional):
+3. Instale (interativo: tecnologia e CSV de grupos opcional; nao pergunta senha):
 
        ./instalar.py instalar
 
@@ -54,13 +54,10 @@ Arquivo `respostas.ini`:
 
     [painel]
     tecnologia = auto
-    admin_usuario = admin
-    admin_senha_arquivo = /root/senha-painel.txt
     grupos_csv = /root/grupos.csv
 
-A senha nunca vai na linha de comando (apareceria no `ps`). Ela fica em arquivo do root com permissao 0600 ou 0400 (minimo 10 caracteres):
+`admin_usuario` e `admin_senha_arquivo` (da versao anterior) ainda sao aceitas, mas ignoradas com um AVISO.
 
-    install -m 600 /dev/null /root/senha-painel.txt && vi /root/senha-painel.txt
     ./instalar.py instalar --respostas respostas.ini --sim
 
 O codigo de saida e 0 em sucesso e diferente de zero em falha.
@@ -68,13 +65,25 @@ O codigo de saida e 0 em sucesso e diferente de zero em falha.
 ## Varios servidores via ssh
 
     for h in $(cat servidores.txt); do
-      scp painel-ramais-VERSAO.tar.gz respostas.ini senha.txt grupos.csv root@$h:/root/
-      ssh root@$h 'chmod 600 /root/senha.txt && cd /root && tar xzf painel-ramais-VERSAO.tar.gz &&
+      scp painel-ramais-VERSAO.tar.gz respostas.ini grupos.csv root@$h:/root/
+      ssh root@$h 'cd /root && tar xzf painel-ramais-VERSAO.tar.gz &&
         cd painel-ramais-VERSAO && ./instalar.py instalar --respostas /root/respostas.ini --sim' \
         && echo "$h OK" || echo "$h FALHOU"
     done
 
-(No respostas.ini use caminhos `/root/senha.txt` e `/root/grupos.csv`.)
+(No respostas.ini use o caminho `/root/grupos.csv`.)
+
+## Acesso de emergencia
+
+A instalacao nao pede senha. O acesso normal e pelo menu PBX do Issabel. Para o caso do menu nao estar disponivel, o instalador cria o usuario
+`emergencia`, com uma senha aleatoria (24 caracteres) gravada em `/etc/painel-ramais/admin-emergencia` (root, modo 0600). O arquivo so e criado se nao existir:
+rodar `instalar` de novo, ou atualizar a versao, nao troca a senha.
+
+- Leia a senha: `sudo cat /etc/painel-ramais/admin-emergencia`
+- Tela de emergencia (fora do menu do Issabel): `https://<ip-do-servidor>/painel-ramais/emergencia/`, usuario `emergencia` e essa senha.
+- Trocar a senha: `sudo -u painel-ramais painel-ramais user passwd emergencia` e depois atualize o arquivo com a senha nova.
+- Usuarios criados na fase 1 (por exemplo `admin`) deixam de entrar. Remova-os com `sudo -u painel-ramais painel-ramais user del <usuario>`.
+- Encerrar as sessoes de um usuario do Issabel: `sudo -u painel-ramais painel-ramais session purge --issabel <usuario>` (disponivel com a fase 2 do painel).
 
 Formato do CSV de grupos: `grupo,ramal` onde ramal pode ser faixa (`2000-2099`). Veja `grupos-exemplo.csv`.
 
