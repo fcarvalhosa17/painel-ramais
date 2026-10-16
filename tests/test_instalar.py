@@ -362,6 +362,25 @@ class MemoriaDoDaemon(unittest.TestCase):
         self.assertIn("indisponivel", up)
         self.assertIn("pos-GC", heap)
 
+    def _status(self, tabela):
+        saida = io.StringIO()
+        with mock.patch.object(instalar, "versao_instalada", return_value="0.1.2-1"), \
+                mock.patch.object(instalar, "socket_ativo", return_value=True), \
+                mock.patch.object(instalar, "servico_ativo", return_value=True), \
+                mock.patch.object(instalar, "run", fake_run(tabela)), \
+                mock.patch.object(instalar, "memoria_do_daemon", side_effect=AssertionError("nao deveria ler")), \
+                mock.patch.object(instalar, "ler_health", side_effect=OSError("recusado")), \
+                mock.patch("sys.stdout", saida):
+            instalar.cmd_status(argparse.Namespace())
+        return saida.getvalue()
+
+    def test_status_sem_mainpid_ou_systemctl_falho(self):
+        for tabela in ([("MainPID", 0, "0\n")], [("MainPID", 1, "")], [("MainPID", 127, "systemctl: not found")]):
+            txt = self._status(tabela)
+            self.assertIn("Memoria RSS:     indisponivel", txt)
+            self.assertIn("Heap Go:         indisponivel", txt)
+            self.assertIn("Uptime do daemon: indisponivel", txt)
+
     def test_status_mostra_memoria_mesmo_sem_health(self):
         saida = io.StringIO()
         tabela = [("MainPID", 0, "42\n")]

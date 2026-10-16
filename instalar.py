@@ -922,7 +922,11 @@ def cmd_status(args):
     dizer("Servico:          " + ("ativo" if servico_ativo() else "PARADO"))
     rc, pid = run(["systemctl", "show", "-p", "MainPID", "--value", PKG + ".service"])
     pid = pid.strip()
-    for linha in memoria_do_daemon(pid) if rc == 0 and pid.isdigit() and pid != "0" else             ["Memoria RSS:     indisponivel", "Heap Go:         indisponivel", "Uptime do daemon: indisponivel"]:
+    if rc == 0 and pid.isdigit() and pid != "0":
+        linhas = memoria_do_daemon(pid)
+    else:
+        linhas = ["Memoria RSS:     indisponivel", "Heap Go:         indisponivel", "Uptime do daemon: indisponivel"]
+    for linha in linhas:
         dizer(linha)
     try:
         h = ler_health(ler_porta())
