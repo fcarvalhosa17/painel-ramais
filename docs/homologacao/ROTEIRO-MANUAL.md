@@ -98,7 +98,7 @@ curl -fLO "$BASE/SHA256SUMS"
 
 ### Etapa 6. Instalar
 
-- **Comando:** `./instalar.py instalar` (interativo: tecnologia `auto`, usuario admin, senha com 10 caracteres ou mais, CSV de grupos opcional)
+- **Comando:** `./instalar.py instalar` (interativo: tecnologia `auto`, CSV de grupos opcional; nao pergunta senha)
 - **Resultado esperado:** `== Instalacao ==`, a verificacao sem erro, `Aguardando o painel (ate 60s)...` e o `== Resumo ==` com `Versao`, `Tecnologia`, `Ramais` (total maior que 0), `Grupos`, `Acesso: https://<ip>/painel-ramais/` e `Log`. Codigo de saida 0.
 - **Se for diferente:** a mensagem de `FALHA` traz o comando de diagnostico (`journalctl -u painel-ramais -n 50 --no-pager`, `httpd -t`...). Nada e desfeito: corrija e rode `instalar` de novo (e idempotente). Guarde `/var/log/painel-ramais/instalacao.log`.
 
@@ -267,8 +267,8 @@ Fim do roteiro: deixe o relogio zerar (ou Ctrl-C). O pacote fica em `homologacao
 
 ### Etapa 11. Upgrade
 
-- **Comando:** com `TAG` e `VERSAO_RPM` da versao mais nova, repita as etapas 2 a 4 (baixar, `sha256sum -c --ignore-missing SHA256SUMS`, extrair numa pasta nova; o RPM vem dentro do bundle, nao baixe separado) e rode, na pasta nova: `./instalar.py instalar` (interativo ou `--respostas`; o usuario admin ja existe).
-- **Resultado esperado:** `Upgrade <versao antiga> -> <versao nova>.`, o `== Resumo ==` com a versao nova, `AVISO: usuario '<admin>' ja existe; senha mantida`, dados e grupos preservados, painel de volta em ate 60 s.
+- **Comando:** com `TAG` e `VERSAO_RPM` da versao mais nova, repita as etapas 2 a 4 (baixar, `sha256sum -c --ignore-missing SHA256SUMS`, extrair numa pasta nova; o RPM vem dentro do bundle, nao baixe separado) e rode, na pasta nova: `./instalar.py instalar` (interativo ou `--respostas`; o usuario de emergencia e o arquivo da senha ja existem e sao mantidos).
+- **Resultado esperado:** `Upgrade <versao antiga> -> <versao nova>.`, o `== Resumo ==` com a versao nova, `AVISO: usuario 'emergencia' ja existe; senha mantida (arquivo /etc/painel-ramais/admin-emergencia)`, o arquivo da senha com o mesmo conteudo de antes (as sessoes de senha antigas sao encerradas pelo instalador), dados e grupos preservados, painel de volta em ate 60 s.
 - **Se for diferente:** do rc para a versao final (`0.1.2-0.1.rc.1` para `0.1.2-1`) e entre rcs (`rc.1` para `rc.2`, `rc.2` para `rc.10`) o instalador trata como upgrade. `Versao instalada maior que a do bundle` so deve aparecer ao tentar o contrario (final para rc). Qualquer outra mensagem: anote o texto exato e `rpm -q painel-ramais`.
 
 #### Upgrade da rc.1 para a rc.2 (quando a rc.1 ja esta instalada)
@@ -324,8 +324,27 @@ journalctl -u painel-ramais --since "-15min" --no-pager | tail -40
 ### Etapa 16. Acessar pelo navegador (IP e nome, certificado autoassinado)
 
 - **Comando:** no navegador de outro computador da rede: `https://<IP-DO-SERVIDOR>/painel-ramais/`, depois `https://<NOME-DO-SERVIDOR>/painel-ramais/` e `https://<IP-DO-SERVIDOR>/painel-ramais/api/health`. O nome precisa resolver (DNS ou arquivo hosts do seu computador).
-- **Resultado esperado:** o navegador avisa que o certificado nao e confiavel (autoassinado; por IP ou por nome o aviso e esperado, inclusive "nome nao confere"); depois de aceitar, `/painel-ramais/` mostra uma resposta JSON do daemon (`{"success":false,...}`, nao uma pagina de erro do Apache) e `/painel-ramais/api/health` mostra a pagina 404 do Apache, sem JSON (a saude so existe em 127.0.0.1).
+- **Resultado esperado:** o navegador avisa que o certificado nao e confiavel (autoassinado; por IP ou por nome o aviso e esperado, inclusive "nome nao confere"); depois de aceitar, `/painel-ramais/` aberto direto no navegador (fora do iframe do Issabel) redireciona (303) para a pagina de aviso "Acesse pelo menu PBX do Issabel." (do painel, nao uma pagina de erro do Apache), `/painel-ramais/api/session` mostra um JSON `{"success":false,...}` com `unauthorized` (401) e `/painel-ramais/api/health` mostra a pagina 404 do Apache, sem JSON (a saude so existe em 127.0.0.1).
 - **Se for diferente:** pagina de erro do Apache em `/painel-ramais/`: `httpd -t`, `getsebool httpd_can_network_connect` (deve estar `on`) e `curl -s http://127.0.0.1:8790/api/health` na VM. Nome que nao abre e IP que abre: e DNS/hosts, nao o painel. JSON em `/api/health`: anote (o proxy estaria expondo a rota interna).
+
+### Etapa 16b. Conferir a tela pelo menu do Issabel (fase 2)
+
+Itens marcados "quando o modulo estiver instalado" dependem do modulo PHP e do menu, que ainda nao existem (esperam a leitura da VM). Os demais valem ja pelo endereco direto e pela rota de emergencia descrita no LEIAME.
+
+- **Menu:** quando o modulo estiver instalado, em PBX aparece "Painel de Ramais" logo depois de "Operator Panel". Entre como usuario `administrator` e depois como usuario do grupo `Operator`: nos dois a tela abre sem pedir senha.
+- **Bloqueio de acesso direto:** abra `https://<IP>/painel-ramais/` direto no navegador (fora do menu). Esperado: aviso "Acesse pelo menu PBX do Issabel.", sem dados de ramais.
+- **Mapa geral:** a tela abre com indicadores (total, registrados, nao registrados, inalcancaveis, em chamada) e o mapa de grupos. Anote o tempo percebido da abertura (do clique no menu ate ver os ramais).
+- **Grupo aberto e busca:** clique num grupo; confira os cards e busque por numero e por nome (com e sem acento).
+- **Cronometro:** faca uma chamada entre dois ramais; o card mostra o outro lado, a direcao e o cronometro andando; ao desligar, volta a "livre".
+- **AMI desconectado:** com `systemctl stop asterisk` por alguns segundos, a tela mostra a faixa "Conexao com o Asterisk perdida" e os ramais em "desconhecido"; ao voltar o Asterisk, a faixa some. Suba o Asterisk de novo.
+- **Tela cheia:** o botao de tela cheia entra e sai (dentro do menu depende do modulo; quando o modulo estiver instalado, confira tambem pelo iframe).
+- **Administrador x operador:** quando o modulo estiver instalado, a area "Grupos" (importar CSV e remover) aparece so para `administrator`.
+- **Encerrar sessao:** `sudo -u painel-ramais painel-ramais session purge --issabel <usuario>`; a tela aberta desse usuario mostra "Sessao encerrada" em ate alguns segundos.
+- **Indicadores com AMI desconectado:** com o Asterisk fora, registrados, nao registrados, inalcancaveis e em chamada mostram "–" (nunca 0), com o texto "sem leitura com o Asterisk fora".
+- **Ranking "Mais nao registrados":** todos os itens, inclusive o ultimo, aparecem com barra e numero.
+- **Card do ramal:** o outro lado da chamada aparece uma vez so ("11468 · Ramal 11468"; chamada externa: "externo" e o numero).
+- **Layout dentro do Issabel:** na area de conteudo (cerca de 1250 x 700 px, menu lateral visivel) nao ha rolagem horizontal, o historico fica visivel ou com indicacao de que existe, e a tela cheia usa a tela inteira.
+- **Se for diferente:** anote o texto exato da tela, o navegador e `journalctl -u painel-ramais -n 50 --no-pager`.
 
 ## Parte 5: a prova final do LEIAME
 

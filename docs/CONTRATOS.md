@@ -2,9 +2,9 @@
 
 **Data**: 2026-10-13
 **Origem**: `docs/PROMPT-FASE-1.md` e `docs/ADENDO-FASE-1-INSTALADOR.md` (especificação do usuário, mesmo peso; o adendo troca o `discovery.sh` pelo `instalar.py verificar`). Em conflito, a especificação vence e este documento é corrigido.
-**Decisões de arquitetura ligadas**: `docs/adr/ADR-001-protocolo-websocket.md` (Aceito), `docs/adr/ADR-002-sessao-e-token-hmac.md` (PROPOSTO, aguarda o usuário), `docs/adr/ADR-003-pacote-rpm-e-integracao-issabel.md` (Proposto, aguarda spike em Rocky 8 e 9).
+**Decisões de arquitetura ligadas**: `docs/adr/ADR-001-protocolo-websocket.md` (Aceito), `docs/adr/ADR-002-sessao-e-token-hmac.md` (PROPOSTO, aguarda o usuário), `docs/adr/ADR-003-pacote-rpm-e-integracao-issabel.md` (Proposto, aguarda spike em Rocky 8 e 9), `docs/adr/ADR-004-tela-e-menu-do-issabel.md` (Proposto; fase 2: tela, menu do Issabel, chave própria do Issabel e acesso de emergência). Plano da fase 2: `docs/plans/2026-10-16-fase2-menu-issabel.md`.
 
-Este documento é a fonte única dos formatos trocados entre as partes do coletor, e entre o coletor e quem o consome (fase 2: tela; fase 3: link do Issabel). Quem implementa não inventa campo: campo novo entra aqui primeiro.
+Este documento é a fonte única dos formatos trocados entre as partes do coletor, e entre o coletor e quem o consome (fase 2: tela e item no menu do Issabel). Quem implementa não inventa campo: campo novo entra aqui primeiro.
 
 ---
 
@@ -32,11 +32,19 @@ O daemon escuta só em loopback. O Apache publica o prefixo `/painel-ramais/` e 
 
 | Método | Rota no daemon | Sessão | Quem alcança | Resposta |
 |---|---|---|---|---|
-| POST | `/api/login` | não | navegador via Apache | envelope |
+| GET | `/` (exato) | não | navegador via Apache (`/painel-ramais/`) | tela (200) ou `303` para o aviso (seção 1.3) |
+| GET | `/acesso` | não | navegador via Apache | HTML de aviso, sem script (seção 1.3) |
+| GET | `/emergencia` | não | navegador via Apache | `301` para `/painel-ramais/emergencia/` |
+| GET | `/emergencia/` (exato) | não | navegador via Apache | a mesma `index.html` da tela, cabeçalhos de emergência (seção 1.3) |
+| GET | `/assets/<arquivo>` | não | navegador via Apache | arquivo de `assets/`; só `.js`, `.css`, `.svg` (seção 1.3) |
+| POST | `/api/login` | não | navegador via Apache | envelope; só aceita o usuário `emergencia` (seção 3.1) |
 | POST | `/api/logout` | não exige (idempotente) | navegador via Apache | envelope |
 | POST | `/api/token` | não | navegador via Apache | envelope |
+| GET | `/api/session` | sim | navegador via Apache | envelope (seção 3.4) |
 | GET | `/api/snapshot` | sim | navegador via Apache | envelope, gzip |
 | GET | `/api/groups` | sim | navegador via Apache | envelope, gzip |
+| POST | `/api/groups/import` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
+| POST | `/api/groups/delete` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
 | GET | `/api/history` | sim | navegador via Apache | envelope, gzip |
 | GET | `/ws` | sim (cookie no upgrade) | navegador via Apache (mod_proxy_wstunnel) | mensagens tipadas |
 | GET | `/api/health` | não | só localhost direto | envelope |
@@ -45,9 +53,10 @@ O daemon escuta só em loopback. O Apache publica o prefixo `/painel-ramais/` e 
 Regras:
 - **Sessão**: toda rota `/api/*` e `/ws` exige cookie de sessão válido, exceto `login`, `logout`, `token` e `health`; `/debug` também exige sessão (além de ser só localhost). Sem sessão: `401 unauthorized`. Detalhes no ADR-002.
 - **Só localhost** (`/api/health`, `/debug`): requisição com `X-Forwarded-For` ou `X-Forwarded-Host` recebe `404` (não revela que a rota existe). O teste é `curl http://127.0.0.1:<porta>/api/health` no próprio servidor.
-- **POST** exige `Content-Type: application/json` (senão `415`) e corpo de no máximo 4 KiB (senão `413`). JSON com campo desconhecido é `400`. O daemon nunca responde cabeçalhos CORS. Toda resposta leva `X-Content-Type-Options: nosniff`. O `http.Server` tem `ReadTimeout` de 15 s (o handler do `/ws` limpa o prazo da conexão).
+- **POST** com `Sec-Fetch-Site: cross-site` recebe `403 forbidden` antes de qualquer processamento. **POST** exige `Content-Type: application/json` (senão `415`) e corpo de no máximo 4 KiB (senão `413`); exceção: `/api/groups/import` e `/api/groups/delete` aceitam até 1 MiB. JSON com campo desconhecido é `400`. O daemon nunca responde cabeçalhos CORS. Toda resposta leva `X-Content-Type-Options: nosniff`. O `http.Server` tem `ReadTimeout` de 15 s (o handler do `/ws` limpa o prazo da conexão).
 - **gzip**: respostas `/api/*` saem com gzip quando o cliente manda `Accept-Encoding: gzip` (stdlib `compress/gzip`).
-- `/` e qualquer outra rota: `404` nesta fase (a tela entra na fase 2).
+- Qualquer outra rota: `404 not_found` no envelope. Caminho com segmento `..` (inclusive `%2e%2e`): `404` no envelope, sem redirecionar. As rotas da tela (`/`, `/acesso`, `/emergencia`, `/emergencia/`, `/assets/*`) aceitam GET e HEAD; outro método dá `405`. Sem a tela embutida (`Options.Static` nulo, só em teste), elas dão `404`.
+- **Papel**: a sessão é de administrador se, e só se, `kind = token` e o `subject` começa com `issabel:admin:`. O papel é derivado do `subject` gravado; nenhuma coluna nova no banco. As rotas marcadas "administrador" respondem `403 forbidden` a qualquer outra sessão (a checagem vem antes de ler o corpo).
 
 ### 1.1 Envelope REST
 
@@ -71,16 +80,45 @@ Erro:
 | HTTP | `code` | Quando |
 |---|---|---|
 | 400 | `bad_request` | JSON inválido, campo desconhecido, parâmetro fora de faixa |
+| 400 | `invalid_csv` | só em `/api/groups/import`: CSV inválido ou com faixas sobrepostas; `message` é o texto do erro do parser (até 20 linhas `linha N: ...`) |
 | 401 | `unauthorized` | sem sessão ou sessão expirada |
 | 401 | `invalid_credentials` | login com usuário ou senha errados (mesma mensagem para os dois casos) |
 | 401 | `invalid_token` | token com assinatura errada, expirado, já usado ou malformado (mesma mensagem para todos) |
-| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy |
+| 403 | `forbidden` | sessão sem papel de administrador numa rota de administrador: "Apenas administradores do Issabel podem alterar grupos"; ou POST com `Sec-Fetch-Site: cross-site` (qualquer rota POST, antes de ler o corpo) |
+| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy; `/api/groups/delete` de grupo que não existe ("Grupo inexistente") |
 | 405 | `method_not_allowed` | método errado |
-| 413 | `payload_too_large` | corpo acima de 4 KiB |
+| 413 | `payload_too_large` | corpo acima de 4 KiB (1 MiB em `/api/groups/import` e `/api/groups/delete`) |
 | 415 | `unsupported_media_type` | POST sem `application/json` |
-| 429 | `too_many_attempts` | 5 logins errados do mesmo usuário em 5 min (ADR-002), ou 4 comparações bcrypt já em andamento (a tentativa recusada por saturação não conta contra o usuário) |
+| 429 | `too_many_attempts` | 5 logins errados do mesmo IP do cliente em 5 min, ou 20 do mesmo usuário em 5 min (seção 3.1), ou 4 comparações bcrypt já em andamento (a tentativa recusada por saturação não conta contra o usuário) |
 | 500 | `internal` | falha inesperada (detalhe só no log) |
 | 503 | `degraded` | só em `/api/health`, quando AMI está fora ou alguma dependência falhou (corpo igual ao 200) |
+
+### 1.3 Tela, aviso e cabeçalhos (ADR-004)
+
+O prefixo do navegador é fixo: `/painel-ramais/` (o mesmo `Path` do cookie). A tela (HTML, CSS e JavaScript de `internal/web/static/`) vai embutida no binário (`//go:embed`, pacote `internal/web`); arquivo começando com `.` ou `_` não entra no embed. `Content-Type` definido pelo daemon pela extensão, sem depender do `/etc/mime.types`: `.js` `text/javascript; charset=utf-8`, `.css` `text/css; charset=utf-8`, `.svg` `image/svg+xml`, `.html` `text/html; charset=utf-8`. `/assets/` aceita um nível só (`/assets/x.js`); `/assets/`, subpasta, nome começando com `.`, extensão fora das três e arquivo inexistente dão `404 not_found` (envelope).
+
+`GET /` decide pelo `Sec-Fetch-Dest`:
+
+| `Sec-Fetch-Dest` | Resposta |
+|---|---|
+| `iframe` | `200`, `index.html`, cabeçalhos "tela" |
+| ausente | `200`, `index.html`, cabeçalhos "tela" (navegador antigo; o script confere `window.top`) |
+| qualquer outro (`document`, `empty`, ...) | `303`, `Location: /painel-ramais/acesso#`, corpo vazio, `Cache-Control: no-store` |
+
+O `#` vazio no `Location` é obrigatório: impede que o fragmento `#t=<token>` da URL original seja herdado pelo redirecionamento. HEAD responde igual (`curl -I` mostra o 303).
+
+Cabeçalhos (além de `X-Content-Type-Options: nosniff` e `X-Request-Id`, que saem em toda resposta):
+
+| Página | Cabeçalhos |
+|---|---|
+| tela (`/`) | `Content-Type: text/html; charset=utf-8`; `Cache-Control: no-store`; `Referrer-Policy: no-referrer`; `Vary: Sec-Fetch-Dest`; `X-Frame-Options: SAMEORIGIN`; `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'` |
+| emergência (`/emergencia/`) | igual à tela, trocando `frame-ancestors 'self'` por `frame-ancestors 'none'` e `X-Frame-Options: DENY`; sem `Vary` (não olha o `Sec-Fetch-Dest`) |
+| aviso (`/acesso`) | `Content-Type: text/html; charset=utf-8`; `Cache-Control: no-store`; `Referrer-Policy: no-referrer`; `X-Frame-Options: SAMEORIGIN`; `Content-Security-Policy: default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'` |
+| assets | `Content-Type` da extensão; `Cache-Control: no-cache`; `ETag` (SHA-256 truncado do conteúdo; `If-None-Match` igual dá `304`); os `.svg` levam também `Content-Security-Policy: default-src 'none'` |
+
+Consequências para a tela: nada inline (nem `<script>`, nem `<style>`, nem `style="..."` no HTML, nem `on*=`), nada externo (CDN, Google Fonts), nenhum `eval`/`new Function`. Estilo dinâmico pelo CSSOM é permitido. Texto vindo do Asterisk entra só por `textContent`/`createTextNode` ou canvas.
+
+Fluxo de entrada da tela (frontend, daemon e módulo PHP): o módulo do Issabel emite um token (seção 3.3) e monta `<iframe src="/painel-ramais/#t=<token>" allow="fullscreen" title="Painel de Ramais">`. A tela, fora da rota de emergência, se `window.top === window.self` mostra o aviso e para; casando o fragmento `#t=<token>`, primeiro apaga-o da barra (`history.replaceState`) e depois faz `POST /api/token`; sem fragmento (ou token recusado), tenta `GET /api/session`; 401 mostra "Sessão encerrada. Abra de novo pelo menu PBX do Issabel.". Na rota `/painel-ramais/emergencia/`, 401 em `/api/session` mostra o formulário de login do usuário `emergencia`. Qualquer REST com 401, ou `session_expired` seguido de 4001, volta a esta mensagem (na emergência, ao formulário).
 
 ---
 
@@ -142,16 +180,16 @@ Correlação de "com quem fala" (implementação no `state`): Uniqueid, Linkedid
 
 ---
 
-## 3. Autenticação (ADR-002, PROPOSTO)
+## 3. Autenticação (ADR-002 aceito; revisão da fase 2 no ADR-004, Proposto)
 
-Os formatos abaixo valem se o ADR-002 for aceito como está. Se o usuário mudar algo, esta seção muda junto.
+Os formatos abaixo valem como estão no ADR-002 (sessão e token) e no ADR-004 (chave do Issabel, papel, login só de emergência). Se o usuário mudar algo, esta seção muda junto.
 
 ### 3.1 POST /api/login
 
-Requisição:
+Só existe um usuário de senha aceito, o reservado `emergencia` (rota de emergência, ADR-004 item 5; o instalador cria o usuário com este mesmo nome). Requisição:
 
 ```json
-{ "username": "fabio", "password": "uma-senha-longa" }
+{ "username": "emergencia", "password": "uma-senha-longa" }
 ```
 
 Resposta 200, com `Set-Cookie: painel_session=<id>; Path=/painel-ramais/; Max-Age=604800; Secure; HttpOnly; SameSite=Strict`:
@@ -159,15 +197,15 @@ Resposta 200, com `Set-Cookie: painel_session=<id>; Path=/painel-ramais/; Max-Ag
 ```json
 {
   "success": true,
-  "data": { "subject": "fabio", "kind": "password", "expires_at": "2026-10-13T22:30:00.000Z" },
+  "data": { "subject": "emergencia", "kind": "password", "admin": false, "expires_at": "2026-10-13T22:30:00.000Z" },
   "error": null,
   "meta": null
 }
 ```
 
-Validade da sessão (decisão 5, ADR-002 aceito): é por **inatividade** (`auth.session_ttl`, padrão 12 h), não absoluta. Qualquer requisição autenticada passada a metade do prazo renova a sessão, e uma conexão `/ws` ativa a renova sozinha a cada `session_ttl/6`; uma tela de NOC em uso nunca expira. `expires_at` da resposta é a validade naquele instante. O cookie leva `Max-Age=604800` (7 dias) só para sobreviver à sessão: quem decide é o banco.
+Validade da sessão (decisão 5, ADR-002 aceito): é por **inatividade** (`auth.session_ttl`, padrão 12 h), não absoluta. Qualquer requisição autenticada passada a metade do prazo renova a sessão, e uma conexão `/ws` ativa a renova sozinha a cada `session_ttl/6`; uma tela de NOC em uso nunca expira. `expires_at` da resposta é a validade naquele instante. O cookie do login (emergência) leva `Max-Age=604800` (7 dias) só para sobreviver à sessão: quem decide é o banco. O cookie de sessão por token (menu do Issabel) vai **sem** `Max-Age` nem `Expires` (cookie de sessão do navegador: some ao fechar); a expiração por inatividade continua no servidor.
 
-Validação: `username` 1 a 64 caracteres; `password` 1 a 72 bytes (limite do bcrypt). Falha: `401 invalid_credentials`; 5 falhas do mesmo usuário em 5 min: `429 too_many_attempts`. O limitador guarda no máximo 10.000 usuários; cheio, descarta as chaves vencidas e, se preciso, a de tentativa mais antiga (memória limitada sem negar usuário novo). A tentativa é contada **antes** do bcrypt (reserva atômica; o acerto zera a contagem), então tentativas paralelas não furam o limite; no máximo 4 bcrypt rodam ao mesmo tempo e o excedente recebe `429`. O log guarda do usuário digitado só o tamanho e 8 hex do SHA-256.
+Validação: `username` 1 a 64 caracteres; `password` 1 a 72 bytes (limite do bcrypt). Qualquer `username` que não seja `emergencia` (sem diferenciar maiúsculas) recebe `401 invalid_credentials` depois da comparação bcrypt falsa (o mesmo caminho do usuário inexistente, o tempo não revela nada) e conta no limitador como qualquer outro; usuários criados na fase 1 continuam no banco e deixam de entrar. A sessão criada tem `kind = password`, `subject = emergencia` e `admin = false`. Falha: `401 invalid_credentials`. Dois limites, ambos `429 too_many_attempts`: **por IP do cliente**, 5 falhas em 5 min (o IP é o último valor do `X-Forwarded-For`, que o Apache acrescenta no fim; valores à esquerda são do cliente e não contam; sem o cabeçalho ou com valor inválido, o `RemoteAddr`), de modo que quem erra de um IP não trava a senha certa de outro; e **por nome de usuário**, 20 falhas em 5 min (contra tentativa distribuída em vários IPs). O acerto zera as duas contagens. Cada limitador guarda no máximo 10.000 chaves; cheio, descarta as chaves vencidas e, se preciso, a de tentativa mais antiga (memória limitada sem negar usuário novo). A tentativa é contada **antes** do bcrypt (reserva atômica; o acerto zera a contagem), então tentativas paralelas não furam o limite; no máximo 4 bcrypt rodam ao mesmo tempo e o excedente recebe `429`. O log guarda do usuário digitado só o tamanho e 8 hex do SHA-256.
 
 ### 3.2 POST /api/logout
 
@@ -179,10 +217,10 @@ Sem corpo (ou `{}`). Apaga a sessão do banco se existir e devolve o cookie expi
 
 ### 3.3 POST /api/token
 
-Troca um token HMAC de uso único por uma sessão. Requisição:
+Troca um token HMAC de uso único por uma sessão. Requisição (o token do exemplo é o V1 da tabela abaixo):
 
 ```json
-{ "token": "eyJzdWIiOiJpc3NhYmVsOmFkbWluIiwiZXhwIjoxNzkxOTAyNDYwLCJqdGkiOiJxOVhoM2MxYlYwZThtMkxyNXRZd1pBIn0.1FevVYbrsil2HqMU283VGL948fcwdxThKkYL6xtxxq0" }
+{ "token": "eyJzdWIiOiJpc3NhYmVsOmFkbWluOmZhYmlvIiwiZXhwIjoxNzkxOTAyNDYwLCJqdGkiOiJxOVhoM2MxYlYwZThtMkxyNXRZd1pBIn0.BvaFo9ur4_kzEeYjvM0EiRPhpy_6qmlZsU7nio54VU4" }
 ```
 
 Resposta 200, com o mesmo `Set-Cookie` do login:
@@ -190,24 +228,60 @@ Resposta 200, com o mesmo `Set-Cookie` do login:
 ```json
 {
   "success": true,
-  "data": { "subject": "issabel:admin", "kind": "token", "expires_at": "2026-10-13T22:40:30.000Z" },
+  "data": { "subject": "issabel:admin:fabio", "kind": "token", "admin": true, "expires_at": "2026-10-13T22:40:30.000Z" },
   "error": null,
   "meta": null
 }
 ```
 
-Falha (assinatura, expirado, `jti` repetido, formato): `401 invalid_token`.
+Falha (assinatura, expirado, `jti` repetido, formato, regra do `sub`): `401 invalid_token`, sempre a mesma resposta.
 
-Formato do token: `base64url(payload) "." base64url(HMAC-SHA256(segredo, base64url(payload)))`, sem padding. Payload JSON com exatamente `sub` (texto livre, 1 a 128 caracteres), `exp` (unix segundos) e `jti` (16 a 64 caracteres base64url). Aceito só se `agora < exp <= agora + 65 s` (TTL 60 s mais 5 s de folga de relógio) e o `jti` não foi visto.
+Formato do token: `base64url(payload) "." base64url(HMAC-SHA256(chave, base64url(payload)))`, sem padding. Payload JSON com exatamente `sub` (1 a 128 bytes), `exp` (unix segundos) e `jti` (16 a 64 caracteres base64url). Aceito só se `agora < exp <= agora + 65 s` (TTL 60 s mais 5 s de folga de relógio) e o `jti` não foi visto. A recusa por regra do `sub` não consome o `jti`.
 
-Vetor de teste (para o backend e para o emissor da fase 3; segredo de exemplo, nunca usar em produção):
+**Duas chaves.** O verificador confere a assinatura contra a chave do Issabel (se carregada) e contra o segredo do daemon, ambos com `hmac.Equal`:
+
+- Chave do Issabel: arquivo `auth.issabel_key_file` (padrão `/etc/painel-ramais-issabel.key`), base64 (padrão, com `=`) que decodifica em 32 bytes ou mais, espaços nas pontas descartados; a chave HMAC são os **bytes decodificados**. Permissão aceita: o daemon abre o arquivo com `O_RDONLY|O_NOFOLLOW|O_NONBLOCK`, confere no mesmo descritor (`fstat`) e lê dele (no máximo 4 KiB): arquivo regular (symlink e FIFO são recusados), dono = euid do processo, `mode.Perm() &^ 0o640 == 0` (aceita 0640, 0600, 0440, 0400; recusa escrita de grupo e qualquer bit de outros). No Windows (desenvolvimento) só existe a checagem de existência. Chave igual ao segredo do daemon (mesmos bytes) também é recusada: quem lesse o segredo emitiria tokens de administrador do Issabel. Chave ausente, recusada pela permissão ou com conteúdo inválido: o daemon sobe normalmente e só a linha do segredo do daemon vale.
+- Segredo do daemon: `auth.secret_file`, como na fase 1.
+
+| Assinado com | `sub` aceito | Papel da sessão |
+|---|---|---|
+| chave do Issabel | `issabel:admin:<usuario>` | administrador |
+| chave do Issabel | `issabel:user:<usuario>` | operador |
+| segredo do daemon (`auth.secret_file`) | qualquer texto de 1 a 128 caracteres que **não** comece com `issabel:` (sem diferenciar maiúsculas) | operador |
+
+`<usuario>`: 1 a 64 caracteres (runas), UTF-8 válido, sem caractere de controle (Cc), de formatação (Cf: marcas bidirecionais, largura zero, soft hyphen, BOM) nem separador de linha ou de parágrafo (Zl, Zp); pode conter `:` e espaço comum. O emissor PHP segue a mesma regra; o `sub` inteiro continua com 1 a 128 bytes. O prefixo do lado da chave do Issabel é exato (minúsculas). Papel administrador = `kind == "token"` e `subject` com prefixo exato `issabel:admin:`. Nenhuma coluna nova no banco: o papel é derivado do `subject` gravado.
+
+Ordem de verificação: formato e tamanho; HMAC contra a chave do Issabel (se carregada) e contra o segredo do daemon; JSON estrito; regra do `sub` da tabela conforme a chave que casou; `exp`; `jti`.
+
+A chave do Issabel é entregue ao verificador pela verificação de dependências (seção 4.4, item `issabel_key`): na subida, a cada 60 s e após cada Login AMI. Criar, trocar, apagar ou estragar a permissão da chave vale em até 60 s, sem reiniciar o serviço, e o que o `/api/health` mostra é exatamente o que o verificador usa.
+
+Vetores de teste (para o backend e para o emissor PHP; chaves de exemplo, nunca usar em produção). `exp = 1791902460` (2026-10-13T14:41:00Z); os testes usam relógio fixo antes disso. Os tokens foram calculados com `HMAC-SHA256(bytes da chave, texto base64url do payload)`.
 
 | Item | Valor |
 |---|---|
-| conteúdo de `/etc/painel-ramais/secret` | `AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=` (base64 dos bytes 0x00 a 0x1f) |
-| payload (bytes exatos) | `{"sub":"issabel:admin","exp":1791902460,"jti":"q9Xh3c1bV0e8m2Lr5tYwZA"}` |
-| `exp` | 2026-10-13T14:41:00Z |
-| token | o do exemplo da requisição acima |
+| conteúdo de `auth.secret_file` | `AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=` (bytes 0x00 a 0x1f) |
+| conteúdo de `auth.issabel_key_file` | `ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=` (bytes 0x20 a 0x3f) |
+| V1 payload | `{"sub":"issabel:admin:fabio","exp":1791902460,"jti":"q9Xh3c1bV0e8m2Lr5tYwZA"}` |
+| V1 assinado com a chave do Issabel: **aceito, administrador** | `eyJzdWIiOiJpc3NhYmVsOmFkbWluOmZhYmlvIiwiZXhwIjoxNzkxOTAyNDYwLCJqdGkiOiJxOVhoM2MxYlYwZThtMkxyNXRZd1pBIn0.BvaFo9ur4_kzEeYjvM0EiRPhpy_6qmlZsU7nio54VU4` |
+| V1 assinado com o segredo do daemon: **recusado** (prefixo reservado) | `eyJzdWIiOiJpc3NhYmVsOmFkbWluOmZhYmlvIiwiZXhwIjoxNzkxOTAyNDYwLCJqdGkiOiJxOVhoM2MxYlYwZThtMkxyNXRZd1pBIn0.PbqEoW5r-kgT30bYkuhechQCldj_pGcp1iUCVi9haRQ` |
+| V2 payload | `{"sub":"issabel:user:maria","exp":1791902460,"jti":"r8Wg2b0aU9d7l1Kq4sXvYB"}` |
+| V2 assinado com a chave do Issabel: **aceito, operador** | `eyJzdWIiOiJpc3NhYmVsOnVzZXI6bWFyaWEiLCJleHAiOjE3OTE5MDI0NjAsImp0aSI6InI4V2cyYjBhVTlkN2wxS3E0c1h2WUIifQ.Q4LwgNiSLChzFaL2PT8hSU-vtRnAGdAUcacuuCe6MYc` |
+| V3 payload | `{"sub":"roteiro","exp":1791902460,"jti":"s7Vf1a9ZT8c6k0Jp3rWuXC"}` |
+| V3 assinado com o segredo do daemon: **aceito, operador** | `eyJzdWIiOiJyb3RlaXJvIiwiZXhwIjoxNzkxOTAyNDYwLCJqdGkiOiJzN1ZmMWE5WlQ4YzZrMEpwM3JXdVhDIn0.CpvxeT22yxalo6wlbU5qUNnNvdADVR9DfzJ31NA2Yfc` |
+| V3 assinado com a chave do Issabel: **recusado** (sem prefixo) | `eyJzdWIiOiJyb3RlaXJvIiwiZXhwIjoxNzkxOTAyNDYwLCJqdGkiOiJzN1ZmMWE5WlQ4YzZrMEpwM3JXdVhDIn0.DqPJ2WjOE9vIsaS0PehNvhUPxX8OSDdU_6DqhxD6QXY` |
+| V0 (vetor da fase 1, payload `{"sub":"issabel:admin","exp":1791902460,"jti":"q9Xh3c1bV0e8m2Lr5tYwZA"}`, segredo do daemon): **agora recusado** | `eyJzdWIiOiJpc3NhYmVsOmFkbWluIiwiZXhwIjoxNzkxOTAyNDYwLCJqdGkiOiJxOVhoM2MxYlYwZThtMkxyNXRZd1pBIn0.1FevVYbrsil2HqMU283VGL948fcwdxThKkYL6xtxxq0` |
+
+Emissor PHP (módulo do Issabel): a mesma receita. `hash_hmac('sha256', $p64, base64_decode(trim(file_get_contents($arq)), true), true)`, `jti` de 16 bytes de `random_bytes` em base64url sem `=`, TTL de 60 s, `sub` pela tabela. O teste do módulo usa V1 e V2.
+
+### 3.4 GET /api/session
+
+Exige sessão (renova como qualquer GET autenticado); sem sessão, `401 unauthorized`. Devolve o mesmo `data` do login e do token (`sessionData`):
+
+```json
+{ "success": true, "data": { "subject": "issabel:admin:fabio", "kind": "token", "admin": true, "expires_at": "2026-10-13T22:40:30.000Z" }, "error": null, "meta": null }
+```
+
+`admin` é `true` só se `kind == "token"` e `subject` começa com `issabel:admin:`. A tela usa este campo para mostrar a área de grupos.
 
 ---
 
@@ -352,7 +426,9 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
     "deps": [
       { "name": "ami_user", "status": "ok", "detail": "login aceito em 2026-10-13T08:00:01Z", "checked_at": "2026-10-13T14:30:00.000Z" },
       { "name": "manager_custom_include", "status": "ok", "detail": "manager.conf inclui manager_custom.conf e o bloco painel-ramais está presente", "checked_at": "2026-10-13T14:30:00.000Z" },
-      { "name": "apache_proxy_conf", "status": "ok", "detail": "/etc/httpd/conf.d/painel-ramais.conf presente", "checked_at": "2026-10-13T14:30:00.000Z" }
+      { "name": "apache_proxy_conf", "status": "ok", "detail": "/etc/httpd/conf.d/painel-ramais.conf presente", "checked_at": "2026-10-13T14:30:00.000Z" },
+      { "name": "issabel_key", "status": "ok", "detail": "chave do Issabel válida: integração ligada", "checked_at": "2026-10-13T14:30:00.000Z" },
+      { "name": "manager_custom_perm", "status": "ok", "detail": "manager_custom.conf sem acesso para outros (modo 0640)", "checked_at": "2026-10-13T14:30:00.000Z" }
     ]
   },
   "error": null,
@@ -361,12 +437,42 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
 ```
 
 - `deps[].status`: `ok`, `fail` ou `unknown` (por exemplo, sem permissão de leitura em `/etc/asterisk/manager.conf`). `unknown` também deixa o status em `degraded` e o `detail` diz o que fazer. Exceção deliberada: o `%post` tira o acesso de "outros" de `manager_custom.conf` (o-rwx, dono asterisk) e o serviço não entra no grupo asterisk; então `EACCES` ao ler `manager.conf` ou `manager_custom.conf` é esperado e o item `manager_custom_include` passa a `ok` se o Login AMI foi aceito (`detail`: "não legível pelo serviço (esperado, o-rwx); login AMI aceito confirma o usuário"), `fail` se o Login foi recusado e `unknown` se ainda não houve Login. Arquivo ausente continua `fail`.
+- Itens da fase 2 (o `status` geral segue a regra: qualquer item diferente de `ok` deixa `degraded`):
+
+| `name` | `ok` | `fail` | `unknown` |
+|---|---|---|---|
+| `issabel_key` | arquivo ausente (detalhe: "chave do Issabel ausente: integração com o menu desligada") ou presente e válido ("chave do Issabel válida: integração ligada") | permissão, dono, tipo ou conteúdo inválido, ou chave igual ao `auth.secret_file`; detalhe com o problema e a correção (`chown painel-ramais:<grupo do PHP> <arquivo>; chmod 0640 <arquivo>`) | erro de leitura que não seja "não existe" nem regra violada |
+| `manager_custom_perm` | modo sem nenhum bit de outros (detalhe com o modo) | algum bit de outros; detalhe "manager_custom.conf acessível a outros (modo NNNN): contém a senha AMI. Rode: chmod o-rwx /etc/asterisk/manager_custom.conf" | `stat` falhou (inclui ausente e `EACCES` no diretório); detalhe com o erro. Nunca `ok` |
+
+  `issabel_key` é a fonte única da chave do verificador de tokens (seção 3.3): a cada verificação (na subida, a cada 60 s e após cada Login AMI) o resultado é entregue ao verificador (chave válida ou nenhuma). O daemon só lê o modo do `manager_custom.conf` (`stat`), nunca o altera. Mudança de estado de qualquer item sai no log.
 - `ami_user` vem do resultado do último Login da conexão única (não abre segunda conexão).
 - `events_per_s`: média dos últimos 60 s. `lag_ms`: agora menos a hora de leitura do último evento processado. `queue.overflows`: quantas vezes a fila encheu e forçou ressincronização (seção 11.3); `queue.len` e `queue.cap` são da fila do leitor AMI (a que pode estourar).
 
 ### 4.5 GET /debug (só localhost, exige sessão)
 
 HTML puro gerado no servidor, com `<meta http-equiv="refresh" content="2">`, sem JavaScript e sem envelope. Mostra: contagens por estado, chamadas ativas (ramal, direção, estado, outro lado, duração) e os últimos 20 lotes de delta do ring buffer. Não é contrato para a fase 2.
+
+### 4.6 POST /api/groups/import e POST /api/groups/delete (só administrador)
+
+Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes de ler o corpo. As duas rotas aceitam corpo de até 1 MiB (`413 payload_too_large` acima disso); o resto da API segue com 4 KiB. Teto de 20.000 linhas no CSV pela tela (a quebra de linha final não conta como linha; 20.001 ou mais dão `400 invalid_csv`; a CLI não tem esse teto). Mesma validação e mesma transação da CLI `group import|del` (`store.ParseGroupsCSV`, `ImportGroups`, `DeleteGroup`); depois de gravar, o daemon relê os grupos pelo mesmo caminho do SIGHUP (`loadGroups`): epoch novo, as telas abertas recebem `reload`. Se a recarga falhar, a resposta é `500 internal` (os grupos já estão gravados; repetir é seguro).
+
+`POST /api/groups/import`:
+
+```json
+{ "csv": "grupo,ramal\nSuporte,2000-2099\nVendas,3000-3999\n", "replace": true }
+```
+
+`csv` obrigatório (texto do arquivo, mesmo formato da seção 9); `replace` opcional, padrão `false`; campo desconhecido: `400 bad_request`. Sucesso: `200` com `{"success":true,"data":{"rows":2,"replace":true},"error":null,"meta":null}` e log Info `grupos importados` com `sub`, `rows` e `replace`. CSV inválido ou com sobreposição: `400 invalid_csv`, `message` = o texto do erro do parser (até 20 linhas `linha N: ...`); nada é gravado.
+
+`POST /api/groups/delete`:
+
+```json
+{ "name": "Suporte" }
+```
+
+`name` de 1 a 64 caracteres (senão `400 bad_request`). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}` e log Info `grupo removido`. Inexistente: `404 not_found`, "Grupo inexistente".
+
+Leitura: `GET /api/groups` (seção 4.2), sem mudança. Ele lê a projeção do estado, não o banco: logo depois do import pode ficar defasado por até ~250 ms (um lote), até o estado publicar o epoch novo; a tela usa o `reload` do WebSocket para saber quando reler.
 
 ---
 
@@ -486,6 +592,7 @@ ami:
 
 auth:
   secret_file: /etc/painel-ramais/secret
+  issabel_key_file: /etc/painel-ramais-issabel.key   # opcional; o padrão basta
   session_ttl: 12h
 
 history:
@@ -495,7 +602,7 @@ history:
 | Chave | Tipo | Padrão | Validação |
 |---|---|---|---|
 | `listen` | host:porta | `127.0.0.1:8790` | host obrigatoriamente loopback (`127.0.0.0/8` ou `::1`); senão recusa iniciar. 8790 evita a 8088 do HTTP do Asterisk |
-| `technology` | enum | `auto` | `auto`, `sip`, `pjsip` |
+| `technology` | enum | `auto` | `auto`, `sip`, `pjsip`. No `auto` com os dois módulos carregados (o padrão do Issabel 5) o daemon conta os ramais das duas tecnologias, usa `sip` só se `sip > pjsip` (empate = `pjsip`) e registra em Info (não é anomalia): `chan_pjsip.so e chan_sip.so carregados (padrão do Issabel 5); modo auto usa pjsip (ramais: pjsip=812, sip=0)` |
 | `extension_pattern` | regexp RE2 | `^[0-9]+$` | compila; o daemon sempre casa o nome inteiro (envolve em `^(?:...)$`) |
 | `data_dir` | caminho absoluto | `/var/lib/painel-ramais` | existe e é gravável pelo usuário do serviço; banco em `<data_dir>/painel.db` |
 | `log_level` | enum | `info` | `debug`, `info`, `warn`, `error`; log em texto no stdout (journald) |
@@ -503,13 +610,14 @@ history:
 | `ami.username` | string | `painel-ramais` | 1 a 64 caracteres; tem de bater com a seção do bloco em `manager_custom.conf` |
 | `ami.secret_file` | caminho | `/etc/painel-ramais/ami-secret` | legível; permissão 0600; dono = usuário do serviço; conteúdo não vazio (espaços nas pontas descartados) |
 | `auth.secret_file` | caminho | `/etc/painel-ramais/secret` | legível; 0600; base64 que decodifica em 32 bytes ou mais |
+| `auth.issabel_key_file` | caminho absoluto | `/etc/painel-ramais-issabel.key` | não vazio e absoluto; o arquivo **pode não existir** (integração desligada); permissão e conteúdo nunca impedem a subida: são conferidos pela verificação de dependências (na subida e a cada 60 s; seções 3.3 e 4.4) |
 | `auth.session_ttl` | duração Go | `12h` | entre `15m` e `24h`; inatividade máxima da sessão (renovada pelo uso e pelo WebSocket) |
 | `ami.name_fill_per_second` | inteiro | `20` | entre 1 e 200; teto de consultas de nome (`PJSIPShowEndpoint`/`SIPshowpeer`) em segundo plano (decisão 4) |
 | `history.retention_days` | inteiro | `30` | entre 1 e 365 |
 
 Constantes (não configuráveis, de propósito): lote WS 250 ms; ring buffer 40 lotes; fila de envio por cliente 64 mensagens; TTL máximo do token 60 s; backoff de reconexão AMI de 1 s a 30 s; verificação de dependências a cada 60 s; fila interna AMI para estado 65536 eventos; ReadTimeout HTTP 15 s; no máximo 4 bcrypt simultâneos no login. Viram configuração só com medição que justifique.
 
-Não há variáveis de ambiente. O único "ambiente" é este arquivo e os dois segredos, todos validados na subida.
+Não há variáveis de ambiente no binário de release. O único "ambiente" é este arquivo e os dois segredos, todos validados na subida (a chave do Issabel é a exceção deliberada: opcional e vigiada pela verificação de dependências). O endpoint de heap/pprof do teste de carga (`PAINEL_DEBUG_ADDR`) só existe no binário compilado com `-tags debug` e não faz parte da release.
 
 ---
 
@@ -573,10 +681,10 @@ painel-ramais user add <usuario> [--password-stdin]
 painel-ramais user del <usuario>
 painel-ramais user passwd <usuario> [--password-stdin]
 painel-ramais group import [--replace] <arquivo.csv | ->
-painel-ramais session purge [--all]
+painel-ramais session purge [--all | --issabel <usuario>]
 painel-ramais group list
 painel-ramais group del <grupo>
-painel-ramais token --sub <texto> [--ttl 60s]
+painel-ramais token --sub <texto> [--ttl 60s] [--issabel]
 painel-ramais capturar --minutos N --saida <arquivo|-> [--anonimizar] [--digitos-externos 7]
 painel-ramais filtrar [--anonimizar] [--digitos-externos 7] [--host NOME]...
 painel-ramais actions
@@ -591,8 +699,8 @@ painel-ramais version
 - `capturar --saida -` escreve a captura no stdout (e o resumo no stderr): o `instalar.py homologar`, como root, lê pelo pipe e nunca abre arquivo da área do usuário do serviço.
 - `filtrar` lê texto do stdin e escreve no stdout com as **mesmas regras** do `capturar` (`internal/capture`, `Sanitizer.Text`): segredos viram `***` sempre (formatos `Chave: valor`, `chave=valor` e `"chave":"valor"`; chaves `secret`, `passw*`, `pass`, `pwd`, `senha`, `token`, `*key`, `auth*`, `cookie`, `session`, `hmac`, `signature`, `credential`, `private`, `md5`, `challenge`; o valor inteiro: com aspas (duplas ou simples) até a aspa que fecha, sem aspas até o **fim da linha** (escolha de segurança; inclui valor dentro de aspas, URL com `?session=X` e repr de Python); cabeçalhos `Cookie`/`Set-Cookie`/`Authorization` na linha toda; senha de `usuario:senha@host`; `response`/`nonce` de Digest); com `--anonimizar`, números externos, nomes, usuários, hosts, IPv4 e IPv6 viram ficcionais, o mesmo ficcional para o mesmo original durante a execução; `--host NOME` (repetível) troca o hostname/FQDN em qualquer ponto do texto. Não cobre segredo de várias linhas (PEM), segredo em argv/`ps` fora de par chave=valor nem texto livre sem chave (`filtrar --help`). É o único filtro de máscara do pacote de homologação (não há segunda rotina em Python).
 - `actions` imprime a lista fixa de actions AMI do daemon (seção 7.1), uma por linha, ordenada. O `instalar.py homologar` registra `manager show command <Action>` para cada uma.
-- `session purge` apaga as sessões vencidas; `--all` apaga todas (todo mundo faz login de novo) e manda o SIGHUP para o daemon fechar os WebSockets. Imprime a quantidade removida.
-- `token` imprime o token no stdout e nada mais. `--ttl` máximo 60 s. Uso: testes e diagnóstico.
+- `session purge` apaga as sessões vencidas; `--all` apaga todas (todo mundo faz login de novo) e manda o SIGHUP para o daemon fechar os WebSockets. Imprime a quantidade removida. `--issabel <usuario>` apaga as sessões de token com `subject` igual a `issabel:admin:<usuario>` ou `issabel:user:<usuario>` (sessão de senha e token da CLI nunca casam), imprime `N sessão(ões) removida(s)` e, se `N > 0`, manda o SIGHUP (os WebSockets dessas sessões fecham com `session_expired` `revoked` e 4001). `--all` e `--issabel` juntos, ou `--issabel` com usuário fora da regra (1 a 64 caracteres, sem caractere de controle): erro de uso (código 1).
+- `token` imprime o token no stdout e nada mais. `--ttl` máximo 60 s. Sem `--issabel`, assina com o segredo do daemon e um `--sub` que comece com `issabel:` (sem diferenciar maiúsculas) é erro de uso (código 1) com a mensagem "use --issabel para sub issabel:". Com `--issabel`, assina com a chave do Issabel (lida com a regra de permissão da seção 3.3; falha de leitura sai com 2) e o `--sub` precisa seguir a gramática da seção 3.3 (`issabel:admin:<usuario>` ou `issabel:user:<usuario>`; senão código 1). Uso: testes, homologação do fluxo do menu e a medição local (`cmd/telalocal`).
 - Depois de `user ...` ou `group ...` com sucesso, a CLI pega o PID com `systemctl show -p MainPID --value painel-ramais` e manda SIGHUP (mesmo usuário, não precisa de root). Daemon parado: avisa e sai 0. Falha no sinal: avisa `rode: systemctl reload painel-ramais` e sai 0 (o banco já foi gravado).
 - Códigos de saída: 0 sucesso; 1 erro de uso ou validação (mensagem cita a linha do CSV); 2 erro de ambiente (banco, arquivo, permissão); 3 `user add` de usuário que já existe (nada alterado). O 3 existe para o `instalar.py` ser idempotente sem ler o banco. Só no `serve`: 4 = Asterisk abaixo da versão mínima (13); a unit deve ter `RestartPreventExitStatus=4` para não reiniciar em laço.
 - `version` imprime uma linha `painel-ramais <versao> schema <user_version que o binário conhece>` (exemplo: `painel-ramais 0.1.1 schema 2`). O `instalar.py` usa o `schema` para decidir o rollback (seção 15.5).
@@ -616,7 +724,7 @@ O mesmo arquivo com `;` (`Suporte;2000-2099`) também é aceito, desde que o arq
 
 - UTF-8, BOM aceito. Delimitador `,` ou `;`, detectado na primeira linha de dados e fixo para o arquivo (Excel em português exporta com `;`).
 - Linhas vazias e linhas que começam com `#` são ignoradas. Cabeçalho opcional: só é pulado se a primeira linha de dados for exatamente `grupo<delim>ramal` (sem diferenciar maiúsculas). Qualquer outra linha é dado.
-- `grupo`: 1 a 64 caracteres depois do trim, diferente de `Sem grupo`. Grupo que não existe é criado.
+- `grupo`: 1 a 64 caracteres depois do trim, diferente de `Sem grupo`, sem caractere de controle (Cc, inclui C1), de formatação (Cf: marcas bidirecionais U+202A a U+202E e U+2066 a U+2069, largura zero U+200B/E/F, U+061C, U+FEFF) nem separador de linha ou de parágrafo (Zl, Zp: U+2028/2029); é a mesma regra do `<usuario>` do `sub` (seção 3.3). Grupo que não existe é criado.
 - `ramal_ou_faixa`: só dígitos (`2150`) ou `inicio-fim` com `inicio <= fim`. Comparação numérica. Ramal com zero à esquerda ou nome não numérico nunca cai em faixa e fica em `"Sem grupo"` (suposição registrada na seção 13).
 - Tudo ou nada: qualquer erro ou sobreposição (dentro do arquivo ou com faixas já gravadas) rejeita o arquivo inteiro e lista as linhas em conflito. Com `--replace`, apaga todos os grupos e importa na mesma transação; a sobreposição é checada só dentro do arquivo.
 
@@ -788,8 +896,10 @@ Módulo único. Dependências externas: `modernc.org/sqlite`, `gopkg.in/yaml.v3`
 ```
 cmd/painel-ramais/     main: serve e CLI; supervisor da conexão AMI (Adapter); amostrador de histórico; SIGHUP
 cmd/amisim/            simulador de AMI (modos sip e pjsip)
-cmd/loadtest/          teste de carga contra o simulador
-internal/api/          HTTP, sessão, hub WebSocket (projeção, ring buffer, fan-out), /debug
+cmd/loadtest/          teste de carga contra o simulador (`-heap` exige o daemon compilado com `-tags debug`)
+cmd/telalocal/         Issabel falso para desenvolver e medir a tela sem VM: simulador em processo, daemon, proxy no estilo do Apache e `/dev/token`; só desenvolvimento
+internal/api/          HTTP, sessão, rotas da tela e dos grupos, hub WebSocket (projeção, ring buffer, fan-out), /debug
+internal/web/          tela embutida no binário (`//go:embed static`); o conteúdo de `static/` é do frontend
 internal/state/        estado em memória, correlação de canais, versão, epoch, lotes de 250 ms
 internal/model/        tipos: Extension, Call, enums, eventos normalizados, Batch, Reset
 internal/ami/          conexão, framing, login, allowlist de actions, leitura sem bloqueio
@@ -810,7 +920,7 @@ packaging/             nfpm.yaml, unit, scripts do RPM, httpd.conf.tmpl, config.
 Grafo de importação interna (uma linha por pacote; `->` lista o que ele importa). Verificado sem ciclo por script (seção 14).
 
 ```deps
-cmd/painel-ramais -> internal/api, internal/state, internal/model, internal/ami, internal/ami/sip, internal/ami/pjsip, internal/store, internal/auth, internal/config, internal/depcheck, internal/history
+cmd/painel-ramais -> internal/api, internal/state, internal/model, internal/ami, internal/ami/sip, internal/ami/pjsip, internal/store, internal/auth, internal/config, internal/depcheck, internal/history, internal/web
 internal/api -> internal/state, internal/model, internal/store, internal/auth, internal/depcheck
 internal/state -> internal/model
 internal/ami/sip -> internal/ami, internal/ami/calls, internal/model
@@ -823,8 +933,12 @@ internal/store ->
 internal/auth ->
 internal/config ->
 internal/depcheck ->
+internal/web ->
+internal/amisim -> internal/capture
+internal/capture ->
 cmd/amisim ->
 cmd/loadtest ->
+cmd/telalocal -> internal/amisim, internal/auth
 ```
 
 Regras:
@@ -832,6 +946,7 @@ Regras:
 - Folhas (`model`, `store`, `auth`, `config`, `depcheck`, `ami`) não importam nenhum pacote interno. `store` devolve os próprios tipos de linha; o `cmd` converte para `model` (por exemplo `store.Range` para `model.GroupRange`).
 - A interface `Adapter` (duas implementações: `sip` e `pjsip`) é declarada em `cmd/painel-ramais`, onde é consumida: `Snapshot(ctx, *ami.Client) error` emite os eventos da sincronização; `Translate(ami.Message) []model.Event` traduz um evento ao vivo; `EndpointFromChannel(string) (string, bool)`.
 - Detecção de tecnologia (`CoreSettings` e `ModuleCheck`) fica em `ami` e devolve texto (`"sip"`, `"pjsip"`); o `cmd` escolhe o adaptador.
+- `cmd/telalocal` (só desenvolvimento) importa `internal/amisim` (simulador em processo) e `internal/auth` (assina o token do Issabel falso); fala com o daemon só por processo e HTTP, como cliente. `internal/web` é folha: só embute os arquivos; o conteúdo de `static/` é do frontend e as rotas que o servem são de `internal/api` (opção `Static`).
 - `cmd/amisim` e `cmd/loadtest` não importam nada de `internal/`. O simulador tem framing AMI próprio de propósito: se dividisse o código do cliente, um bug de framing seria espelhado e o teste não pegaria. O teste de carga decodifica o JSON pelos tipos dele, como cliente de caixa preta deste contrato.
 - `ami/calls` é uma adição ao desenho pedido. O bundle é `tools/bundle.py` (Python, `tarfile`, executado por `build.ps1 bundle`), e não um `cmd/bundle` em Go: o build roda no Windows, sem bit de execução, e o `tar` do Windows não garante o modo 0755 no cabeçalho, então o script grava `TarInfo.mode` explícito. `ami/calls` evita duplicar a tradução de onze eventos de chamada nos dois adaptadores, e não cria ciclo.
 - Se o `cmd/painel-ramais` passar de 800 linhas, o supervisor sai para `internal/collector` (entre `cmd` e `ami/*`), sem mudar a direção.
@@ -936,18 +1051,18 @@ Não altera nada no sistema. A única escrita é o relatório em `/var/log/paine
 ### 15.5 `instalar`
 
 1. Roda o `verificar`. Qualquer ERRO: sai com 1 sem tocar no sistema.
-2. Coleta **todas** as respostas antes de mudar qualquer coisa: tecnologia (`auto` por padrão), usuário admin, senha (`getpass`, digitada duas vezes, ou arquivo do `--respostas`), CSV de grupos (opcional; o arquivo precisa existir).
+2. Coleta **todas** as respostas antes de mudar qualquer coisa: tecnologia (`auto` por padrão) e CSV de grupos (opcional; o arquivo precisa existir). Não pergunta senha.
 3. Pacote:
    - não instalado: `rpm -i`;
    - mesma versão: `rpm -U --replacepkgs` (reaplica o `%post`, que é idempotente);
    - versão mais antiga instalada: move `/var/lib/painel-ramais-instalador/rpm-instalado/` (root 0700, fora do diretório do serviço) para `rpm-anterior/` (substitui o que havia) e roda `rpm -U`. Sem RPM guardado (pacote instalado à mão): AVISO "rollback indisponível para esta versão" e segue;
    - depois de instalar, copia o RPM do bundle e a saída de `painel-ramais version` (`versao.txt`) para `rpm-instalado/` (root 0700), junto com o `SHA256` do RPM. Antes de instalar, o instalador confere o RPM do bundle contra o `SHA256SUMS` do bundle e `rpm -qp --qf %{NAME}` = `painel-ramais`.
 4. `technology:` no `config.yaml`: reescreve a linha só se o valor mudou, com cópia `config.yaml.bak-<data>` antes.
-5. Usuário admin: `runuser -u painel-ramais -- painel-ramais user add <usuario> --password-stdin`. Código 3 (já existe): segue sem trocar a senha e avisa.
+5. Senha de emergência: se `/etc/painel-ramais/admin-emergencia` não existe, gera 24 caracteres (`secrets.token_urlsafe(18)`) e grava o arquivo (root 0600, `O_EXCL`); entrega a senha pelo stdin a `user add emergencia --password-stdin`; código 3 com arquivo recém-criado: `user passwd emergencia --password-stdin`; código 3 com arquivo que já existia: segue.
 6. Grupos, se houver CSV: `runuser -u painel-ramais -- painel-ramais group import --replace -` (o root lê o CSV e o entrega pelo stdin; nenhum arquivo é criado em `/var/lib/painel-ramais`). O CSV do instalador é a fonte da verdade: rodar de novo com o mesmo arquivo dá o mesmo resultado.
 7. `systemctl enable --now painel-ramais`; `systemctl restart painel-ramais` se a tecnologia mudou.
 8. Espera até 60 s por `GET http://127.0.0.1:<porta>/api/health` com `ami.connected = true` e `extensions.total > 0`, consultando a cada 2 s.
-9. Testa o Apache: `GET https://127.0.0.1/painel-ramais/` precisa responder com o envelope JSON do daemon (na fase 1, `404 not_found`; prova que o proxy chega ao daemon); `GET https://127.0.0.1/painel-ramais/api/health` precisa responder 404 do próprio Apache, sem JSON (prova a exclusão do D5).
+9. Testa o Apache: `GET https://127.0.0.1/painel-ramais/api/session` precisa responder `401` com o envelope `unauthorized` do daemon; `GET https://127.0.0.1/painel-ramais/api/health` precisa responder 404 do próprio Apache, sem JSON.
 10. Resumo: versão, tecnologia, ramais por estado, quantidade de grupos, URL `https://<endereço do servidor>/painel-ramais/` e caminho do log.
 
 Falha do passo 3 em diante: não desfaz nada, mostra o passo, o erro e o comando para diagnosticar (`journalctl -u painel-ramais -n 50`, `./instalar.py status`, `httpd -t`), sai com 2.
@@ -956,7 +1071,7 @@ Idempotência:
 
 | Rodar de novo | Resultado |
 |---|---|
-| mesmo bundle | `rpm -U --replacepkgs`; usuário existente mantido; grupos iguais (replace com o mesmo CSV); `config.yaml` intocado se a tecnologia é a mesma |
+| mesmo bundle | `rpm -U --replacepkgs`; arquivo da senha de emergência e usuário `emergencia` mantidos; grupos iguais (replace com o mesmo CSV); `config.yaml` intocado se a tecnologia é a mesma |
 | bundle mais novo | upgrade com o RPM anterior guardado para rollback |
 | segredos, bloco AMI, conf do Apache | regenerados pelo `%post` sem duplicar (ADR-003, itens 4, 5 e 7) |
 
@@ -985,14 +1100,12 @@ Um nível só de rollback.
 ```ini
 [painel]
 tecnologia = auto
-admin_usuario = admin
-admin_senha_arquivo = /root/painel-admin.senha
 grupos_csv = /root/grupos.csv
 ```
 
-- `configparser` da stdlib. Seção e chaves exatamente estas; chave desconhecida sai com 3.
+- `configparser` da stdlib. Seção e chaves exatamente estas; chave desconhecida sai com 3 (as chaves `admin_usuario` e `admin_senha_arquivo` da fase 1 continuam conhecidas, só são ignoradas).
 - `tecnologia`: `auto`, `sip` ou `pjsip`. `grupos_csv` vazio ou ausente: não importa grupos.
-- `admin_senha_arquivo`: arquivo comum, dono root, modo 0600 ou 0400; senão sai com 3. Usa a primeira linha, sem a quebra de linha. A senha nunca vai na linha de comando (aparece no `ps`) nem no log.
+- `admin_usuario` e `admin_senha_arquivo` (fase 1) passam a ser ignoradas com AVISO e não falham: a senha de emergência é gerada pelo instalador (seção 15.5, passo 5). A senha nunca vai na linha de comando (aparece no `ps`) nem no log.
 
 ### 15.10 Log
 

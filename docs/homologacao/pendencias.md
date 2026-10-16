@@ -3,6 +3,11 @@
 Decisoes ja tomadas que ficam para depois da analise do pacote de homologacao.
 A rc.2 e a versao em homologacao: nada aqui altera codigo nem gera rc nova agora.
 
+Atualizacao 2026-10-16: o endpoint de debug do heap e as pendencias 3 a 6 abaixo (permissao do
+manager_custom.conf, bit de execucao, clone confundido com o pacote, aviso de chan_sip e chan_pjsip)
+passaram para a fase 2 (`docs/plans/2026-10-16-fase2-menu-issabel.md`, ADR-004). Continuam esperando
+o pacote: outro lado sem ramal, privilegios AMI ilegiveis (Asterisk 18) e ContactStatus sem UserAgent.
+
 ## Pendencia: outro lado sem ramal em conversa (lote pos-analise do pacote homologacao-*.tar.gz)
 
 **Status:** decidido, NAO implementar agora. Entra no lote de correcoes que vier depois da
@@ -48,8 +53,8 @@ Com `peer != nil` e `peer.endpoint == ""` o resultado e `PeerUnknown` sem passar
 
 ## Pendencia: endpoint de debug do heap fora da release final (lote pos-analise do pacote homologacao-*.tar.gz)
 
-**Status:** decidido, NAO implementar agora. Entra no lote de correcoes que vier depois da
-analise do pacote `homologacao-*.tar.gz`, sem rc nova agora; a rc.2 e a versao em homologacao.
+**Status:** em execucao na fase 2 (plano `docs/plans/2026-10-16-fase2-menu-issabel.md`, tarefa B8:
+caminho da decisao 2, build tag `debug`).
 
 **Dependencia:** pacote `homologacao-*.tar.gz` coletado no Issabel, colocado em
 `docs/homologacao/entrada/` e analisado.
@@ -176,8 +181,7 @@ Linhas em 0188465:
 
 ## Pendencia: permissao do manager_custom.conf vigiada pela verificacao de 60 s (lote pos-analise do pacote homologacao-*.tar.gz)
 
-**Status:** decidido, NAO implementar agora. Entra no lote de correcoes que vier depois da
-analise do pacote `homologacao-*.tar.gz`, sem rc nova agora; a rc.2 e a versao em homologacao.
+**Status:** em execucao na fase 2 (plano `docs/plans/2026-10-16-fase2-menu-issabel.md`, tarefa B5).
 
 **Origem:** primeiro `instalar.py verificar` em Issabel 5 real.
 
@@ -199,7 +203,9 @@ Linhas em 0188465:
 ### Decisao do usuario
 
 1. O `%post` do RPM aplica `chmod o-rwx` somente no `manager_custom.conf`. Nao mexer em nenhum
-   outro arquivo do Issabel.
+   outro arquivo do Issabel. A regra vale so para arquivos do Issabel: arquivos do painel
+   (`/etc/painel-ramais*`, `/var/lib/painel-ramais` e a chave `/etc/painel-ramais-issabel.key`)
+   podem ser criados e ajustados pelo RPM (ADR-004, 2026-10-16).
 2. A verificacao de dependencias a cada 60 s passa a acusar quando o `manager_custom.conf` voltar a
    ficar legivel para outros (ex.: depois de uma atualizacao do Issabel), com a dica
    `chmod o-rwx /etc/asterisk/manager_custom.conf`. O daemon so le o modo (stat); nunca altera o
@@ -210,13 +216,12 @@ Linhas em 0188465:
 - Teste em `internal/depcheck`: arquivo com bit de leitura para outros -> item com status `fail`
   e a dica do `chmod`; arquivo `o-rwx` -> `ok`; stat falhou -> `unknown`, nunca `ok`.
 - O item aparece em `/api/health` `deps[]` e a mudanca de estado sai no log (`logChanges`).
-- `%post` sem nenhum `chmod`/`chown` novo fora do `manager_custom.conf`.
+- `%post` sem nenhum `chmod`/`chown` novo em arquivo do Issabel fora do `manager_custom.conf`
+  (arquivos do painel ficam de fora desta regra, ver decisao 1).
 
 ## Pendencia: instalar.py sem bit de execucao no repositorio (lote pos-analise do pacote homologacao-*.tar.gz)
 
-**Status:** decidido, NAO implementar agora (so registro). Entra no lote de correcoes que vier
-depois da analise do pacote `homologacao-*.tar.gz`, sem rc nova agora; a rc.2 e a versao em
-homologacao.
+**Status:** em execucao na fase 2 (plano `docs/plans/2026-10-16-fase2-menu-issabel.md`, tarefa D2).
 
 **Origem:** primeiro uso em Issabel 5 real: `./instalar.py` a partir de um clone do repositorio
 nao executa (sem bit de execucao).
@@ -238,8 +243,7 @@ nao executa (sem bit de execucao).
 
 ## Pendencia: clone do repositorio confundido com o pacote (lote pos-analise do pacote homologacao-*.tar.gz)
 
-**Status:** decidido, NAO implementar agora. Entra no lote de correcoes que vier depois da
-analise do pacote `homologacao-*.tar.gz`, sem rc nova agora; a rc.2 e a versao em homologacao.
+**Status:** em execucao na fase 2 (plano `docs/plans/2026-10-16-fase2-menu-issabel.md`, tarefa D3).
 
 **Origem:** primeiro uso em Issabel 5 real: `instalar.py instalar` rodado na pasta do clone, sem o
 RPM ao lado.
@@ -270,8 +274,8 @@ Linhas em 0188465:
 
 ## Pendencia: aviso de chan_sip e chan_pjsip juntos (lote pos-analise do pacote homologacao-*.tar.gz)
 
-**Status:** decidido, NAO implementar agora. Entra no lote de correcoes que vier depois da
-analise do pacote `homologacao-*.tar.gz`, sem rc nova agora; a rc.2 e a versao em homologacao.
+**Status:** em execucao na fase 2 (plano `docs/plans/2026-10-16-fase2-menu-issabel.md`: lado Go na
+tarefa B9, lado do `instalar.py` na tarefa D4).
 
 **Origem:** primeiro `instalar.py verificar` em Issabel 5 real: `chan_sip` e `chan_pjsip`
 carregados juntos, que e o padrao do Issabel 5. O aviso atual sugere que isso e anormal.

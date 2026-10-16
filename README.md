@@ -4,7 +4,7 @@ Copyright (c) 2026 Fabio Carvalhosa Sanchez. Todos os direitos reservados.
 
 Painel **somente leitura** que substitui a visão do FOP em servidores **Issabel 5** (Rocky Linux 8 ou 9). Esta fase entrega o
 coletor (daemon em Go, uma conexão AMI), a API local em `127.0.0.1`, o pacote RPM e o instalador `instalar.py`. A tela final é a
-Fase 2; o link no menu do Issabel é a Fase 3. O painel não executa nenhuma ação de controle no Asterisk.
+Fase 2, junto com o item no menu do Issabel (ADR-004). O painel não executa nenhuma ação de controle no Asterisk.
 
 Documentos de referência: `docs/CONTRATOS.md` (contratos), `docs/adr/` (decisões), `docs/PROMPT-FASE-1.md` e
 `docs/ADENDO-FASE-1-INSTALADOR.md` (especificação). **Este README resume; em caso de divergência vale o CONTRATOS.**
@@ -31,7 +31,7 @@ No computador de desenvolvimento: `.\build.ps1 all` gera `dist/painel-ramais-<ve
 ```sh
 tar xzf painel-ramais-<versao>.tar.gz && cd painel-ramais-<versao>
 ./instalar.py verificar          # somente leitura; relatório em /var/log/painel-ramais/verificacao-<data>.txt
-./instalar.py instalar           # pergunta tecnologia, usuário admin, senha e CSV de grupos
+./instalar.py instalar           # pergunta tecnologia e CSV de grupos (não pede senha)
 ./instalar.py status
 ```
 
@@ -39,8 +39,8 @@ Não precisa de internet nem de `pip`. Funciona sem o pacote `python3` do Rocky 
 Passo a passo de campo, modo não interativo (`--respostas`) e laço ssh para vários servidores: `packaging/LEIAME-INSTALACAO.md`
 (vai dentro do bundle). Códigos de saída: 0 sucesso; 1 verificação com ERRO; 2 falha na operação; 3 uso inválido; 4 cancelado.
 
-Instalação manual do RPM (sem o instalador): `rpm -i painel-ramais-<versao>-1.x86_64.rpm`; depois crie o usuário admin com a CLI
-(seção 4). Nenhum pacote do Issabel é dependência do RPM.
+Instalação manual do RPM (sem o instalador): `rpm -i painel-ramais-<versao>-1.x86_64.rpm`; o acesso é pelo menu do Issabel (o usuário e a senha
+de acesso direto só existem pelo `instalar.py`). Nenhum pacote do Issabel é dependência do RPM.
 
 ## 2. O que o pacote instala
 
@@ -406,7 +406,7 @@ com o simulador (`cmd/amisim`, modos `sip` e `pjsip`) no lugar do Asterisk. Prep
 2. **Falha forçada:** `sed -i 's/^LoadModule proxy_wstunnel_module/#&/' /etc/httpd/conf.modules.d/*.conf && systemctl restart httpd`.
    `./instalar.py verificar` → `[ERRO ] mod_proxy_wstunnel ausente`, saída 1. `./instalar.py instalar` aborta com `Verificacao com ERRO: nada foi alterado`
    e `rpm -q painel-ramais` continua dizendo que não está instalado. Reverta o sed.
-3. **Instalação interativa:** `./instalar.py instalar` (tecnologia `auto`, admin, senha com 10+ caracteres, CSV `grupos-exemplo.csv`).
+3. **Instalação interativa:** `./instalar.py instalar` (tecnologia `auto`, CSV `grupos-exemplo.csv`; nenhuma senha é pedida).
    Esperado ao fim: bloco `== Resumo ==` com versão, tecnologia, ramais, grupos e `Acesso: https://<ip>/painel-ramais/`; saída 0.
    Confira: `systemctl is-active painel-ramais` → `active`; `ls -l /etc/painel-ramais/` (`secret` e `ami-secret` 0600 `painel-ramais`);
    `grep -c 'BEGIN painel-ramais' /etc/asterisk/manager_custom.conf` → `1`; `stat -c '%a %U' /etc/asterisk/manager_custom.conf` sem acesso para outros;
@@ -414,7 +414,7 @@ com o simulador (`cmd/amisim`, modos `sip` e `pjsip`) no lugar do Asterisk. Prep
    **Socket activation:** `systemctl is-active painel-ramais.socket` → `active`; `ss -ltnp | grep :8790` mostra o `systemd`. Mate o daemon
    (`kill -9 $(systemctl show -p MainPID --value painel-ramais)`): a porta continua ocupada pelo systemd e o serviço volta em ~2 s
    (`Restart=always`). Anexe as saídas reais.
-4. **Instalação com `--respostas`:** crie `respostas.ini` e o arquivo de senha 0600 do root (modelo no `LEIAME-INSTALACAO.md`);
+4. **Instalação com `--respostas`:** crie `respostas.ini` (modelo no `LEIAME-INSTALACAO.md`; `admin_usuario` e `admin_senha_arquivo` são ignoradas com AVISO);
    `./instalar.py instalar --respostas respostas.ini --sim`; saída 0.
 5. **Idempotência / upgrade:** rode `instalar` de novo com o mesmo bundle: `Mesma versao (...): reaplicando.`, usuário existente mantido
    (`AVISO: usuario ... ja existe`), grupos iguais. Com um bundle de versão maior: `Upgrade A -> B.`, e passa a existir
