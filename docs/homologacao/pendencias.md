@@ -305,7 +305,7 @@ Linhas em 0188465:
 
 ## Pendencia: instalar.py sem perguntas (lote pos-homologacao da rc.3)
 
-**Status:** pendente. Entra no lote depois da homologacao da rc.3. Nao implementar nem publicar rc agora.
+**Status:** implementada no lote rc.4 (aguardando homologacao). `instalar.py instalar` nao pergunta nada nem le o stdin; flags `--tecnologia` e `--grupos`; `--respostas` inalterado (nao combina com as flags).
 
 **Origem:** homologacao da rc.3: ao colar um bloco de comandos no terminal, a linha seguinte
 (`./instalar.py status`) foi lida como resposta da pergunta de tecnologia e o instalador falhou com
@@ -342,3 +342,98 @@ Linhas em d7893de:
 - `--respostas` inalterado.
 - `README.md`, `packaging/LEIAME-INSTALACAO.md` e `docs/homologacao/ROTEIRO-MANUAL.md` sem referencia
   a perguntas interativas.
+
+## Pendencia: servidor sem ramais nao e erro (lote rc.4)
+
+**Status:** implementada no lote rc.4 (aguardando homologacao), nos dois lados. No `instalar.py`, `verificar` e `instalar` tratam lista vazia como `0 ramais` e a instalacao nao espera ramais. No daemon (backend), a resposta Error "no ... found" tambem foi implementada como lista vazia.
+
+**Origem:** homologacao da rc.3 numa VM Issabel sem ramais: "No AORs found"/"No endpoints found" e lista vazia sao zero ramais, mas o instalador esperava ramais para
+considerar o painel pronto.
+
+### Ponto a mudar
+
+- `instalar.py` `health_pronto`/`esperar_health`: exigiam `extensions.total > 0`.
+- `instalar.py` `c_tecnologia`: a contagem de ramais precisa tratar lista vazia como `0 ramais`, sem ERRO nem AVISO.
+
+### Decisao do usuario
+
+Servidor sem ramais e valido: `verificar` e `instalar` informam `0 ramais`, sem erro nem aviso, e a instalacao so espera o AMI conectado.
+
+### Criterio de aceite
+
+- `verificar` num servidor sem ramais: linha da tecnologia com `0 ramais`, sem AVISO/ERRO por isso.
+- `instalar` termina em ate 60 s com o painel mostrando 0.
+
+## Pendencia: contagem de ramais do verificar igual a do daemon (lote rc.4)
+
+**Status:** implementada no lote rc.4 (aguardando homologacao).
+
+**Origem:** `instalar.py verificar` contou `sip=1` numa VM sem ramais: a linha de resumo `N sip peers [...]` do `sip show peers` era lida como um peer chamado `1`, que casa com o
+`extension_pattern` padrao.
+
+### Ponto a mudar
+
+- `instalar.py` `nomes_endpoints` (resumo `N sip peers` e cabecalho `<Endpoint/CID...>`) e `c_tecnologia` (nova `ramais_do_asterisk`, mesma regra do `internal/ami/detect.go`: nome casa com
+  `extension_pattern`; `sip` so se `sip > pjsip`, empate = `pjsip`).
+
+### Decisao do usuario
+
+O verificar conta ramais como o daemon.
+
+### Criterio de aceite
+
+Numa VM sem ramais e com `chan_sip` e `chan_pjsip` carregados, o verificar mostra `pjsip=0, sip=0`.
+
+## Pendencia: endpoint interno dummy_endpoint nao e ramal (lote rc.4)
+
+**Status:** implementada no lote rc.4 (aguardando homologacao): constante `ENDPOINTS_INTERNOS` no `instalar.py` (comparacao sem diferenciar maiusculas), que espelha a lista do daemon
+(`internal/model/model.go`, `model.InternalEndpoints`, do backend); manter as duas listas iguais.
+
+**Origem:** o Issabel cria `dummy_endpoint`, que nao e ramal e nao deve entrar na contagem.
+
+### Criterio de aceite
+
+Com `extension_pattern` que casaria o nome, `dummy_endpoint` (qualquer caixa) fica fora da contagem do verificar e do daemon.
+
+## Pendencia: ProtectKernelLogs na unit e o systemd 239 do Rocky 8 (lote rc.4)
+
+**Status:** implementada no lote rc.4 (aguardando homologacao).
+
+**Origem:** `ProtectKernelLogs=` so existe a partir do systemd 244; o Rocky 8 traz o 239 (opcao desconhecida gera aviso no journal).
+
+### Ponto a mudar
+
+- `packaging/painel-ramais.service`: removida `ProtectKernelLogs=yes`. As demais opcoes de seguranca existem no systemd 239 (NoNewPrivileges 187, ProtectSystem=strict 214, PrivateDevices,
+  ProtectKernelTunables 211, ProtectKernelModules e ProtectControlGroups 232, RestrictNamespaces 233, LockPersonality 235, MemoryDenyWriteExecute 231, RestrictAddressFamilies 211,
+  SystemCallFilter=~@debug, SystemCallArchitectures 209, RuntimeDirectory 211) e ficaram. O teste de seguranca em `tests/test_instalar.py` deixou de exigir `ProtectKernelLogs`.
+
+### Criterio de aceite
+
+`systemctl daemon-reload` e `journalctl -u painel-ramais` na VM sem `Unknown key name`/`Unknown lvalue` da unit.
+
+## Pendencia: inventario de ramais dinamico (lote rc.4)
+
+**Status:** implementada no lote rc.4 (aguardando homologacao), toda no daemon (backend); o `instalar.py` nao tem mudanca nesta pendencia.
+
+**Origem:** ramal criado, apagado ou renomeado no Issabel (Apply Config) so aparecia depois de reiniciar o painel.
+
+### Decisao do usuario
+
+O painel acompanha o inventario do Asterisk: ramal novo aparece, ramal apagado some e nome novo aparece, em ate 10 s.
+
+### Criterio de aceite
+
+Etapa 16c do `docs/homologacao/ROTEIRO-MANUAL.md` (criar, apagar e renomear um ramal).
+
+### A conferir na homologacao da rc.4 (inventario dinamico e eventfilter)
+
+- Nome exato dos eventos de recarga no Asterisk 18 do Issabel e se `ModuleLoadReport` e `FullyBooted` passam pelo `eventfilter` (o bloco gerenciado da rc.4 inclui `Reload`,
+  `ModuleLoadReport` e `FullyBooted`; o `%post` reescreve o bloco de forma idempotente no upgrade e roda `manager reload`).
+- Quantos `Reload` um Apply Config gera.
+- Texto exato das respostas de lista vazia ("no ... found") e se o `EndpointList` traz `Callerid`.
+- Outros endpoints internos alem de `dummy_endpoint` (resumo da S10 do `docs/CONTRATOS.md`; a lista unica e `model.InternalEndpoints`, espelhada em `ENDPOINTS_INTERNOS` do `instalar.py`).
+
+### Sem testes automatizados para o inventario (por ordem do usuario)
+
+Por ordem do usuario (sem suites novas neste computador) **nao foram criados testes automatizados** para a logica nova: no daemon, `IsEmptyList`/`DoList`, `IsExtension`,
+`reconcile`/`tomb`/`gone`, `removed` no delta, debounce e `Reread`; no `instalar.py`, `nomes_endpoints` e `ramais_do_asterisk`. A validacao e na homologacao (Etapas 16c e do upgrade rc.3 -> rc.4).

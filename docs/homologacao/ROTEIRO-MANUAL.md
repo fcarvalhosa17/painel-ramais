@@ -18,11 +18,11 @@ Voce precisa de:
 
 Legenda usada em todo o roteiro: **A, B, C** = os tres ramais; **T** = tronco; **X** = seu celular; **F** = fila; **R** = ring group.
 
-Variaveis da versao (troque pelos valores da release que vai testar):
+**A rc.4 ainda nao foi publicada: este roteiro so vale depois que a Release `v0.1.2-rc.4` existir.** Variaveis da versao (troque pelos valores da release que vai testar):
 
 ```
-export TAG=v0.1.2-rc.3
-export VERSAO_RPM=0.1.2-0.1.rc.3    # versao-release do RPM: rc = release 0.1.rc.N; a final = 0.1.2-1
+export TAG=v0.1.2-rc.4
+export VERSAO_RPM=0.1.2-0.1.rc.4    # versao-release do RPM: rc = release 0.1.rc.N; a final = 0.1.2-1
 ```
 
 Ver o painel por dentro (segundo terminal). Cole uma vez; `painel_ver` mostra o que o painel acha agora:
@@ -72,20 +72,20 @@ gh release download "$TAG" -R fcarvalhosa17/painel-ramais -p 'painel-ramais-*.ta
 BASE=https://github.com/fcarvalhosa17/painel-ramais/releases/download/$TAG
 curl -fLO "$BASE/painel-ramais-${TAG#v}.tar.gz"
 curl -fLO "$BASE/SHA256SUMS"
-# para a rc.3 os enderecos completos sao:
-#   https://github.com/fcarvalhosa17/painel-ramais/releases/download/v0.1.2-rc.3/painel-ramais-0.1.2-rc.3.tar.gz
-#   https://github.com/fcarvalhosa17/painel-ramais/releases/download/v0.1.2-rc.3/SHA256SUMS
-#   https://github.com/fcarvalhosa17/painel-ramais/releases/download/v0.1.2-rc.3/painel-ramais-0.1.2-0.1.rc.3.x86_64.rpm   (so se quiser o RPM avulso)
+# para a rc.4 os enderecos completos sao:
+#   https://github.com/fcarvalhosa17/painel-ramais/releases/download/v0.1.2-rc.4/painel-ramais-0.1.2-rc.4.tar.gz
+#   https://github.com/fcarvalhosa17/painel-ramais/releases/download/v0.1.2-rc.4/SHA256SUMS
+#   https://github.com/fcarvalhosa17/painel-ramais/releases/download/v0.1.2-rc.4/painel-ramais-0.1.2-0.1.rc.4.x86_64.rpm   (so se quiser o RPM avulso)
 ```
 
-  O bundle (`painel-ramais-0.1.2-rc.3.tar.gz`) ja traz o RPM dentro e o `instalar.py` o usa; o RPM avulso (`painel-ramais-${VERSAO_RPM}.x86_64.rpm`) so e preciso para conferir o pacote sozinho (`rpm -qp`) ou instalar sem o instalador. Nesse caso baixe tambem: `gh release download "$TAG" -R fcarvalhosa17/painel-ramais -p 'painel-ramais-*.rpm'` ou `curl -fLO "$BASE/painel-ramais-${VERSAO_RPM}.x86_64.rpm"`.
+  O bundle (`painel-ramais-0.1.2-rc.4.tar.gz`) ja traz o RPM dentro e o `instalar.py` o usa; o RPM avulso (`painel-ramais-${VERSAO_RPM}.x86_64.rpm`) so e preciso para conferir o pacote sozinho (`rpm -qp`) ou instalar sem o instalador. Nesse caso baixe tambem: `gh release download "$TAG" -R fcarvalhosa17/painel-ramais -p 'painel-ramais-*.rpm'` ou `curl -fLO "$BASE/painel-ramais-${VERSAO_RPM}.x86_64.rpm"`.
 - **Resultado esperado:** na pasta atual ficam o tar.gz do bundle (e o RPM, se pedido) e o `SHA256SUMS`, sem erro de rede.
 - **Se for diferente:** `404` = a TAG nao existe ou o arquivo ainda nao foi publicado; confirme `echo $TAG` e a lista de arquivos da release. Sem internet na VM: baixe no seu computador e copie com `scp` (veja o LEIAME-INSTALACAO, passo 1b).
 
 ### Etapa 3. Conferir o SHA256
 
 - **Comando:** `sha256sum -c --ignore-missing SHA256SUMS` (o `SHA256SUMS` lista o RPM e o tar.gz; `--ignore-missing` pula o que voce nao baixou)
-- **Resultado esperado:** uma linha `OK` para cada arquivo baixado, por exemplo `painel-ramais-0.1.2-rc.3.tar.gz: OK` (e `painel-ramais-0.1.2-0.1.rc.3.x86_64.rpm: OK` se baixou o RPM), e nenhuma linha `FAILED`.
+- **Resultado esperado:** uma linha `OK` para cada arquivo baixado, por exemplo `painel-ramais-0.1.2-rc.4.tar.gz: OK` (e `painel-ramais-0.1.2-0.1.rc.4.x86_64.rpm: OK` se baixou o RPM), e nenhuma linha `FAILED`.
 - **Se for diferente:** `FAILED` ou `No such file`: pare, apague o arquivo e baixe de novo. Nao rode o instalador com SHA diferente. Se repetir, anote os dois hashes (`sha256sum arquivo` e a linha do `SHA256SUMS`).
 
 ### Etapa 4. Extrair
@@ -102,8 +102,8 @@ curl -fLO "$BASE/SHA256SUMS"
 
 ### Etapa 6. Instalar
 
-- **Comando:** `./instalar.py instalar` (interativo: tecnologia `auto`, CSV de grupos opcional; nao pergunta senha)
-- **Resultado esperado:** `== Instalacao ==`, a verificacao sem erro, `Aguardando o painel (ate 60s)...` e o `== Resumo ==` com `Versao`, `Tecnologia`, `Ramais` (total maior que 0), `Grupos`, `Acesso: https://<ip>/painel-ramais/` e `Log`. Codigo de saida 0.
+- **Comando:** `./instalar.py instalar` (nao faz perguntas: tecnologia `auto`, sem senha; grupos pela tela ou pela CLI; `--tecnologia sip|pjsip` e `--grupos arquivo.csv` sao opcionais)
+- **Resultado esperado:** `== Instalacao ==`, a verificacao sem erro, `Aguardando o painel (ate 60s)...` e o `== Resumo ==` com `Versao`, `Tecnologia`, `Ramais` (total maior que 0; com 0 e aceito quando o servidor nao tem ramais), `Grupos`, `Acesso: https://<ip>/painel-ramais/` e `Log`. Codigo de saida 0.
 - **Menu do Issabel:** depois do teste do Apache o instalador imprime `Item do menu do Issabel:` com `[OK   ] Menu do Issabel: item painel_ramais - pai=pbxconfig tipo=module ordem=10`, as permissoes (grupos 1 e 2) e a chave (`painel-ramais:asterisk 0640`). Qualquer `[AVISO]` ali: rode `./instalar.py menu` (ou `./instalar.py menu --recriar` se faltar grupo; isso apaga permissoes extras dadas a outros grupos).
 - **Se for diferente:** a mensagem de `FALHA` traz o comando de diagnostico (`journalctl -u painel-ramais -n 50 --no-pager`, `httpd -t`...). Nada e desfeito: corrija e rode `instalar` de novo (e idempotente). Guarde `/var/log/painel-ramais/instalacao.log`.
 
@@ -276,13 +276,23 @@ Fim do roteiro: deixe o relogio zerar (ou Ctrl-C). O pacote fica em `homologacao
 - **Resultado esperado:** `Upgrade <versao antiga> -> <versao nova>.`, o `== Resumo ==` com a versao nova, `AVISO: usuario 'emergencia' ja existe; senha mantida (arquivo /etc/painel-ramais/admin-emergencia)`, o arquivo da senha com o mesmo conteudo de antes (as sessoes de senha antigas sao encerradas pelo instalador), dados e grupos preservados, painel de volta em ate 60 s.
 - **Se for diferente:** do rc para a versao final (`0.1.2-0.1.rc.1` para `0.1.2-1`) e entre rcs (`rc.1` para `rc.2`, `rc.2` para `rc.10`) o instalador trata como upgrade. `Versao instalada maior que a do bundle` so deve aparecer ao tentar o contrario (final para rc). Qualquer outra mensagem: anote o texto exato e `rpm -q painel-ramais`.
 
-#### Nota sobre a rc.3
+#### Upgrade da rc.3 para a rc.4 (a rc.3 ja esta instalada, com o painel funcionando)
 
-A rc.3 (`v0.1.2-rc.3`) e testada como **instalacao nova**, a partir do checkpoint `limpo` (etapa 1): nao passe pela rc.2. O caminho de upgrade
-(`rc.N` para `rc.N+1`) continua valendo com o mesmo comando acima quando houver uma versao posterior para testar; nunca troque arquivo do painel
-a mao nem rode `rpm -U` solto.
+Vale **so depois que a rc.4 for publicada** (a Release `v0.1.2-rc.4` precisa existir no GitHub; antes disso os enderecos abaixo dao 404).
+Use o proprio instalador da rc.4. Nunca troque arquivo do painel a mao nem rode `rpm -U` solto. Esta e a homologacao do upgrade com o `%post` do menu
+(que a rc.3 nao cobriu: ela foi instalacao nova).
 
-Pendencia: upgrade com o `%post` do menu nao homologado na rc.3.
+- **Antes** (na rc.3 instalada): anote `rpm -q painel-ramais` (esperado `painel-ramais-0.1.2-0.1.rc.3.x86_64`), `./instalar.py status`, o conteudo e o modo da
+  chave (`sudo sha256sum /etc/painel-ramais-issabel.key; ls -l /etc/painel-ramais-issabel.key` = `painel-ramais asterisk -rw-r-----`), os grupos
+  (`sudo -u painel-ramais painel-ramais group list`) e se o item aparece no menu. Se possivel, crie um checkpoint.
+- **Comando:** `export TAG=v0.1.2-rc.4`, repita as etapas 2 a 4 numa pasta nova (baixar, `sha256sum -c --ignore-missing SHA256SUMS`, extrair) e, dentro da pasta
+  extraida da rc.4: `sudo ./instalar.py instalar` (sem perguntas).
+- **Resultado esperado:** `Upgrade 0.1.2-0.1.rc.3 -> 0.1.2-0.1.rc.4.`, `rpm -q` responde `painel-ramais-0.1.2-0.1.rc.4.x86_64`, `AVISO: usuario 'emergencia' ja existe;
+  senha mantida`, `Item do menu do Issabel:` com os tres itens `[OK   ]`, servico ativo e AMI conectado.
+- **Sobrevivem ao upgrade:** (1) a chave do Issabel: mesmo `sha256sum` de antes e mesmo dono e modo; (2) o item do menu, no mesmo lugar (depois de Operator Panel), abrindo a tela
+  sem senha como `administrator` e como `Operator`; (3) os grupos: a mesma lista de antes e a tela "Grupos" intacta; (4) a senha de emergencia
+  (`/etc/painel-ramais/admin-emergencia` com o mesmo conteudo).
+- **Se for diferente:** chave diferente ou item sumido: anote o texto do instalador, `sudo ./instalar.py menu` e `rpm -q`. Para voltar: etapa 12.
 
 ### Etapa 12. Rollback
 
@@ -357,7 +367,25 @@ Itens marcados "quando o modulo estiver instalado" dependem do modulo PHP e do m
 - **Token do modulo contra o daemon:** com o painel aberto pelo menu, a tela carrega os ramais sem pedir senha (o token do PHP foi aceito) e `journalctl -u painel-ramais -n 20 --no-pager` nao mostra `invalid_token`. Como `administrator` a area "Grupos" aparece; como `Operator` nao. Isto confere o emissor do PHP e o `instalar.py menu` na VM, porque nao ha teste automatizado deles.
 - **Se for diferente:** anote o texto exato da tela, o navegador e `journalctl -u painel-ramais -n 50 --no-pager`.
 
-## Parte 5: a prova final do LEIAME
+## Parte 5: ramais dinamicos e servidor sem ramais (rc.4)
+
+### Etapa 16c. Inventario de ramais e servidor sem ramais (rc.4)
+
+- **Ramal criado:** no Issabel crie um ramal novo (PBX > Extensions) e de Apply Config. Esperado: em ate 10 s ele aparece no painel como "nao registrado" (ainda sem telefone registrado), sem reiniciar nada.
+- **Ramal apagado:** apague esse ramal e de Apply Config. Esperado: em ate 10 s ele some do painel e dos totais.
+- **Ramal renomeado:** mude o nome (display name) de um ramal e de Apply Config. Esperado: o nome novo aparece no painel (card e busca) ate o fim da passada de nomes (numero de ramais / `name_fill_per_second`, em segundos; ex.: ~40 s com ~800 ramais e o padrao 20 por segundo). Anote se o `EndpointList` traz `Callerid` (item da S10 do `docs/CONTRATOS.md`): o `EndpointList` do Asterisk 18 e o `SIPpeers` nao trazem, entao o nome novo so chega pela passada de nomes.
+- **Servidor sem ramais:** numa VM Issabel sem nenhum ramal (checkpoint limpo, ou apague todos), `./instalar.py verificar` e `./instalar.py instalar` nao dao ERRO nem AVISO por isso; a
+  linha da tecnologia diz `0 ramais`; o instalador nao espera ramais (termina em ate 60 s); a tela abre mostrando 0 ramais. Confira que o verificar nao conta o endpoint
+  interno `dummy_endpoint` nem uma linha de resumo como ramal (antes dava `sip=1` sem ramais).
+- **Eventos de recarga (conferir e anotar):** o nome exato dos eventos que o Asterisk 18 do Issabel emite ao recarregar e se `ModuleLoadReport` e `FullyBooted` passam pelo
+  `eventfilter` do bloco gerenciado (`grep eventfilter /etc/asterisk/manager_custom.conf`: o bloco da rc.4 tem `Reload`, `ModuleLoadReport` e `FullyBooted`); quantos `Reload` um unico Apply Config gera
+  (`journalctl -u painel-ramais` ou a captura `capturar`); o texto exato das respostas de lista vazia (`asterisk -rx 'pjsip show endpoints'` e `sip show peers` sem ramais, e a resposta AMI `Error`
+  correspondente); se o `EndpointList` traz `Callerid`; e se existe outro endpoint interno alem de `dummy_endpoint` (resumo da S10 do `docs/CONTRATOS.md`).
+- **Upgrade rc.3 -> rc.4:** o `%post` reescreve o bloco gerenciado do `manager_custom.conf` (so entre `; BEGIN painel-ramais` e `; END painel-ramais`) quando o conteudo difere e roda `manager reload`;
+  confira depois do upgrade que as duas linhas novas estao no bloco e que o resto do arquivo nao mudou.
+- **Se for diferente:** anote o tempo medido, a saida de `asterisk -rx 'pjsip show endpoints'` e de `./instalar.py verificar`.
+
+## Parte 6: a prova final do LEIAME
 
 ### Etapa 17. Restaurar o checkpoint "limpo" e instalar so pelo LEIAME
 
