@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -95,19 +94,17 @@ func TestIssabelKeyReachesVerifierThroughDepcheck(t *testing.T) {
 	if code := post("issabel:user:bia"); code != 200 {
 		t.Errorf("operador: queria 200, deu %d", code)
 	}
-	// Permissao errada (o Windows nao tem modo; a regra de permissao roda no Linux): fail e 401.
-	if runtime.GOOS != "windows" {
-		writeKey(0o644)
-		if st, det := item(); st != "fail" || !strings.Contains(det, "chmod 0640") {
-			t.Errorf("0644: %s %s", st, det)
-		}
-		if code := post("issabel:admin:ana"); code != 401 {
-			t.Errorf("chave recusada deve desligar a integracao: %d", code)
-		}
-		writeKey(0o640)
-		if code := post("issabel:admin:ana"); code != 200 {
-			t.Errorf("corrigida para 0640: %d", code)
-		}
+	// Permissao errada: fail e 401.
+	writeKey(0o644)
+	if st, det := item(); st != "fail" || !strings.Contains(det, "chmod 0640") {
+		t.Errorf("0644: %s %s", st, det)
+	}
+	if code := post("issabel:admin:ana"); code != 401 {
+		t.Errorf("chave recusada deve desligar a integracao: %d", code)
+	}
+	writeKey(0o640)
+	if code := post("issabel:admin:ana"); code != 200 {
+		t.Errorf("corrigida para 0640: %d", code)
 	}
 	// Apagada: volta ao desligado.
 	os.Remove(keyPath)

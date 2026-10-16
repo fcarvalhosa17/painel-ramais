@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -287,7 +286,7 @@ func TestMigrationCreatesBackupOfOldVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("backup ausente: %v", err)
 	}
-	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
+	if fi.Mode().Perm() != 0o600 {
 		t.Errorf("backup com modo %v, queria 0600 (tem hashes)", fi.Mode().Perm())
 	}
 	// O backup e o banco da versao antiga: com o usuario e sem a coluna nova.

@@ -133,10 +133,7 @@ func failed(r *Result) bool {
 func writeReport(path string, o opts, rs []*Result, daemonErr string) error {
 	var b strings.Builder
 	w := func(f string, a ...any) { fmt.Fprintf(&b, f, a...) }
-	osName := map[string]string{"windows": "Windows", "linux": "Linux"}[runtime.GOOS]
-	if osName == "" {
-		osName = runtime.GOOS
-	}
+	osName := "Linux"
 	w("# Relatorio de carga: Painel de Ramais, Fase 1\n\n")
 	w("Gerado por `cmd/loadtest` em %s. **Medido no %s** (%s/%s, %s).\n\n", time.Now().Format("2006-01-02 15:04"), osName, runtime.GOOS, runtime.GOARCH, runtime.Version())
 	w("Oraculo: `cmd/amisim` embutido no mesmo processo do cliente WebSocket (mesmo relogio). O simulador foi escrito a partir do protocolo AMI do Asterisk 13/16/18 e de `docs/CONTRATOS.md`, sem importar `internal/ami` nem `internal/state`.\n\n")
@@ -434,9 +431,6 @@ func writeReport(path string, o opts, rs []*Result, daemonErr string) error {
 	w("%s", t)
 
 	w("## CPU e memoria do daemon (%s)\n\n", osName)
-	if runtime.GOOS != "linux" {
-		w("> **Medido no %s, nao em Linux.** Working set e tempo de CPU lidos do processo do daemon (build para %s). Valem como ordem de grandeza e para deteccao de vazamento grosseiro; o criterio de memoria da especificacao (sem crescimento continuo em 30 min) e a medicao de CPU so valem em Linux (WSL2, container ou Rocky), com `-duration 30m`.\n\n", osName, runtime.GOOS)
-	}
 	t = newTable("Medida", modes)
 	t.row("amostras de RSS (a cada 2 s)", rs, func(r *Result) string { return fmt.Sprint(r.Mem.Samples) })
 	t.row("RSS logo apos subir (MiB)", rs, func(r *Result) string { return fmt.Sprintf("%.1f", r.Mem.Boot) })

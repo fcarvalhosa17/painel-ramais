@@ -14,14 +14,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 )
 
 func main() {
 	var (
-		daemon   = flag.String("daemon", "", "binario do painel-ramais (padrao: dist/painel-ramais[.exe] ou ./painel-ramais[.exe])")
+		daemon   = flag.String("daemon", "", "binario do painel-ramais (padrao: dist/painel-ramais ou ./painel-ramais)")
 		modes    = flag.String("modes", "sip,pjsip", "modos a rodar")
 		exts     = flag.Int("exts", 10000, "ramais")
 		calls    = flag.Int("calls", 400, "chamadas simultaneas")
@@ -56,11 +55,7 @@ func main() {
 		log.Fatalf("burst %d grande demais para %d ramais (maximo 80%%)", o.burst, o.exts)
 	}
 	if o.daemon == "" {
-		ext := ""
-		if runtime.GOOS == "windows" {
-			ext = ".exe"
-		}
-		for _, p := range []string{"dist/painel-ramais" + ext, "painel-ramais" + ext, "bin/painel-ramais" + ext} {
+		for _, p := range []string{"dist/painel-ramais", "painel-ramais", "bin/painel-ramais"} {
 			if _, err := os.Stat(p); err == nil {
 				o.daemon = p
 				break

@@ -44,9 +44,8 @@ def binario_do_painel():
     """Compila cmd/painel-ramais uma vez. None se nao ha Go."""
     if _BINARIO:
         return _BINARIO[0]
-    exe = ".exe" if os.name == "nt" else ""
     go = shutil.which("go")
-    local = os.path.join(RAIZ, ".tools", "go", "bin", "go" + exe)
+    local = os.path.join(RAIZ, ".tools", "go", "bin", "go")
     if not go and os.path.isfile(local):
         go = local
     destino = None
@@ -55,7 +54,7 @@ def binario_do_painel():
         if os.path.isdir(os.path.join(RAIZ, ".tools", "gopath")):  # caches do build.ps1
             env.update(GOPATH=os.path.join(RAIZ, ".tools", "gopath"), GOCACHE=os.path.join(RAIZ, ".tools", "gocache"),
                        GOMODCACHE=os.path.join(RAIZ, ".tools", "gopath", "pkg", "mod"))
-        destino = os.path.join(_TMP.name, "painel-ramais" + exe)
+        destino = os.path.join(_TMP.name, "painel-ramais")
         p = subprocess.run([go, "build", "-o", destino, "./cmd/painel-ramais"], cwd=RAIZ, env=env,
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
         if p.returncode != 0:
@@ -236,8 +235,7 @@ class Homologar(unittest.TestCase):
         self.assertIn("Secret: ***", arq["captura.txt"])
         with tarfile.open(self.pacote()) as tar:  # nem nos nomes
             self.assertNotIn(SEGREDO, " ".join(tar.getnames()))
-        if os.name != "nt":
-            self.assertEqual(os.stat(self.pacote()).st_mode & 0o777, 0o600)
+        self.assertEqual(os.stat(self.pacote()).st_mode & 0o777, 0o600)
         self.assertEqual(os.listdir(self.work), [])  # dados brutos apagados
 
     def test_conteudo_do_pacote_e_anonimizado_de_forma_consistente(self):

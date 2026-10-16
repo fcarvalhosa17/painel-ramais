@@ -143,10 +143,6 @@ def exigir_root():
 
 # ---------------------------------------------------------------- leitura de estado
 
-def _ver(txt):
-    return tuple(int(x) for x in re.findall(r"\d+", txt)[:3])
-
-
 def _rpm_tokens(txt):
     """Segmentos como o rpmvercmp: '~' < fim < letras < numeros; separadores sao ignorados.
     O marcador de fim em cada chave faz '1.2~rc1' < '1.2' e '1.2' < '1.2.1' com a comparacao de tuplas."""

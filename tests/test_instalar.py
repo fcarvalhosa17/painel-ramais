@@ -499,7 +499,6 @@ class Fluxos(unittest.TestCase):
             self.assertNotIn(senha, f.read())
         self.assertTrue(os.path.isfile(instalar.RPM_ATUAL + "/versao.txt"))
 
-    @unittest.skipIf(os.name == "nt", "modo POSIX")
     def test_arquivo_de_emergencia_nasce_0600(self):
         self._instalar_com(None)
         self.assertEqual(stat.S_IMODE(os.stat(instalar.SENHA_EMERGENCIA).st_mode), 0o600)
@@ -891,7 +890,6 @@ class Seguranca(unittest.TestCase):
             with self.assertRaises(instalar.Falha):
                 instalar.verificar_sha256sums(rpm)
 
-    @unittest.skipIf(os.name == "nt", "modo POSIX")
     def test_permissao_manager_custom_aviso_se_legivel_por_outros(self):
         with tempfile.TemporaryDirectory() as d:
             arq = os.path.join(d, "m.conf")
@@ -901,7 +899,6 @@ class Seguranca(unittest.TestCase):
                 with mock.patch.object(instalar, "MANAGER_CUSTOM", arq):
                     self.assertEqual(instalar.c_perm_manager_custom()[0], esperado)
 
-    @unittest.skipIf(os.name == "nt", "modo POSIX")
     def test_log_forca_0600(self):
         with tempfile.TemporaryDirectory() as d:
             arq = os.path.join(d, "instalacao.log")
@@ -1004,7 +1001,6 @@ class ArquivoDaSenha(unittest.TestCase):
             with self.assertRaises(instalar.Falha):
                 instalar._checar_arquivo_senha(st)
 
-    @unittest.skipIf(os.name == "nt", "symlink e O_NOFOLLOW POSIX")
     def test_symlink_recusado(self):
         with tempfile.TemporaryDirectory() as d:
             alvo = os.path.join(d, "alvo")
