@@ -302,3 +302,43 @@ Linhas em 0188465:
   o modo auto usara PJSIP e a quantidade de ramais PJSIP; tecnologia devolvida `pjsip`.
 - Teste com mais ramais SIP: o aviso diz SIP com a quantidade; tecnologia devolvida `sip`.
 - Teste de empate: PJSIP, como no `detect.go`.
+
+## Pendencia: instalar.py sem perguntas (lote pos-homologacao da rc.3)
+
+**Status:** pendente. Entra no lote depois da homologacao da rc.3. Nao implementar nem publicar rc agora.
+
+**Origem:** homologacao da rc.3: ao colar um bloco de comandos no terminal, a linha seguinte
+(`./instalar.py status`) foi lida como resposta da pergunta de tecnologia e o instalador falhou com
+`tecnologia invalida './instalar.py statusauto'`.
+
+### Ponto a mudar
+
+Linhas em d7893de:
+
+- `instalar.py:727-732` `pedir`: le o stdin (`input`) para cada pergunta.
+- `instalar.py:754` `coletar_respostas`: pergunta "Tecnologia (auto/sip/pjsip)" (padrao `auto`).
+- `instalar.py:755`: pergunta "Caminho do CSV de grupos (opcional, Enter para pular)".
+- `instalar.py:734-753` (ramo `--respostas`, chaves `tecnologia` e `grupos_csv`, `CHAVES_RESPOSTAS` na
+  linha 66): comportamento a manter.
+- `instalar.py:1853-1860` `montar_parser`: nao existem `--tecnologia` nem `--grupos`.
+- Texto que fala em perguntas interativas: `README.md:34` e `README.md:409`,
+  `packaging/LEIAME-INSTALACAO.md:38`, `docs/homologacao/ROTEIRO-MANUAL.md:105`.
+
+### Decisao do usuario
+
+1. `instalar.py instalar` nao faz nenhuma pergunta.
+2. Tecnologia: sempre `auto` (deteccao pelo daemon). So muda com a flag `--tecnologia sip|pjsip`,
+   para casos especiais.
+3. Grupos: nao perguntar CSV na instalacao. Os grupos sao criados depois, pela tela "Grupos" do painel
+   ou pela CLI. A flag `--grupos arquivo.csv` continua opcional.
+4. Com `--respostas` (modo nao interativo) o comportamento atual fica como esta.
+
+### Criterio de aceite
+
+- `instalar.py instalar` sem flags nao le o stdin (colar comandos em seguida nao e consumido),
+  usa tecnologia `auto` e nao pergunta grupos.
+- `--tecnologia sip|pjsip` e `--grupos arquivo.csv` continuam funcionando; valor invalido continua
+  saindo com codigo 3.
+- `--respostas` inalterado.
+- `README.md`, `packaging/LEIAME-INSTALACAO.md` e `docs/homologacao/ROTEIRO-MANUAL.md` sem referencia
+  a perguntas interativas.
