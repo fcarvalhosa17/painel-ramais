@@ -31,12 +31,12 @@ No computador de desenvolvimento: `.\build.ps1 all` gera `dist/painel-ramais-<ve
 ```sh
 tar xzf painel-ramais-<versao>.tar.gz && cd painel-ramais-<versao>
 ./instalar.py verificar          # somente leitura; relatório em /var/log/painel-ramais/verificacao-<data>.txt
-./instalar.py instalar           # pergunta tecnologia e CSV de grupos (não pede senha)
+./instalar.py instalar           # não faz perguntas (tecnologia auto; grupos pela tela ou pela CLI)
 ./instalar.py status
 ```
 
 Não precisa de internet nem de `pip`. Funciona sem o pacote `python3` do Rocky 8 mínimo (usa `/usr/libexec/platform-python`).
-Passo a passo de campo, modo não interativo (`--respostas`) e laço ssh para vários servidores: `packaging/LEIAME-INSTALACAO.md`
+Passo a passo de campo, opções (`--tecnologia`, `--grupos`), arquivo de respostas (`--respostas`) e laço ssh para vários servidores: `packaging/LEIAME-INSTALACAO.md`
 (vai dentro do bundle). Códigos de saída: 0 sucesso; 1 verificação com ERRO; 2 falha na operação; 3 uso inválido; 4 cancelado.
 
 Instalação manual do RPM (sem o instalador): `rpm -i painel-ramais-<versao>-1.x86_64.rpm`; o acesso é pelo menu do Issabel (o usuário e a senha
@@ -406,7 +406,7 @@ com o simulador (`cmd/amisim`, modos `sip` e `pjsip`) no lugar do Asterisk. Prep
 2. **Falha forçada:** `sed -i 's/^LoadModule proxy_wstunnel_module/#&/' /etc/httpd/conf.modules.d/*.conf && systemctl restart httpd`.
    `./instalar.py verificar` → `[ERRO ] mod_proxy_wstunnel ausente`, saída 1. `./instalar.py instalar` aborta com `Verificacao com ERRO: nada foi alterado`
    e `rpm -q painel-ramais` continua dizendo que não está instalado. Reverta o sed.
-3. **Instalação interativa:** `./instalar.py instalar` (tecnologia `auto`, CSV `grupos-exemplo.csv`; nenhuma senha é pedida).
+3. **Instalação sem perguntas:** `./instalar.py instalar --grupos packaging/grupos-exemplo.csv` (tecnologia `auto`; nenhuma pergunta nem senha; `--tecnologia sip|pjsip` só para casos especiais).
    Esperado ao fim: bloco `== Resumo ==` com versão, tecnologia, ramais, grupos e `Acesso: https://<ip>/painel-ramais/`; saída 0.
    Confira: `systemctl is-active painel-ramais` → `active`; `ls -l /etc/painel-ramais/` (`secret` e `ami-secret` 0600 `painel-ramais`);
    `grep -c 'BEGIN painel-ramais' /etc/asterisk/manager_custom.conf` → `1`; `stat -c '%a %U' /etc/asterisk/manager_custom.conf` sem acesso para outros;
@@ -550,7 +550,7 @@ Comportamento decidido (chaves de configuração no `config.yaml`, ver seção 3
 
 - **Nome do ramal:** `PJSIPShowEndpoint` (pjsip) e `SIPshowpeer` (sip) estão na lista fixa. Nunca em rajada: o preenchimento roda em segundo plano depois do snapshot,
   com taxa limitada (**`ami.name_fill_per_second`, padrão 20 consultas/s, de 1 a 200**); enquanto isso o painel funciona com o nome vazio. Também atualiza com o `CallerIDName` dos eventos de chamada originados pelo ramal.
-  O ciclo completo refaz-se quando chega o evento `Reload` do Asterisk (no eventfilter) e **a cada 6 h**. Os nomes ficam em cache no SQLite e aparecem logo após um restart.
+  O ciclo completo refaz-se quando chega um evento de recarga do Asterisk (`Reload`, `ModuleLoadReport` ou `FullyBooted`, todos no eventfilter) e **a cada 6 h**. Os nomes ficam em cache no SQLite e aparecem logo após um restart.
 - **Login e token:** login obrigatório para o painel e a API; token de entrada válido por 60 s e de uso único; `/api/health` só via localhost.
 - **Painel em TV de NOC, 24 h:** a sessão se renova sozinha enquanto houver WebSocket ativo. Expiração por **inatividade de 12 h: `auth.session_ttl: 12h`** (de 15m a 24h).
   Ao expirar, o WebSocket envia um aviso explícito antes de fechar, para a tela da Fase 2 mostrar isso em vez de congelar.

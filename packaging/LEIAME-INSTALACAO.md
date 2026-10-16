@@ -35,7 +35,7 @@ acesso root. O Python 3 nao precisa estar instalado (no Rocky 8 minimo o instala
 
    Cada item sai como OK, AVISO ou ERRO, com a explicacao de como corrigir. Corrija todos os ERROs.
 
-3. Instale (interativo: tecnologia e CSV de grupos opcional; nao pergunta senha):
+3. Instale (nao faz nenhuma pergunta: tecnologia `auto`, sem senha; os grupos sao criados depois pela tela "Grupos" do painel ou pela CLI):
 
        ./instalar.py instalar
 
@@ -48,9 +48,11 @@ Rodar `instalar` de novo faz upgrade (guarda o RPM anterior). Voltar a versao an
 Remover mantendo os dados: `./instalar.py remover`. Remover tudo: `./instalar.py remover --purge`
 (pede para digitar o nome do servidor; com `--sim` nao pergunta). Todo comando executado fica em `/var/log/painel-ramais/instalacao.log`.
 
-## Modo nao interativo
+## Opcoes e arquivo de respostas
 
-Arquivo `respostas.ini`:
+Casos especiais, sem perguntas: `./instalar.py instalar --tecnologia sip` (ou `pjsip`; o padrao `auto` deixa o painel detectar) e
+`./instalar.py instalar --grupos grupos.csv` (importa um CSV de grupos). Em lote, o mesmo pode vir de um arquivo `respostas.ini`
+(nao combina com as duas opcoes):
 
     [painel]
     tecnologia = auto

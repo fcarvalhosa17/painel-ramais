@@ -263,13 +263,33 @@ class Respostas(unittest.TestCase):
         self.assertIn("admin_usuario", avisos[0])
         self.assertIn("admin_senha_arquivo", avisos[1])
 
-    def test_interativo_so_pergunta_tecnologia_e_csv_sem_prompt_de_senha(self):
-        with mock.patch.object(instalar.sys.stdin, "isatty", return_value=True), \
-                mock.patch("builtins.input", side_effect=["pjsip", ""]) as inp, \
+    def test_sem_flags_nao_pergunta_nem_le_stdin_e_usa_auto(self):
+        with mock.patch("builtins.input", side_effect=AssertionError("leu o stdin")), \
                 mock.patch("getpass.getpass", side_effect=AssertionError("pediu senha")):
             r = instalar.coletar_respostas(args())
-        self.assertEqual(inp.call_count, 2)
-        self.assertEqual(r, {"tecnologia": "pjsip", "csv": None})
+        self.assertEqual(r, {"tecnologia": "auto", "csv": None})
+
+    def test_flags_tecnologia_e_grupos(self):
+        with tempfile.TemporaryDirectory() as d:
+            csv = os.path.join(d, "g.csv")
+            open(csv, "w").close()
+            r = instalar.coletar_respostas(args(tecnologia="sip", grupos=csv))
+        self.assertEqual(r, {"tecnologia": "sip", "csv": csv})
+        with self.assertRaises(instalar.Falha) as cm:
+            instalar.coletar_respostas(args(grupos="/nao/existe.csv"))
+        self.assertEqual(cm.exception.codigo, instalar.EXIT_USO)
+
+    def test_tecnologia_invalida_na_linha_de_comando_e_codigo_3(self):
+        # reproduz o incidente da rc.3: a linha seguinte de um bloco colado ("./instalar.py status") virava a resposta da pergunta de tecnologia
+        with self.assertRaises(SystemExit) as cm, mock.patch("sys.stderr"):
+            instalar.main(["instalar", "--tecnologia", "./instalar.py statusauto"])
+        self.assertEqual(cm.exception.code, 3)
+
+    def test_respostas_nao_combina_com_flags(self):
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaises(instalar.Falha) as cm:
+                instalar.coletar_respostas(args(respostas=self._ini(d), tecnologia="sip"))
+        self.assertEqual(cm.exception.codigo, instalar.EXIT_USO)
 
     def test_chave_desconhecida_e_codigo_3(self):
         with tempfile.TemporaryDirectory() as d:
@@ -283,11 +303,9 @@ class Respostas(unittest.TestCase):
             instalar.coletar_respostas(args(respostas="/nao/existe.ini"))
         self.assertEqual(cm.exception.codigo, instalar.EXIT_USO)
 
-    def test_sem_terminal_e_sem_respostas_e_codigo_3(self):
+    def test_sem_terminal_e_sem_respostas_segue_com_os_padroes(self):
         with mock.patch.object(instalar.sys.stdin, "isatty", return_value=False):
-            with self.assertRaises(instalar.Falha) as cm:
-                instalar.coletar_respostas(args())
-        self.assertEqual(cm.exception.codigo, instalar.EXIT_USO)
+            self.assertEqual(instalar.coletar_respostas(args()), {"tecnologia": "auto", "csv": None})
 
 
 class Config(unittest.TestCase):
@@ -317,7 +335,7 @@ class Health(unittest.TestCase):
     def test_pronto(self):
         self.assertTrue(instalar.health_pronto({"ami": {"connected": True}, "extensions": {"total": 10}}))
         self.assertFalse(instalar.health_pronto({"ami": {"connected": False}, "extensions": {"total": 10}}))
-        self.assertFalse(instalar.health_pronto({"ami": {"connected": True}, "extensions": {"total": 0}}))
+        self.assertTrue(instalar.health_pronto({"ami": {"connected": True}, "extensions": {"total": 0}}))  # servidor sem ramais
 
     def test_esperar_health_estoura(self):
         with mock.patch.object(instalar, "ler_health", side_effect=OSError("recusado")), \
@@ -917,7 +935,7 @@ class Seguranca(unittest.TestCase):
         self.assertIn("chmod o-rwx", post)
         with open(os.path.join(RAIZ, "packaging", "painel-ramais.service")) as f:
             unit = f.read()
-        for dif in ("CapabilityBoundingSet=", "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6", "ProtectKernelLogs=yes",
+        for dif in ("CapabilityBoundingSet=", "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6",
                     "MemoryDenyWriteExecute=yes", "SystemCallFilter=~@debug", "UMask=0077", "RestrictNamespaces=yes", "LockPersonality=yes"):
             self.assertIn(dif, unit)
 

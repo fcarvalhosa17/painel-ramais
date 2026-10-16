@@ -231,7 +231,8 @@ def ler_health(porta):
 
 
 def health_pronto(h):
-    return bool(h.get("ami", {}).get("connected")) and h.get("extensions", {}).get("total", 0) > 0
+    # servidor sem ramais e valido (0 ramais): so espera o AMI conectado
+    return bool(h.get("ami", {}).get("connected"))
 
 
 def esperar_health(porta, limite=HEALTH_TIMEOUT):
@@ -301,16 +302,30 @@ def tecnologia_ativa():
     return "chan_sip.so" in out, "chan_pjsip.so" in out
 
 
+# espelha model.InternalEndpoints (internal/model/model.go); manter igual. Endpoints internos do Issabel que nao sao ramais
+# (comparacao sem diferenciar maiusculas, nome inteiro). Regra de ramal = model.IsExtension: nome nao vazio, fora desta lista
+# e casando o extension_pattern ancorado (^(?:...)$, ler_pattern) no nome inteiro.
+ENDPOINTS_INTERNOS = ("dummy_endpoint",)
+
+
+def ramais_do_asterisk(pj, pat):
+    """Ramais como o daemon os conta: nome casa com extension_pattern e nao e endpoint interno. Vazio = servidor sem ramais."""
+    internos = [n.lower() for n in ENDPOINTS_INTERNOS]
+    return [n for n in nomes_endpoints(pj) if pat.match(n) and n.lower() not in internos]
+
+
 def nomes_endpoints(pj):
     """Nomes de endpoint/peer listados pelo Asterisk (inclui troncos)."""
     if pj:
         out = run(["asterisk", "-rx", "pjsip show endpoints"])[1]
-        return [m.group(1) for m in re.finditer(r"^\s*Endpoint:\s+([^/\s]+)", out, re.M)]
+        # "No endpoints found" nao casa (servidor sem ramais = lista vazia); o cabecalho "<Endpoint/CID...>" fica de fora
+        return [m.group(1) for m in re.finditer(r"^\s*Endpoint:\s+([^/\s<]+)", out, re.M)]
     out = run(["asterisk", "-rx", "sip show peers"])[1]
     nomes = []
     for ln in out.splitlines():
         m = re.match(r"^([^/\s]+)(?:/\S+)?\s+\S+\s", ln)
-        if m and not ln.startswith("Name/"):
+        # o resumo "1 sip peers [...]" parecia um peer chamado "1" e dava sip=1 em servidor sem ramais
+        if m and not ln.startswith("Name/") and not re.match(r"^\d+ sip peers", ln):
             nomes.append(m.group(1))
     return nomes
 
@@ -322,14 +337,14 @@ def c_tecnologia():
     pat = ler_pattern()
     if sip and pj:
         # mesma regra do detect.go (modo auto): conta ramais das duas; sip so se sip > pjsip (empate = pjsip)
-        np = len([n for n in nomes_endpoints(True) if pat.match(n)])
-        ns = len([n for n in nomes_endpoints(False) if pat.match(n)])
+        np = len(ramais_do_asterisk(True, pat))
+        ns = len(ramais_do_asterisk(False, pat))
         tec = "sip" if ns > np else "pjsip"
         return (AVISO, "Tecnologia",
                 "chan_pjsip.so e chan_sip.so carregados juntos (padrao do Issabel 5); modo auto usa %s "
                 "(ramais: pjsip=%d, sip=%d)." % (tec, np, ns)), tec
     nomes = nomes_endpoints(pj)
-    ramais = [n for n in nomes if pat.match(n)]
+    ramais = ramais_do_asterisk(pj, pat)
     return (OK, "Tecnologia %s" % ("PJSIP" if pj else "SIP"),
             "%d ramais, %d troncos/outros; exemplos: %s" % (len(ramais), len(nomes) - len(ramais),
                                                          ", ".join(nomes[:5]))), ("pjsip" if pj else "sip")
@@ -724,16 +739,13 @@ def cmd_verificar(args):
 
 # ---------------------------------------------------------------- respostas / entrada
 
-def pedir(msg, padrao=None):
-    if not sys.stdin.isatty():
-        raise Uso("Resposta necessaria sem terminal: '%s'. Use --respostas arquivo.ini" % msg)
-    v = input("%s%s: " % (msg, " [%s]" % padrao if padrao else "")).strip()
-    return v or padrao
-
-
 def coletar_respostas(args):
-    """Todas as respostas antes de alterar qualquer coisa. Retorna dict tecnologia, csv. Nao pergunta senha."""
+    """Todas as respostas antes de alterar qualquer coisa. Retorna dict tecnologia, csv. Nao pergunta nada e nao le o stdin:
+    sem flags a tecnologia e 'auto' e nao ha CSV; --tecnologia e --grupos sao as excecoes; --respostas le o arquivo."""
     r = {"tecnologia": "auto", "csv": None}
+    flag_tec, flag_csv = getattr(args, "tecnologia", None), getattr(args, "grupos", None)
+    if args.respostas and (flag_tec or flag_csv):
+        raise Uso("--respostas ja traz tecnologia e grupos: nao combine com --tecnologia nem --grupos.")
     if args.respostas:
         cp = configparser.ConfigParser()
         if not cp.read(args.respostas):
@@ -751,8 +763,8 @@ def coletar_respostas(args):
                 dizer("AVISO: '%s' ignorada: o painel nao pede mais usuario nem senha na instalacao "
                       "(acesso pelo menu do Issabel; senha de emergencia em %s)." % (k, SENHA_EMERGENCIA))
     else:
-        r["tecnologia"] = pedir("Tecnologia (auto/sip/pjsip)", "auto")
-        r["csv"] = pedir("Caminho do CSV de grupos (opcional, Enter para pular)", "") or None
+        r["tecnologia"] = flag_tec or "auto"
+        r["csv"] = flag_csv or None
     if r["tecnologia"] not in TECNOLOGIAS:
         raise Uso("tecnologia invalida '%s' (use auto, sip ou pjsip)." % r["tecnologia"])
     if r["csv"] and not os.path.isfile(r["csv"]):
@@ -1062,7 +1074,7 @@ def cmd_instalar(args):
         dizer("Aguardando o painel (ate %ds)..." % HEALTH_TIMEOUT)
         h = esperar_health(ler_porta())
         if not h:
-            raise Falha("O painel nao ficou pronto (AMI conectado + ramais carregados).\n"
+            raise Falha("O painel nao ficou pronto (AMI conectado).\n"
                         "Diagnostico: journalctl -u %s -n 50 --no-pager ; ./instalar.py status" % PKG)
         passo = "apache"
         ok, motivo = testar_apache()
@@ -1852,6 +1864,9 @@ def montar_parser():
     p = _Parser(prog="instalar.py", description="Instalador do Painel de Ramais")
     p.add_argument("comando", choices=["verificar", "instalar", "status", "rollback", "remover", "homologar", "menu"])
     p.add_argument("--respostas", metavar="ARQ.ini", help="respostas nao interativas (senha por ARQUIVO 0600)")
+    p.add_argument("--tecnologia", choices=list(TECNOLOGIAS), metavar="auto|sip|pjsip",
+                   help="(instalar) so para casos especiais; padrao auto (o daemon detecta)")
+    p.add_argument("--grupos", metavar="ARQ.csv", help="(instalar) importa este CSV de grupos (opcional)")
     p.add_argument("--sim", action="store_true", help="aceita as confirmacoes")
     p.add_argument("--recriar", action="store_true", help="(menu) remove e registra de novo o item do menu")
     p.add_argument("--purge", action="store_true", help="(remover) apaga tambem dados e configuracao")
@@ -1872,8 +1887,8 @@ def main(argv=None):
     try:
         if args.comando == "verificar":
             return cmds["verificar"](args)
-        if args.comando != "instalar" and args.respostas:
-            raise Uso("--respostas so vale para 'instalar'.")
+        if args.comando != "instalar" and (args.respostas or args.tecnologia or args.grupos):
+            raise Uso("--respostas, --tecnologia e --grupos so valem para 'instalar'.")
         return cmds[args.comando](args)
     except Falha as e:
         dizer("FALHA: %s" % e)
