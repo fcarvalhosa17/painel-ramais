@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build de CI (Linux): binario, RPM da versao <versao>, RPM rc (Release 0.1.rc.1), RPM antigo 0.0.9 (para testar rpm -U) e tar.gz.
+# Build manual em Linux/container (uso opcional; nao ha pipeline que o execute): binario, RPM da versao <versao>, RPM rc (Release 0.1.rc.1), RPM antigo 0.0.9 (para testar rpm -U) e tar.gz.
 # Uso: tools/ci-build.sh <versao>. Saida em dist/. nfpm fixado (mesma versao usada em .tools\ no Windows).
 set -eu
 VER=${1:?uso: tools/ci-build.sh <versao>}

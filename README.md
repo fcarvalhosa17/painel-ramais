@@ -474,6 +474,18 @@ GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o loadtest ./cmd/loadtest
 
 O relatório informa onde cada medição foi feita. Também ficam para Linux `rpm -i/-U/-e`, systemd, SELinux, Apache e `instalar.py` (seção 9).
 
+### Histórico dos testes de carga longos (decisão do usuário)
+
+O relatório acima fica como **histórico** (daemon 0.1.1, Windows). Dois testes longos no GitHub Actions foram **cancelados por decisão do usuário**, e a partir daqui
+os testes passam a ser feitos **na instalação no servidor**, seguindo `docs/homologacao/ROTEIRO-MANUAL.md`:
+
+- run `38804792199` (5 h): media o código **anterior** à correção do vazamento de `hungup` (`docs/nota-isbuilding.md`), então o seu resultado de memória não vale para a versão atual;
+- run `38833482013`: com o código corrigido; cancelado com o job `sip-30min` ainda em andamento. Resultado parcial informado pelo mantenedor (não há relatório completo): inclinação do heap
+  de 16,87 MiB/h (código antigo) para 1,08 MiB/h (corrigido), esse valor puxado pelo degrau da última amostra e perto de 0 sem ela. Não é um critério de aceite cumprido.
+
+`cmd/loadtest` e `cmd/amisim` continuam no repositório como **ferramenta local** (os comandos acima). Para acompanhar a memória em produção, use `./instalar.py status`
+(seção "Acompanhar a memória nos primeiros dias" do `packaging/LEIAME-INSTALACAO.md`).
+
 ### Reproduzir uma captura: `amisim -replay` e `loadtest -captures`
 
 ```sh
@@ -494,6 +506,14 @@ Cada `.esperado.json` ao lado é o oráculo do ponto a ponto. Detalhes: `testdat
 Windows, PowerShell: `.\build.ps1 build | test | rpm | bundle | all` (Go e nfpm do PATH ou de `.tools\`; `bundle` usa `python` para `tools/bundle.py`).
 Testes do instalador: `python -m unittest` (stdlib, Python 3.6+). Compatibilidade: `vermin --target=3.6- instalar.py tools/bundle.py`
 (venv local em `.tools\venv`, ignorado pelo git). Fim de linha LF em tudo que vai para o Linux: `tools\check-lf.ps1`.
+
+### O que não roda automaticamente
+
+Nada roda no GitHub além da publicação da release feita pelo `.\build.ps1 release` (único caminho de publicação). Consequências, a registrar como lacunas:
+
+- `go test -race` **não roda**: não há gcc local (o detector de corrida exige cgo). Os testes de Go e de Python (`go vet`, `go test ./...`, `python -m unittest`) rodam só localmente, antes de cada commit.
+- O teste de RPM em Rocky 8/9 (`rpm -i/-U/-e`, rc -> final) **deixa de rodar sozinho**. Só manual, num container Rocky: `tools/ci-build.sh <versao>` gera os RPMs e `tools/rpm-smoke.sh` os exercita.
+- Os testes de instalação, upgrade, rollback e carga reais são feitos **no servidor**, seguindo o `docs/homologacao/ROTEIRO-MANUAL.md`.
 
 ### Ferramentas de build reproduzíveis (sem administrador)
 
