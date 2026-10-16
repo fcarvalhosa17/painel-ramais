@@ -39,6 +39,9 @@ func TestStartMetricsEscreveSoComRuntimeDir(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	t.Setenv(envRuntimeDir, "")
+	old := runtimeDirDefault
+	runtimeDirDefault = filepath.Join(t.TempDir(), "inexistente")
+	t.Cleanup(func() { runtimeDirDefault = old })
 	startMetrics(ctx, slog.Default()) // no-op: nao pode panicar nem escrever
 	dir := t.TempDir()
 	t.Setenv(envRuntimeDir, dir)
@@ -51,4 +54,34 @@ func TestStartMetricsEscreveSoComRuntimeDir(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatal("metrics.json nao foi escrito na primeira iteracao")
+}
+
+// Rocky 8 (systemd 239) nao exporta RUNTIME_DIRECTORY: a pasta fixa criada pela unit tem de bastar.
+func TestStartMetricsSemVariavelUsaPastaPadrao(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	t.Setenv(envRuntimeDir, "")
+	dir := t.TempDir()
+	old := runtimeDirDefault
+	runtimeDirDefault = dir
+	t.Cleanup(func() { runtimeDirDefault = old })
+	startMetrics(ctx, slog.Default())
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(filepath.Join(dir, metricsFile)); err == nil {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("metrics.json nao foi escrito na pasta padrao")
+}
+
+func TestMetricsDirSemVariavelEPastaNaoFazNada(t *testing.T) {
+	t.Setenv(envRuntimeDir, "")
+	old := runtimeDirDefault
+	runtimeDirDefault = filepath.Join(t.TempDir(), "nao-existe")
+	t.Cleanup(func() { runtimeDirDefault = old })
+	if d := metricsDir(); d != "" {
+		t.Fatalf("metricsDir = %q, esperado vazio", d)
+	}
 }

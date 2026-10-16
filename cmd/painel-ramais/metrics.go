@@ -11,14 +11,29 @@ import (
 	"time"
 )
 
-// envRuntimeDir e definida pelo systemd quando a unit tem RuntimeDirectory= (/run/painel-ramais).
-// Sem ela (execucao fora do systemd) o arquivo de metricas nao e escrito.
+// envRuntimeDir e definida pelo systemd >= 240 quando a unit tem RuntimeDirectory=. O Rocky 8 traz o
+// systemd 239, que nao a exporta: nesse caso usa-se runtimeDirDefault, se a pasta existir (so o systemd a cria,
+// por causa do RuntimeDirectory= da unit). Fora do systemd nenhuma das duas existe e nada e gravado.
 const (
 	envRuntimeDir  = "RUNTIME_DIRECTORY"
 	metricsFile    = "metrics.json"
 	metricsEvery   = 30 * time.Second
 	heapLiveMetric = "/gc/heap/live:bytes"
 )
+
+// runtimeDirDefault e variavel de pacote so para o teste poder apontar para outra pasta.
+var runtimeDirDefault = "/run/painel-ramais"
+
+// metricsDir devolve a pasta de metricas ou "" se nao houver.
+func metricsDir() string {
+	if d := os.Getenv(envRuntimeDir); d != "" {
+		return d
+	}
+	if fi, err := os.Stat(runtimeDirDefault); err == nil && fi.IsDir() {
+		return runtimeDirDefault
+	}
+	return ""
+}
 
 // memMetrics e o conteudo de metrics.json, lido por `instalar.py status`.
 // Nao ha porta nem socket: o arquivo fica em /run/painel-ramais (0750, dono painel-ramais), modo 0600.
@@ -55,9 +70,9 @@ func writeMetrics(dir string, m memMetrics) error {
 	return os.Rename(tmp, filepath.Join(dir, metricsFile))
 }
 
-// startMetrics escreve o arquivo a cada metricsEvery ate ctx terminar. No-op sem RUNTIME_DIRECTORY.
+// startMetrics escreve o arquivo a cada metricsEvery ate ctx terminar. No-op sem pasta de runtime (ver metricsDir).
 func startMetrics(ctx context.Context, log *slog.Logger) {
-	dir := os.Getenv(envRuntimeDir)
+	dir := metricsDir()
 	if dir == "" {
 		return
 	}
