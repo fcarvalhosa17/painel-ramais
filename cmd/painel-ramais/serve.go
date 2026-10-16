@@ -279,7 +279,7 @@ func housekeep(ctx context.Context, st *store.Store, log *slog.Logger) {
 
 // onNoPeer e chamado pela goroutine do estado quando uma chamada Up ficou 1 s sem outro lado resolvido.
 func (d *daemon) onNoPeer(uniqueid, linkedid string) {
-	d.log.Warn("chamada em conversa sem outro lado resolvido", "uniqueid", uniqueid, "linkedid", linkedid)
+	d.log.Info("chamada em conversa sem outro lado resolvido", "uniqueid", uniqueid, "linkedid", linkedid)
 }
 
 // onName e chamado pela goroutine do estado: nunca bloqueia (o cache e so otimizacao).

@@ -19,10 +19,16 @@ import (
 // que nenhuma chamada esta "em conversa" sem outro lado e que a direcao de uma chamada nao
 // vire "internal" depois de ter sido inbound/outbound (ao perder a outra perna).
 func TestCapturesNeverTalkWithoutPeerNorFlipDirection(t *testing.T) {
-	files, _ := filepath.Glob("../../testdata/capturas/*.txt")
+	files, err := filepath.Glob("../../testdata/capturas/*.txt")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("capturas nao encontradas: %v (%d arquivos)", err, len(files))
+	}
 	re := regexp.MustCompile(`(?:PJSIP|SIP)/(\d+)-[0-9a-f]+`)
 	for _, f := range files {
-		raw, _ := os.ReadFile(f)
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
 		_, frames, _, err := capture.Read(bytes.NewReader(raw))
 		if err != nil {
 			t.Fatal(err)
