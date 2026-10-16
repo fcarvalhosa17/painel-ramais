@@ -11,7 +11,7 @@ import (
 	"painel-ramais/internal/model"
 )
 
-// Enrich completa o nome (callerid) dos endpoints que want aceita com PJSIPShowEndpoint,
+// Enrich completa o nome (callerid) dos endpoints que want aceita com PJSIPShowEndpoint (os recem-chegados primeiro),
 // no maximo perSecond consultas por segundo, e nunca em rajada. Roda depois do Snapshot,
 // fora do caminho critico (decisao 4). Erro de um endpoint (ex.: removido) e pulado;
 // queda da conexao ou ctx encerram.
@@ -23,8 +23,16 @@ func (a *Adapter) Enrich(ctx context.Context, c *ami.Client, perSecond int, want
 			names = append(names, n)
 		}
 	}
+	// Ramal que entrou na ultima leitura vai primeiro: aparece com nome sem esperar o ciclo todo.
+	sort.Slice(names, func(i, j int) bool {
+		_, fi := a.fresh[names[i]]
+		_, fj := a.fresh[names[j]]
+		if fi != fj {
+			return fi
+		}
+		return names[i] < names[j]
+	})
 	a.mu.Unlock()
-	sort.Strings(names)
 	tick := time.NewTicker(time.Second / time.Duration(max(perSecond, 1)))
 	defer tick.Stop()
 	for _, n := range names {
@@ -36,14 +44,23 @@ func (a *Adapter) Enrich(ctx context.Context, c *ami.Client, perSecond int, want
 		r, err := c.Do(ctx, "PJSIPShowEndpoint", map[string]string{"Endpoint": n})
 		var ae *ami.ActionError
 		if errors.As(err, &ae) {
+			a.consumed(n)
 			continue
 		}
 		if err != nil {
 			return err
 		}
+		a.consumed(n)
 		a.emitName(n, r)
 	}
 	return nil
+}
+
+// consumed tira n de fresh: o nome dele ja foi buscado (ou o endpoint nao existe mais).
+func (a *Adapter) consumed(n string) {
+	a.mu.Lock()
+	delete(a.fresh, n)
+	a.mu.Unlock()
 }
 
 func (a *Adapter) emitName(name string, r ami.Response) {

@@ -1,9 +1,28 @@
 package calls
 
 import (
+	"context"
 	"net"
 	"strings"
+	"time"
 )
+
+// EmptyRecheck e a espera antes de confirmar uma lista vazia na releitura quando ja havia
+// ramais: a lista vazia durante uma recarga pode ser transitoria, e acreditar nela esvaziaria
+// a tela inteira.
+const EmptyRecheck = 3 * time.Second
+
+// Pause espera d ou o fim de ctx.
+func Pause(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-t.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
 
 // CallerName tira o nome de `"Maria Souza" <2001>`. Só número ou vazio = "".
 func CallerName(cid string) string {

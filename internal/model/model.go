@@ -5,6 +5,7 @@ package model
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -69,6 +70,29 @@ const (
 	PeerExternal  PeerKind = "external"
 	PeerUnknown   PeerKind = "unknown"
 )
+
+// InternalEndpoints e a UNICA lista de endpoints internos do Issabel que nunca sao ramal nem
+// tronco: ficam fora da contagem de deteccao de tecnologia, do estado e da tela. Comparacao
+// sem diferenciar maiusculas, no nome inteiro. O Issabel cria "dummy_endpoint" so para o
+// res_pjsip nao ficar sem endpoint. Outros nomes entram aqui com evidencia da captura.
+var InternalEndpoints = []string{"dummy_endpoint"}
+
+// IsInternalEndpoint diz se name esta em InternalEndpoints.
+func IsInternalEndpoint(name string) bool {
+	for _, n := range InternalEndpoints {
+		if strings.EqualFold(name, n) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsExtension e a regra unica de "isto e um ramal": nome nao vazio, fora de InternalEndpoints
+// e casando o extension_pattern (ja ancorado). Estado, deteccao de tecnologia e preenchimento
+// de nomes usam esta funcao.
+func IsExtension(pattern *regexp.Regexp, name string) bool {
+	return name != "" && !IsInternalEndpoint(name) && pattern.MatchString(name)
+}
 
 // NoGroup e o nome do grupo de ramais fora de qualquer faixa.
 const NoGroup = "Sem grupo"

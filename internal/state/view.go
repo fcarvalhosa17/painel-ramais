@@ -18,6 +18,8 @@ type extState struct {
 	device  model.DeviceState
 	group   string
 	calls   []model.Call
+	// gone: o ramal sumiu do PBX (releitura) mas ainda tem chamada; sai do estado no Hangup.
+	gone bool
 }
 
 // view e um conjunto completo de estado. O estado mantem uma view publicada e,
@@ -32,6 +34,11 @@ type view struct {
 	exts   map[string]*extState
 	trunks map[string]struct{}
 	dirty  map[string]struct{}
+	// removed: ramais que saíram do estado desde o ultimo Flush (viram o campo removed do delta);
+	// nunca divide numero com dirty. tomb: ramais removidos pela releitura; evento ao vivo
+	// atrasado (DeviceStateChange INVALID, ContactStatus Removed) nao os recria. Sai do tomb
+	// quando uma releitura volta a listar o ramal.
+	removed, tomb map[string]struct{}
 	// changes conta mutacoes efetivas desde o ultimo Flush; vira a versao.
 	changes uint64
 
@@ -46,12 +53,14 @@ type view struct {
 	hungup      map[string]struct{}        // evita ressuscitar canal que caiu durante a sincronizacao
 	noPeer      map[string]struct{}        // canais Up sem outro lado, esperando a protecao de 1 s (ver calls.go)
 	onNoPeer    func(uid, linkedID string) // chamado uma vez quando a protecao publica "em conversa" sem outro lado
+	onPrune     func()                     // chamado quando um ramal gone sai no Hangup (expurgo do cache de nomes)
 }
 
 func newView(p *regexp.Regexp, groups []model.GroupRange) *view {
 	return &view{
 		pattern: p, groups: groups,
 		exts: map[string]*extState{}, trunks: map[string]struct{}{}, dirty: map[string]struct{}{},
+		removed: map[string]struct{}{}, tomb: map[string]struct{}{},
 		chans: map[string]*channel{}, byLinked: map[string]map[string]struct{}{},
 		byEndpoint: map[string]map[string]struct{}{}, bridges: map[string]map[string]struct{}{},
 		localHalves: map[string]*[2]string{}, hungup: map[string]struct{}{}, noPeer: map[string]struct{}{},
@@ -64,16 +73,81 @@ func (v *view) takeChanges() uint64 {
 	return n
 }
 
+// reconcile aplica a lista completa de endpoints do PBX (InventoryListed): quem nao esta nela
+// sai do estado (ou fica marcado gone se tem chamada ativa); quem esta e some do tomb. Os novos
+// NAO sao criados aqui: os EndpointSeen da mesma leitura vem logo depois. Devolve as contagens
+// para o log: added (listados sem estado ainda), removed, kept (nos dois lados), pending (gone).
+func (v *view) reconcile(listed []string) (added, removed, kept, pending int) {
+	in := make(map[string]struct{}, len(listed))
+	for _, n := range listed {
+		if v.isExtension(n) {
+			in[n] = struct{}{}
+		}
+	}
+	for n := range in {
+		delete(v.tomb, n)
+		if x := v.exts[n]; x != nil {
+			x.gone = false
+			kept++
+		} else {
+			added++
+		}
+	}
+	for n, x := range v.exts {
+		if _, ok := in[n]; ok {
+			continue
+		}
+		if len(x.calls) > 0 {
+			x.gone = true
+			pending++
+			continue
+		}
+		v.removeExt(n)
+		removed++
+	}
+	return added, removed, kept, pending
+}
+
+// removeExt tira o ramal do estado e registra a remocao para o proximo lote.
+func (v *view) removeExt(n string) {
+	delete(v.exts, n)
+	delete(v.dirty, n)
+	delete(v.hints, n) // numero reaproveitado por outra pessoa nao herda o nome antigo
+	v.removed[n] = struct{}{}
+	v.tomb[n] = struct{}{}
+	v.changes++
+}
+
+// takeRemoved devolve (ordenados) e zera os ramais removidos desde o ultimo Flush.
+func (v *view) takeRemoved() []string {
+	var out []string
+	for n := range v.removed {
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	v.removed = map[string]struct{}{}
+	return out
+}
+
+func (v *view) extNumbers() []string {
+	out := make([]string, 0, len(v.exts))
+	for n := range v.exts {
+		out = append(out, n)
+	}
+	return out
+}
+
 func (v *view) markDirty(number string) {
 	v.dirty[number] = struct{}{}
 	v.changes++
 }
 
-func (v *view) isExtension(name string) bool { return name != "" && v.pattern.MatchString(name) }
+func (v *view) isExtension(name string) bool { return model.IsExtension(v.pattern, name) }
 
-// ensureExt devolve o ramal (criando-o) ou nil se name e tronco (que fica registrado).
+// ensureExt devolve o ramal (criando-o) ou nil se name e tronco (que fica registrado), endpoint
+// interno do Issabel (ignorado de vez) ou ramal removido pela releitura (tomb).
 func (v *view) ensureExt(name string) (e *extState, created bool) {
-	if name == "" {
+	if name == "" || model.IsInternalEndpoint(name) {
 		return nil, false
 	}
 	if !v.isExtension(name) {
@@ -83,8 +157,12 @@ func (v *view) ensureExt(name string) (e *extState, created bool) {
 	if e = v.exts[name]; e != nil {
 		return e, false
 	}
+	if _, dead := v.tomb[name]; dead {
+		return nil, false
+	}
 	e = &extState{number: name, name: v.hints[name], reg: model.RegUnknown, device: model.DevUnknown, group: groupFor(v.groups, name)}
 	v.exts[name] = e
+	delete(v.removed, name) // saiu e voltou na mesma janela: o lote leva o estado inteiro, sem removed
 	v.markDirty(name)
 	v.recalc(map[string]struct{}{name: {}})
 	return e, true
@@ -175,6 +253,7 @@ func (v *view) markUnknown() {
 	v.bridges = map[string]map[string]struct{}{}
 	v.localHalves = map[string]*[2]string{}
 	v.dirty = map[string]struct{}{}
+	v.removed = map[string]struct{}{}
 	v.changes = 0
 }
 

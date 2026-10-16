@@ -186,11 +186,18 @@ func (h *Hub) applyBatch(b model.Batch) {
 		return
 	}
 	raws := make([][]byte, 0, len(b.Extensions))
-	nums := make([]string, 0, len(b.Extensions))
+	nums := make([]string, 0, len(b.Extensions)+len(b.Removed))
 	for _, x := range b.Extensions {
 		h.put(x)
 		raws = append(raws, h.exts[x.Number].raw)
 		nums = append(nums, x.Number)
+	}
+	for _, n := range b.Removed { // ramal apagado no PBX: sai da projecao (e do snapshot) sem epoch novo
+		if _, ok := h.exts[n]; ok {
+			delete(h.exts, n)
+			h.orderDirty = true
+		}
+		nums = append(nums, "-"+n)
 	}
 	h.version, h.ami = b.ToVersion, b.AMIConnected
 	h.snap, h.grp = nil, nil

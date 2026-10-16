@@ -123,7 +123,7 @@ func (v *view) onChannelCreated(e model.ChannelCreated) {
 	addIdx(v.byLinked, c.linkedID, c.uid)
 	if c.endpoint != "" && v.isExtension(c.endpoint) {
 		addIdx(v.byEndpoint, c.endpoint, c.uid)
-	} else if c.endpoint != "" {
+	} else if c.endpoint != "" && !model.IsInternalEndpoint(c.endpoint) {
 		v.trunks[c.endpoint] = struct{}{}
 	}
 	if c.isLocal {

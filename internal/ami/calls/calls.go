@@ -193,6 +193,25 @@ func DeviceStateEvent(m ami.Message, prefix string) (model.DeviceStateChanged, b
 	return model.DeviceStateChanged{At: m.At, Name: name, State: deviceState(m.Get("State"))}, true
 }
 
+// OnlyListed devolve um emit que descarta DeviceStateChanged de dispositivo fora de names (os
+// endpoints/peers que a lista do PBX trouxe). O DeviceStateList do Asterisk guarda dispositivos de
+// endpoints ja apagados; o inventario manda, e eles nao podem ressuscitar o ramal removido. Vale
+// para TODOS os caminhos de carga (Snapshot de connect/overflow e Reread).
+func OnlyListed(names []string, emit func(model.Event)) func(model.Event) {
+	listed := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		listed[n] = struct{}{}
+	}
+	return func(ev model.Event) {
+		if d, ok := ev.(model.DeviceStateChanged); ok {
+			if _, in := listed[d.Name]; !in {
+				return
+			}
+		}
+		emit(ev)
+	}
+}
+
 // SnapshotDeviceStates roda DeviceStateList e emite o estado inicial.
 func SnapshotDeviceStates(ctx context.Context, c *ami.Client, prefix string, emit func(model.Event)) error {
 	r, err := c.Do(ctx, "DeviceStateList", nil)

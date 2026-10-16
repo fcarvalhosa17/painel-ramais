@@ -128,7 +128,8 @@ func captureAdapter(ctx context.Context, cfg *config.Config, cl *ami.Client, inf
 	if err := ami.CheckVersion(version); err != nil {
 		return nil, nil, err
 	}
-	det, err := cl.DetectTechnology(ctx, cfg.Technology, cfg.Pattern)
+	isExt := func(name string) bool { return model.IsExtension(cfg.Pattern, name) }
+	det, err := cl.DetectTechnology(ctx, cfg.Technology, isExt)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -137,7 +138,7 @@ func captureAdapter(ctx context.Context, cfg *config.Config, cl *ami.Client, inf
 	sample := func() func(string) bool { // so uma amostra de endpoints, nao o plantel inteiro
 		n := 0
 		return func(name string) bool {
-			if n >= captureNameSample || !cfg.Pattern.MatchString(name) {
+			if n >= captureNameSample || !isExt(name) {
 				return false
 			}
 			n++

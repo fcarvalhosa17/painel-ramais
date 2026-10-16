@@ -33,7 +33,8 @@ type Adapter struct {
 	emit     func(model.Event)
 	mu       sync.Mutex
 	contacts map[string]map[string]contact // endpoint -> URI -> contato
-	names    []string                      // endpoints do ultimo Snapshot (base do Enrich)
+	names    []string                      // endpoints da ultima leitura (base do Enrich e do Reread)
+	fresh    map[string]struct{}           // entraram na ultima leitura: o Enrich busca o nome deles antes
 }
 
 // New cria o adaptador. emit recebe os eventos do Snapshot.
@@ -49,48 +50,148 @@ func (a *Adapter) EndpointFromChannel(channel string) (string, bool) {
 // Snapshot emite o estado inicial: endpoints, contatos (ou AORs), device
 // states e chamadas em andamento. Chamar de novo refaz tudo do zero.
 func (a *Adapter) Snapshot(ctx context.Context, c *ami.Client) error {
-	eps, err := c.Do(ctx, "PJSIPShowEndpoints", nil)
-	if err != nil {
-		return fmt.Errorf("snapshot pjsip endpoints: %w", err)
-	}
-	cts, err := a.loadContacts(ctx, c)
+	eps, cts, err := a.list(ctx, c)
 	if err != nil {
 		return err
 	}
-	a.mu.Lock()
-	a.contacts = map[string]map[string]contact{}
-	for _, it := range cts {
-		a.addLocked(it)
-	}
-	var out []model.Event
-	a.names = a.names[:0]
-	for _, it := range eps.Items {
-		if it.Event() != "EndpointList" {
-			continue
-		}
-		name := it.Get("ObjectName")
-		a.names = append(a.names, name)
-		out = append(out,
-			model.EndpointSeen{At: it.At, Name: name, CallerIDName: calls.CallerName(it.Get("Callerid")), Technology: model.TechPJSIP},
-			a.aggregateLocked(name, it.At))
-	}
-	a.mu.Unlock()
+	names, out := a.load(eps, cts, false)
 	for _, ev := range out {
 		a.emit(ev)
 	}
-	if err := calls.SnapshotDeviceStates(ctx, c, prefix, a.emit); err != nil {
+	if err := calls.SnapshotDeviceStates(ctx, c, prefix, calls.OnlyListed(names, a.emit)); err != nil {
 		return err
 	}
 	return calls.SnapshotChannels(ctx, c, a.EndpointFromChannel, a.emit)
 }
 
+// Reread rele a lista de endpoints, os contatos e os device states, sem tocar nas chamadas (os
+// eventos ao vivo as mantem). Emite primeiro InventoryListed (o estado remove quem sumiu) e
+// depois os mesmos eventos do Snapshot, que criam os novos e confirmam os que ficaram. Quem chama
+// roda isto na mesma goroutine que consome os eventos AMI, entao nada se cruza com o Translate
+// (e o que chegou durante a leitura e traduzido depois, mais novo que a lista). Lista vazia
+// quando ja havia ramais e confirmada uma segunda vez antes de valer. TODA leitura (endpoints,
+// contatos, device states) acontece antes de emitir qualquer coisa e antes de trocar o estado do
+// adaptador: se uma falhar, nada foi emitido e nada mudou (a releitura inteira se repete). O
+// registro que so difere na latencia mantem a anterior (nao marca o ramal como alterado a cada
+// ciclo). Devolve quantos endpoints entraram (o supervisor refaz os nomes quando ha novos).
+func (a *Adapter) Reread(ctx context.Context, c *ami.Client, reason string) (fresh int, err error) {
+	eps, cts, err := a.list(ctx, c)
+	if err != nil {
+		return 0, err
+	}
+	if !hasEndpoints(eps) && a.known() > 0 {
+		if err := calls.Pause(ctx, calls.EmptyRecheck); err != nil {
+			return 0, err
+		}
+		if eps, cts, err = a.list(ctx, c); err != nil {
+			return 0, err
+		}
+	}
+	var devs []model.Event
+	if err := calls.SnapshotDeviceStates(ctx, c, prefix, func(ev model.Event) { devs = append(devs, ev) }); err != nil {
+		return 0, err
+	}
+	names, out := a.load(eps, cts, true)
+	a.emit(model.InventoryListed{At: time.Now(), Reason: reason, Names: names})
+	for _, ev := range out {
+		a.emit(ev)
+	}
+	only := calls.OnlyListed(names, a.emit)
+	for _, ev := range devs {
+		only(ev)
+	}
+	return a.freshCount(), nil
+}
+
+func (a *Adapter) known() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	n := 0
+	for _, name := range a.names {
+		if !model.IsInternalEndpoint(name) { // servidor so com dummy_endpoint = sem ramais: sem pausa de confirmacao
+			n++
+		}
+	}
+	return n
+}
+
+// freshCount diz quantos endpoints entraram na ultima leitura e ainda esperam o nome.
+func (a *Adapter) freshCount() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return len(a.fresh)
+}
+
+// hasEndpoints diz se a lista tem algum endpoint real (o dummy_endpoint do Issabel nao conta: lista
+// transitoria so com ele nao pode passar por "tem ramais" e esvaziar a tela).
+func hasEndpoints(eps []ami.Message) bool {
+	for _, it := range eps {
+		if it.Event() == "EndpointList" && !model.IsInternalEndpoint(it.Get("ObjectName")) {
+			return true
+		}
+	}
+	return false
+}
+
+// list le endpoints e contatos. Lista vazia ("No endpoints found") e zero ramais, nao erro.
+func (a *Adapter) list(ctx context.Context, c *ami.Client) (eps, cts []ami.Message, err error) {
+	r, err := c.DoList(ctx, "PJSIPShowEndpoints", nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("snapshot pjsip endpoints: %w", err)
+	}
+	cts, err = a.loadContacts(ctx, c)
+	if err != nil {
+		return nil, nil, err
+	}
+	return r.Items, cts, nil
+}
+
+// load troca contatos e nomes pela leitura e devolve os nomes de todos os endpoints (ramais e
+// troncos) e os eventos EndpointSeen/RegistrationChanged. Os que nao estavam na leitura anterior
+// ficam em fresh: o Enrich busca o nome deles primeiro.
+// keepLatency (so na releitura): se o registro agregado so muda na latencia, mantem a anterior.
+func (a *Adapter) load(eps, cts []ami.Message, keepLatency bool) (names []string, out []model.Event) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	old := a.contacts
+	a.contacts = map[string]map[string]contact{}
+	for _, it := range cts {
+		a.addLocked(it)
+	}
+	known := make(map[string]struct{}, len(a.names))
+	for _, n := range a.names {
+		known[n] = struct{}{}
+	}
+	a.names, a.fresh = a.names[:0], map[string]struct{}{}
+	for _, it := range eps {
+		name := it.Get("ObjectName")
+		if it.Event() != "EndpointList" || name == "" {
+			continue
+		}
+		a.names = append(a.names, name)
+		if _, ok := known[name]; !ok {
+			a.fresh[name] = struct{}{}
+		}
+		reg := a.aggregateLocked(name, it.At)
+		if keepLatency {
+			if prev := aggregate(old[name], name, it.At); prev.State == reg.State && prev.IP == reg.IP && prev.UserAgent == reg.UserAgent && prev.LatencyMs != nil {
+				reg.LatencyMs = prev.LatencyMs
+			}
+		}
+		out = append(out,
+			model.EndpointSeen{At: it.At, Name: name, CallerIDName: calls.CallerName(it.Get("Callerid")), Technology: model.TechPJSIP},
+			reg)
+	}
+	return append([]string(nil), a.names...), out
+}
+
 // loadContacts usa PJSIPShowContacts e, se a action não existir nesta versão
-// (resposta de erro), cai para PJSIPShowAors.
+// (resposta de erro), cai para PJSIPShowAors. "No ... found" nas duas e lista vazia.
 func (a *Adapter) loadContacts(ctx context.Context, c *ami.Client) ([]ami.Message, error) {
-	r, err := c.Do(ctx, "PJSIPShowContacts", nil)
+	r, err := c.DoList(ctx, "PJSIPShowContacts", nil)
 	var ae *ami.ActionError
 	if errors.As(err, &ae) {
-		r, err = c.Do(ctx, "PJSIPShowAors", nil)
+		r, err = c.DoList(ctx, "PJSIPShowAors", nil)
 		if err != nil {
 			return nil, fmt.Errorf("snapshot pjsip aors: %w", err)
 		}
@@ -174,7 +275,11 @@ func (a *Adapter) setLocked(name, uri string, c contact) {
 // aggregateLocked: algum contato registrado = registered; todos
 // inalcançáveis = unreachable; nenhum = unregistered (CONTRATOS.md 7.3).
 func (a *Adapter) aggregateLocked(name string, at time.Time) model.RegistrationChanged {
-	cs := a.contacts[name]
+	return aggregate(a.contacts[name], name, at)
+}
+
+// aggregate e a regra de aggregateLocked sobre um conjunto de contatos qualquer.
+func aggregate(cs map[string]contact, name string, at time.Time) model.RegistrationChanged {
 	ev := model.RegistrationChanged{At: at, Name: name, State: model.RegUnregistered}
 	if len(cs) == 0 {
 		return ev

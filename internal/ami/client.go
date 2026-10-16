@@ -230,6 +230,27 @@ func (c *Client) Do(ctx context.Context, action string, params map[string]string
 	}
 }
 
+// IsEmptyList diz se err e a resposta de lista vazia do Asterisk: "Response: Error" com mensagem
+// "No endpoints found", "No AORs found", "No contacts found" etc. Servidor sem ramais nao e erro.
+func IsEmptyList(err error) bool {
+	var ae *ActionError
+	if !errors.As(err, &ae) {
+		return false
+	}
+	m := strings.ToLower(strings.TrimSpace(ae.Message))
+	return strings.HasPrefix(m, "no ") && strings.Contains(m, "found")
+}
+
+// DoList e Do para actions de lista (PJSIPShowEndpoints, PJSIPShowContacts, PJSIPShowAors,
+// SIPpeers): a resposta de lista vazia (IsEmptyList) volta como Response vazia, sem erro.
+func (c *Client) DoList(ctx context.Context, action string, params map[string]string) (Response, error) {
+	r, err := c.Do(ctx, action, params)
+	if IsEmptyList(err) {
+		return Response{}, nil
+	}
+	return r, err
+}
+
 func (c *Client) write(action, id string, params map[string]string) error {
 	var sb strings.Builder
 	sb.WriteString("Action: " + action + "\r\nActionID: " + id + "\r\n")

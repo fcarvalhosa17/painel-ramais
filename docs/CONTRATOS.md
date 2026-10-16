@@ -344,7 +344,7 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
 - `epoch`: string opaca. O cliente só compara igualdade. Formato atual `<unix ms do início do processo>-<contador>`, único entre reinícios do daemon.
 - `version`: inteiro monotônico durante a vida do processo.
 - `technology`: `null` só antes da primeira detecção.
-- `extensions` ordenado por `number` (ordem de string). Antes da primeira conexão AMI vem vazio.
+- `extensions` ordenado por `number` (ordem de string). Antes da primeira conexão AMI vem vazio. Servidor **sem ramais** (nenhum endpoint/peer de ramal configurado) também vem `[]`, mas com `ami_connected: true`, `technology` preenchido e `meta.count: 0`: é um estado válido, não erro nem `degraded` (seção 7.4); o primeiro ramal criado chega por delta.
 - `server_time` serve para a tela calcular a diferença de relógio e mostrar a duração certa.
 
 ### 4.2 GET /api/groups
@@ -496,7 +496,7 @@ Mensagens JSON em frames de texto, uma mensagem por frame, tipadas por `type`. F
 
 ### 5.2 delta (servidor para cliente)
 
-Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes na janela aparece uma vez, com o estado final completo (substituição inteira por `number`, não patch de campo).
+Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes na janela aparece uma vez, com o estado final completo (substituição inteira por `number`, não patch de campo). `removed` é a lista (ordenada, sempre presente, `[]` quando vazia) dos números que **saíram** do estado neste lote; nunca repete um número de `extensions`. O exemplo acima traz as duas coisas só para ilustrar o formato.
 
 ```json
 {
@@ -506,6 +506,7 @@ Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes 
   "to_version": 48219,
   "ami_connected": true,
   "server_time": "2026-10-13T14:30:00.373Z",
+  "removed": ["2999"],
   "extensions": [
     {
       "number": "2002",
@@ -533,12 +534,12 @@ Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes 
 ```
 
 Regra de aplicação no cliente (com `v` = versão local):
-- `from_version <= v < to_version`: aplica (substitui cada ramal pelo `number`; ramal novo é inserido) e faz `v = to_version`. A sobreposição é segura porque cada item é o estado completo.
+- `from_version <= v < to_version`: aplica (substitui cada ramal pelo `number`; ramal novo é inserido; cada número de `removed` é apagado da lista e da tela, e remover número que o cliente não tem é ignorado) e faz `v = to_version`. A sobreposição é segura porque cada item é o estado completo e remover duas vezes é inofensivo. `extensions` e `removed` não têm número em comum, então a ordem entre os dois não importa.
 - `to_version <= v`: ignora (repetido).
 - `from_version > v`: lacuna; o cliente busca o snapshot e reconecta.
 - `epoch` diferente do local: o mesmo que lacuna.
 
-Ramal nunca é removido por delta. Remoção só acontece com epoch novo (snapshot inteiro).
+Ramal criado ou apagado no Issabel **não** muda o epoch: o novo chega em `extensions` (não registrado, com o grupo calculado pelas faixas) e o apagado em `removed` (seção 7.4). Apagado com chamada ativa continua em `extensions` até o `Hangup` da última chamada e só então vai para `removed`. O epoch novo continua só para queda do AMI, ressincronização e recarga de grupos.
 
 ### 5.3 reload (servidor para cliente)
 
@@ -593,6 +594,7 @@ ami:
   address: "127.0.0.1:5038"
   username: painel-ramais
   secret_file: /etc/painel-ramais/ami-secret
+  inventory_refresh: 10m                              # releitura completa dos ramais do PBX
 
 auth:
   secret_file: /etc/painel-ramais/secret
@@ -617,6 +619,7 @@ history:
 | `auth.issabel_key_file` | caminho absoluto | `/etc/painel-ramais-issabel.key` | não vazio e absoluto; o arquivo **pode não existir** (integração desligada); permissão e conteúdo nunca impedem a subida: são conferidos pela verificação de dependências (na subida e a cada 60 s; seções 3.3 e 4.4) |
 | `auth.session_ttl` | duração Go | `12h` | entre `15m` e `24h`; inatividade máxima da sessão (renovada pelo uso e pelo WebSocket) |
 | `ami.name_fill_per_second` | inteiro | `20` | entre 1 e 200; teto de consultas de nome (`PJSIPShowEndpoint`/`SIPshowpeer`) em segundo plano (decisão 4) |
+| `ami.inventory_refresh` | duração Go | `10m` | entre `1m` e `24h`; intervalo da releitura completa dos ramais do PBX (seção 7.4), rede de segurança para recarga que o Asterisk não anunciou. A releitura por evento de recarga não depende dela |
 | `history.retention_days` | inteiro | `30` | entre 1 e 365 |
 
 Constantes (não configuráveis, de propósito): lote WS 250 ms; ring buffer 40 lotes; fila de envio por cliente 64 mensagens; TTL máximo do token 60 s; backoff de reconexão AMI de 1 s a 30 s; verificação de dependências a cada 60 s; fila interna AMI para estado 65536 eventos; ReadTimeout HTTP 15 s; no máximo 4 bcrypt simultâneos no login. Viram configuração só com medição que justifique.
@@ -653,7 +656,7 @@ Todas marcadas "a confirmar no Asterisk real com `manager show command <Action>`
 
 ### 7.2 Eventos (eventfilter estático, união SIP e PJSIP)
 
-`ContactStatus`, `PeerStatus`, `DeviceStateChange`, `Newchannel`, `Newstate`, `NewCallerid`, `NewConnectedLine`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, `Hangup`, `Hold`, `Unhold`, `Reload` (decisão 4: o Asterisk recarregou, os nomes dos ramais são refeitos depois de 5 s sem novo `Reload`; classe de leitura `system`). O bloco de `manager_custom.conf` do ADR-003 precisa do `eventfilter = Event: Reload`.
+`ContactStatus`, `PeerStatus`, `DeviceStateChange`, `Newchannel`, `Newstate`, `NewCallerid`, `NewConnectedLine`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, `Hangup`, `Hold`, `Unhold`, `Reload`, `ModuleLoadReport`, `FullyBooted` (recarga do Asterisk: o inventário de ramais e os nomes são refeitos 3 s depois do último desses eventos, seção 7.4; classe de leitura `system`). O bloco de `manager_custom.conf` do ADR-003 precisa de um `eventfilter` para cada um (`Event: Reload`, `Event: ModuleLoadReport`, `Event: FullyBooted`); os nomes exatos no Asterisk 18 do Issabel são confirmados na captura da homologação (S10).
 
 Os eventos da tecnologia inativa nunca chegam (o módulo não está carregado), então a união não custa nada. Motivo de não montar o filtro por tecnologia: ADR-003. As respostas de action em lista (`EndpointList`, `ContactList`, `PeerEntry`, `DeviceStateChange` de lista, `CoreShowChannel`) não passam pelo eventfilter.
 
@@ -672,6 +675,27 @@ Os eventos da tecnologia inativa nunca chegam (o módulo não está carregado), 
 | AMI fora ou snapshot em curso | qualquer | `unknown` |
 
 A agregação de contatos é do adaptador `pjsip`, que entrega ao estado um único `RegistrationChanged` por endpoint.
+
+### 7.4 Inventário de ramais sempre atualizado
+
+O inventário vem dos endpoints/peers **configurados** (`PJSIPShowEndpoints` / `SIPpeers`), nunca só dos contatos registrados: todo ramal configurado aparece, registrado ou não (os contatos, ou `PJSIPShowAors`, só dão o registro).
+
+**Quando relê.** (a) Evento de recarga do Asterisk: qualquer evento cujo nome seja um de `Reload`, `ModuleLoadReport`, `FullyBooted` (lista única `reloadEvents` em `cmd/painel-ramais/supervisor.go`, comentada) ou contenha `reload`. Debounce: a leitura roda 3 s depois do **último** evento da rajada, ou 15 s depois do **primeiro** se a rajada não acalmar. Evento lido antes do snapshot da sessão é ignorado (o `FullyBooted` que o Asterisk manda logo depois do Login já está no snapshot). (b) Ciclo periódico `ami.inventory_refresh` (padrão 10 min), com a mesma diferença incremental. (c) Nova tentativa 30 s depois de uma releitura que falhou (a falha nunca remove ramal). Tudo roda na mesma goroutine que traduz os eventos AMI, em ordem; o que chega durante a leitura fica na fila e é aplicado depois da lista.
+
+**O que a leitura faz** (sem mudar o epoch e sem recarregar a tela): o adaptador emite `InventoryListed` (todos os nomes) e depois, como no snapshot, `EndpointSeen`, `RegistrationChanged` (agregado dos contatos) e `DeviceStateChanged` (só de dispositivos que estão na lista) de cada endpoint; chamadas não são refeitas (os eventos ao vivo as mantêm). O mesmo filtro vale para o `DeviceStateList` do snapshot de conexão e de overflow: o Asterisk guarda dispositivo de endpoint já apagado, e sem o filtro o ramal apagado voltaria como fantasma. **Tudo é lido antes de emitir**: endpoints, contatos e `DeviceStateList` da releitura são lidos antes de qualquer evento sair e antes de o adaptador trocar o seu estado; se qualquer leitura falhar, nada foi emitido, nada mudou, e a releitura inteira se repete 30 s depois (os endpoints que seriam "novos" continuam novos na tentativa seguinte). Na **releitura** (não no evento ao vivo), registro que só difere na latência (`RoundtripUsec` no pjsip, `OK (N ms)` no sip) mantém a latência anterior, para não marcar quase todo ramal registrado como alterado a cada ciclo (com 10.000 ramais seria um delta de alguns MB por cliente a cada 10 min). Lista de endpoints só com endpoints internos (`dummy_endpoint`) conta como vazia para a confirmação em duas leituras. O `state` então:
+- **ramal novo** (listado, sem estado): criado como `unregistered` (ou o registro que a leitura trouxe) com o grupo calculado pelas faixas; sai no delta, em `extensions`;
+- **ramal que ficou**: nada muda se nada mudou (registro, IP e chamadas intactos); mudança de registro ou de nome vira delta normal;
+- **ramal removido** (no estado, fora da lista): sai do estado e vai em `removed` no próximo delta; o nome dele sai do cache de nomes (também quando o ramal que ficou na tela por causa de uma chamada sai no `Hangup`). Com chamada ativa, continua até o `Hangup` da última e só então sai. Evento ao vivo atrasado de ramal já removido (por exemplo `DeviceStateChange` `INVALID`) não o recria; a releitura que voltar a listá-lo o recria;
+- lista **vazia** quando já havia ramais é confirmada por uma segunda leitura 3 s depois antes de valer (lista vazia durante recarga pode ser transitória);
+- log de toda releitura, nível Info: `inventario de ramais relido motivo=reload entraram=2 sairam=1 ficaram=810 aguardando_fim_de_chamada=0`.
+
+**Pendente (sem teste automatizado e sem medição).** O inventário incremental (`InventoryListed`, `reconcile`/`removeExt`/`tomb`/`gone`, `removed` no delta, `DoList`/`IsEmptyList`, `IsExtension`, filtro `OnlyListed`, manutenção da latência na releitura) foi entregue **sem testes automatizados novos** por decisão do usuário nesta rodada, e nada foi compilado nem executado; os testes existentes só foram ajustados por leitura. Também não foi medido o custo de CPU e de tempo da goroutine `live` (releitura bloqueia a tradução de eventos enquanto lê, o que cresce com o número de ramais) com 10.000 ramais: fica para a medição na VM. Cobertura a escrever quando liberado: criar, apagar, apagar com chamada ativa, renomear, servidor sem ramais, rajada de `Reload`, fantasma do `DeviceStateList`, falha parcial da releitura.
+
+**Nome.** Depois da leitura, se o motivo foi recarga ou entrou ramal novo, o ciclo de nomes (`PJSIPShowEndpoint`/`SIPshowpeer`, taxa `ami.name_fill_per_second`) recomeça com os **recém-chegados primeiro**. Nome editado no PBX é pego quando o `Callerid` já vem na lista de endpoints (se a captura mostrar que vem) ou na passada de nomes da recarga; sem isso, no ciclo de 6 h.
+
+**Servidor sem ramais.** `Response: Error` com mensagem `No ... found` (`No endpoints found`, `No AORs found`, `No contacts found`; comparação sem diferenciar maiúsculas) e a lista vazia do `SIPpeers` significam **zero**, não erro (`ami.Client.DoList`, `ami.IsEmptyList`): o snapshot termina, a sessão AMI segue conectada, `ami_connected` fica `true`, `extensions` vem `[]` e o `status` do health não vira `degraded` por isso. `PJSIPShowContacts` vazio não aciona o fallback para `PJSIPShowAors`. O primeiro ramal criado entra pela releitura.
+
+**Endpoints internos ignorados.** Lista única `model.InternalEndpoints`: `["dummy_endpoint"]` (comparação sem diferenciar maiúsculas, nome inteiro). Regra única de ramal, `model.IsExtension(pattern, nome)`: `nome != ""` **e** nome fora da lista **e** `extension_pattern` casa o nome inteiro. A detecção de tecnologia (`ami.CountExtensions`), o estado, o preenchimento de nomes e a amostra do `capturar` usam esta função; endpoint da lista não é ramal, não é tronco, não conta no `/api/health` (`trunks`) nem aparece na tela. O `instalar.py verificar` deve contar ramais com a mesma regra. Só `dummy_endpoint` está na lista: nenhuma captura ou documento do repositório mostra outro endpoint interno do Issabel; outros nomes entram aqui quando a captura da homologação os mostrar.
 
 ---
 
@@ -848,8 +872,9 @@ Os adaptadores `sip` e `pjsip` traduzem mensagens AMI nestes tipos. O supervisor
 | `SyncFinished` | (nenhum) | troca a visão pela montada, `ami_connected=true`, epoch novo |
 | `NamesLoaded` | `Names map[string]string` | cache de nomes (número para callerid); só preenche ramal sem nome; sem epoch novo (emitido pelo `cmd` na subida) |
 | `GroupsLoaded` | `Ranges []GroupRange{Start, End, Name}` | reatribui grupos, epoch novo (emitido pelo `cmd` na subida e no SIGHUP) |
+| `InventoryListed` | `Reason`, `Names []string` (todos os endpoints/peers do PBX, troncos inclusos) | releitura do inventário (seção 7.4): remove do estado os ramais que não estão na lista (ou os mantém até o fim da chamada), **sem epoch novo**; ignorado durante sincronização ou com o AMI fora. Vem antes dos `EndpointSeen`/`RegistrationChanged` da mesma leitura |
 
-Regra do epoch: mudança em massa (queda do AMI, fim de sincronização, recarga de grupos) gera epoch novo e `reload`; mudança de um ramal gera delta.
+Regra do epoch: mudança em massa (queda do AMI, fim de sincronização, recarga de grupos) gera epoch novo e `reload`; mudança de um ramal, inclusive ramal criado ou apagado no PBX (`InventoryListed`), gera delta.
 
 ### 11.2 Registro e dispositivo
 
@@ -886,7 +911,7 @@ Fila entre leitor AMI e estado: canal com capacidade 65536. A goroutine leitora 
 
 | Tipo | Campos | Quando |
 |---|---|---|
-| `Batch` | `Epoch`, `FromVersion`, `ToVersion`, `AMIConnected`, `Extensions []Extension` | a cada 250 ms com mudança |
+| `Batch` | `Epoch`, `FromVersion`, `ToVersion`, `AMIConnected`, `Extensions []Extension`, `Removed []string` (números que saíram, ordenados, disjuntos de `Extensions`; cada remoção conta uma mudança na versão) | a cada 250 ms com mudança |
 | `Reset` | `Epoch`, `Version`, `AMIConnected`, `Technology`, `Extensions []Extension` (todos), `Groups []GroupRange` (para o hub servir `/api/groups`) | a cada epoch novo |
 
 `Extension` e `Call` do `model` têm as tags JSON da seção 2: o formato da seção 2 é o próprio `json.Marshal` desses tipos.
@@ -945,7 +970,7 @@ cmd/loadtest ->
 Regras:
 - Direção única: `cmd -> api -> state -> model <- ami/{sip,pjsip} -> ami`. `state` não conhece AMI nem HTTP; `ami` não conhece `model`.
 - Folhas (`model`, `store`, `auth`, `config`, `depcheck`, `ami`) não importam nenhum pacote interno. `store` devolve os próprios tipos de linha; o `cmd` converte para `model` (por exemplo `store.Range` para `model.GroupRange`).
-- A interface `Adapter` (duas implementações: `sip` e `pjsip`) é declarada em `cmd/painel-ramais`, onde é consumida: `Snapshot(ctx, *ami.Client) error` emite os eventos da sincronização; `Translate(ami.Message) []model.Event` traduz um evento ao vivo; `EndpointFromChannel(string) (string, bool)`.
+- A interface `Adapter` (duas implementações: `sip` e `pjsip`) é declarada em `cmd/painel-ramais`, onde é consumida: `Snapshot(ctx, *ami.Client) error` emite os eventos da sincronização; `Reread(ctx, *ami.Client, reason string) (fresh int, err error)` rele o inventário (seção 7.4); `Translate(ami.Message) []model.Event` traduz um evento ao vivo; `EndpointFromChannel(string) (string, bool)`.
 - Detecção de tecnologia (`CoreSettings` e `ModuleCheck`) fica em `ami` e devolve texto (`"sip"`, `"pjsip"`); o `cmd` escolhe o adaptador.
 - `internal/web` é folha: só embute os arquivos; o conteúdo de `static/` é do frontend e as rotas que o servem são de `internal/api` (opção `Static`).
 - `cmd/amisim` e `cmd/loadtest` não importam nada de `internal/`. O simulador tem framing AMI próprio de propósito: se dividisse o código do cliente, um bug de framing seria espelhado e o teste não pegaria. O teste de carga decodifica o JSON pelos tipos dele, como cliente de caixa preta deste contrato.
@@ -966,6 +991,7 @@ Regras:
 | S6 | eventfilter no formato de regex (`Event: X`) é aceito pela versão do Asterisk do Issabel 5 | spike do ADR-003 | backend |
 | S7 | O daemon consegue ler `/etc/asterisk/manager.conf` para a checagem do include; se não conseguir, o item fica `unknown` e o README explica | `verificar` registra `ls -l /etc/asterisk/manager*.conf` no relatório | backend |
 | S8 | Hora dos eventos ao vivo = hora de leitura no daemon (o Asterisk não manda timestamp sem `timestampevents`, que fica no `[general]` do manager.conf, que não editamos) | aceito; erro esperado abaixo de 1 s | nenhum |
+| S10 | Nomes dos eventos AMI de recarga no Asterisk 18 do Issabel (`Reload`, `ModuleLoadReport`, `FullyBooted`, outro?) e se passam pelo `eventfilter`; se criar ou apagar ramal no IssabelPBX (Apply Config) gera `Reload` e quantos; texto exato da resposta de lista vazia (`No endpoints found`, `No AORs found`, `No contacts found`); se `EndpointList` traz `Callerid`; outros endpoints internos além de `dummy_endpoint` | captura da homologação: criar, renomear e apagar um ramal e aplicar a configuração com `capturar` rodando | backend |
 
 ---
 

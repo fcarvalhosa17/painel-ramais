@@ -52,6 +52,15 @@ type (
 		At     time.Time
 		Ranges []GroupRange
 	}
+	// InventoryListed e a lista COMPLETA de endpoints/peers do PBX numa releitura (recarga do
+	// Asterisk ou ciclo periodico). Vem ANTES dos EndpointSeen/RegistrationChanged da mesma
+	// leitura. O estado remove os ramais que nao estao na lista (sem mudar o epoch); os que entram
+	// sao criados pelos eventos seguintes. Names inclui troncos: o estado filtra com IsExtension.
+	InventoryListed struct {
+		At     time.Time
+		Reason string // "reload", "periodica" ou "nova tentativa" (so para o log)
+		Names  []string
+	}
 )
 
 // Registro e dispositivo. Name e o nome do endpoint/peer sem prefixo de tecnologia.
@@ -151,6 +160,7 @@ func (e SyncStarted) EventTime() time.Time          { return e.At }
 func (e SyncFinished) EventTime() time.Time         { return e.At }
 func (e GroupsLoaded) EventTime() time.Time         { return e.At }
 func (e NamesLoaded) EventTime() time.Time          { return e.At }
+func (e InventoryListed) EventTime() time.Time      { return e.At }
 func (e EndpointSeen) EventTime() time.Time         { return e.At }
 func (e RegistrationChanged) EventTime() time.Time  { return e.At }
 func (e DeviceStateChanged) EventTime() time.Time   { return e.At }
@@ -168,13 +178,15 @@ func (e ChannelHungup) EventTime() time.Time        { return e.At }
 // Output e o que o estado entrega ao hub: Batch ou Reset.
 type Output interface{ isOutput() }
 
-// Batch e um lote de mudancas (ramais coalescidos, estado final completo).
+// Batch e um lote de mudancas (ramais coalescidos, estado final completo). Removed lista os
+// numeros que saíram do estado neste lote (ordenados); nunca repete um numero de Extensions.
 type Batch struct {
 	Epoch        string
 	FromVersion  uint64
 	ToVersion    uint64
 	AMIConnected bool
 	Extensions   []Extension
+	Removed      []string
 }
 
 // Reset e o estado inteiro, emitido a cada epoch novo. Groups acompanha o

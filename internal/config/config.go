@@ -41,6 +41,9 @@ type AMI struct {
 	SecretFile string `yaml:"secret_file"`
 	// NameFillPerSecond limita as consultas de nome (PJSIPShowEndpoint/SIPshowpeer) em segundo plano.
 	NameFillPerSecond int `yaml:"name_fill_per_second"`
+	// InventoryRefresh e o intervalo da releitura completa dos ramais do PBX (rede de seguranca
+	// para recarga que o Asterisk nao anunciou). Alem dela, cada Reload do Asterisk dispara uma.
+	InventoryRefresh time.Duration `yaml:"inventory_refresh"`
 }
 
 type Auth struct {
@@ -60,7 +63,7 @@ func Defaults() Config {
 	c := Config{
 		Listen: "127.0.0.1:8790", Technology: "auto", ExtensionPattern: `^[0-9]+$`,
 		DataDir: "/var/lib/painel-ramais", LogLevel: "info",
-		AMI:  AMI{Address: "127.0.0.1:5038", Username: "painel-ramais", SecretFile: "/etc/painel-ramais/ami-secret", NameFillPerSecond: 20},
+		AMI:  AMI{Address: "127.0.0.1:5038", Username: "painel-ramais", SecretFile: "/etc/painel-ramais/ami-secret", NameFillPerSecond: 20, InventoryRefresh: 10 * time.Minute},
 		Auth: Auth{SecretFile: "/etc/painel-ramais/secret", IssabelKeyFile: DefaultIssabelKeyFile, SessionTTL: 12 * time.Hour},
 	}
 	c.History.RetentionDays = 30
@@ -120,6 +123,9 @@ func (c *Config) validate() error {
 	}
 	if c.AMI.NameFillPerSecond < 1 || c.AMI.NameFillPerSecond > 200 {
 		return fmt.Errorf("ami.name_fill_per_second: %d fora de 1 a 200", c.AMI.NameFillPerSecond)
+	}
+	if c.AMI.InventoryRefresh < time.Minute || c.AMI.InventoryRefresh > 24*time.Hour {
+		return fmt.Errorf("ami.inventory_refresh: %s fora de 1m a 24h", c.AMI.InventoryRefresh)
 	}
 	if c.AMI.SecretFile == "" || c.Auth.SecretFile == "" {
 		return errors.New("ami.secret_file e auth.secret_file sao obrigatorios")

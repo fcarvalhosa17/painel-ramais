@@ -25,6 +25,10 @@ type Options struct {
 	// OnNoPeer e chamado (na goroutine do estado, sem bloquear) quando uma chamada Up segue sem
 	// outro lado resolvido por 1 s e passa a ser publicada "em conversa" com o outro lado desconhecido.
 	OnNoPeer func(uniqueid, linkedid string)
+	// OnInventory e chamado (na goroutine do estado, sem bloquear) a cada releitura completa do
+	// inventario de ramais: reason (reload, periodica...), quantos entraram, sairam e ficaram, e
+	// quantos apagados no PBX seguem na tela ate o fim da ultima chamada (pending).
+	OnInventory func(reason string, added, removed, kept, pending int)
 }
 
 // Stats e a foto agregada publicada a cada lote, lida sem bloquear o estado.
@@ -60,6 +64,7 @@ type State struct {
 	onName        func(number, name string)
 	onSync        func(numbers []string)
 	onNoPeer      func(uniqueid, linkedid string)
+	onInventory   func(reason string, added, removed, kept, pending int)
 	epochBase     int64
 	epochSeq      int
 	epoch         string
@@ -77,7 +82,7 @@ type State struct {
 
 // New cria o estado. pattern ja deve casar o nome inteiro (config envolve em ^(?:...)$).
 func New(pattern *regexp.Regexp, in <-chan model.Event, opt Options) *State {
-	s := &State{pattern: pattern, in: in, hints: map[string]string{}, onName: opt.OnName, onSync: opt.OnSync, onNoPeer: opt.OnNoPeer, out: make(chan model.Output, 64), now: opt.Now, interval: opt.Interval}
+	s := &State{pattern: pattern, in: in, hints: map[string]string{}, onName: opt.OnName, onSync: opt.OnSync, onNoPeer: opt.OnNoPeer, onInventory: opt.OnInventory, out: make(chan model.Output, 64), now: opt.Now, interval: opt.Interval}
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -152,6 +157,8 @@ func (s *State) Apply(ev model.Event) {
 		s.onGroups(e)
 	case model.NamesLoaded:
 		s.onNames(e)
+	case model.InventoryListed:
+		s.onInventoryListed(e)
 	default:
 		if !s.connected && s.building == nil {
 			return // evento solto de sessao que ja caiu (ex.: Enrich atrasado): nao cria estado com o AMI fora
@@ -210,6 +217,23 @@ func (s *State) onSyncFinished(e model.SyncFinished) {
 	s.bumpEpoch()
 }
 
+// onInventoryListed reconcilia o estado com a lista completa do PBX SEM mudar o epoch: ramal
+// removido vira removed no proximo lote, ramal novo chega pelos EndpointSeen que seguem esta
+// lista (delta normal). Durante sincronizacao ou com o AMI fora a lista e ignorada: o
+// sync completo traz o inventario inteiro.
+func (s *State) onInventoryListed(e model.InventoryListed) {
+	if !s.connected || s.building != nil {
+		return
+	}
+	added, removed, kept, pending := s.cur.reconcile(e.Names)
+	if removed > 0 && s.onSync != nil {
+		s.onSync(s.cur.extNumbers()) // expurga do cache de nomes os ramais que sairam do PBX
+	}
+	if s.onInventory != nil {
+		s.onInventory(e.Reason, added, removed, kept, pending)
+	}
+}
+
 func (s *State) onGroups(e model.GroupsLoaded) {
 	s.groups = sortedRanges(e.Ranges)
 	s.cur.setGroups(s.groups)
@@ -222,6 +246,11 @@ func (s *State) onGroups(e model.GroupsLoaded) {
 func (s *State) newView(groups []model.GroupRange) *view {
 	v := newView(s.pattern, groups)
 	v.hints, v.onName, v.onNoPeer = s.hints, s.onName, s.onNoPeer
+	v.onPrune = func() {
+		if s.onSync != nil {
+			s.onSync(v.extNumbers())
+		}
+	}
 	return v
 }
 
@@ -251,6 +280,7 @@ func (s *State) Flush() model.Output {
 	if s.needReset {
 		s.needReset = false
 		s.cur.takeChanges() // o Reset ja carrega tudo; a versao so avanca 1 por epoch
+		s.cur.takeRemoved()
 		s.version++
 		s.cur.dirty = map[string]struct{}{}
 		return model.Reset{
@@ -259,10 +289,11 @@ func (s *State) Flush() model.Output {
 		}
 	}
 	n := s.cur.takeChanges()
-	if n == 0 || len(s.cur.dirty) == 0 {
+	if n == 0 || len(s.cur.dirty) == 0 && len(s.cur.removed) == 0 {
 		return nil
 	}
-	b := model.Batch{Epoch: s.epoch, FromVersion: s.version, AMIConnected: s.connected, Extensions: s.cur.dirtyExtensions()}
+	b := model.Batch{Epoch: s.epoch, FromVersion: s.version, AMIConnected: s.connected,
+		Extensions: s.cur.dirtyExtensions(), Removed: s.cur.takeRemoved()}
 	s.version += n
 	b.ToVersion = s.version
 	return b

@@ -15,7 +15,7 @@ func TestDefaultsAndPattern(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Listen != "127.0.0.1:8790" || c.Auth.SessionTTL != 12*time.Hour || c.AMI.NameFillPerSecond != 20 || c.History.RetentionDays != 30 || c.LogLevel != "debug" {
+	if c.Listen != "127.0.0.1:8790" || c.Auth.SessionTTL != 12*time.Hour || c.AMI.NameFillPerSecond != 20 || c.AMI.InventoryRefresh != 10*time.Minute || c.History.RetentionDays != 30 || c.LogLevel != "debug" {
 		t.Errorf("padroes: %+v", c)
 	}
 	if !c.Pattern.MatchString("2001") || c.Pattern.MatchString("2001a") || c.Pattern.MatchString("") {
@@ -44,6 +44,8 @@ func TestInvalid(t *testing.T) {
 		"ttl longo":              "auth:\n  session_ttl: 48h\n",
 		"nomes por segundo 0":    "ami:\n  name_fill_per_second: 0\n",
 		"nomes por segundo alto": "ami:\n  name_fill_per_second: 500\n",
+		"releitura curta":        "ami:\n  inventory_refresh: 10s\n",
+		"releitura longa":        "ami:\n  inventory_refresh: 48h\n",
 		"retencao":               "history:\n  retention_days: 0\n",
 		"username":               "ami:\n  username: ''\n",
 	}

@@ -57,6 +57,13 @@ func deltaFrame(b model.Batch, raws [][]byte, now time.Time) []byte {
 		}
 		buf.Write(r)
 	}
+	buf.WriteString(`],"removed":[`)
+	for i, n := range b.Removed {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		buf.Write(quote(n))
+	}
 	buf.WriteString(`]}`)
 	return buf.Bytes()
 }

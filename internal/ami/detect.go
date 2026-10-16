@@ -124,20 +124,21 @@ func (c *Client) ModuleLoaded(ctx context.Context, module string) (bool, error) 
 	return false, err
 }
 
-// CountExtensions conta nomes (ObjectName) que casam com pattern (já
-// ancorado) em PJSIPShowEndpoints ou SIPpeers.
-func (c *Client) CountExtensions(ctx context.Context, tech string, pattern *regexp.Regexp) (int, error) {
+// CountExtensions conta nomes (ObjectName) que isExt aceita em PJSIPShowEndpoints ou SIPpeers.
+// isExt e a regra unica de ramal (model.IsExtension: extension_pattern + endpoints internos);
+// lista vazia ("No endpoints found") conta zero.
+func (c *Client) CountExtensions(ctx context.Context, tech string, isExt func(name string) bool) (int, error) {
 	action := "SIPpeers"
 	if tech == "pjsip" {
 		action = "PJSIPShowEndpoints"
 	}
-	r, err := c.Do(ctx, action, nil)
+	r, err := c.DoList(ctx, action, nil)
 	if err != nil {
 		return 0, err
 	}
 	n := 0
 	for _, it := range r.Items {
-		if pattern.MatchString(it.Get("ObjectName")) {
+		if isExt(it.Get("ObjectName")) {
 			n++
 		}
 	}
@@ -145,7 +146,7 @@ func (c *Client) CountExtensions(ctx context.Context, tech string, pattern *rege
 }
 
 // DetectTechnology faz ModuleCheck dos dois módulos e aplica ResolveTechnology.
-func (c *Client) DetectTechnology(ctx context.Context, configured string, pattern *regexp.Regexp) (Detection, error) {
+func (c *Client) DetectTechnology(ctx context.Context, configured string, isExt func(name string) bool) (Detection, error) {
 	pj, err := c.ModuleLoaded(ctx, "chan_pjsip.so")
 	if err != nil {
 		return Detection{}, err
@@ -155,6 +156,6 @@ func (c *Client) DetectTechnology(ctx context.Context, configured string, patter
 		return Detection{}, err
 	}
 	return ResolveTechnology(configured, pj, sp, func(tech string) (int, error) {
-		return c.CountExtensions(ctx, tech, pattern)
+		return c.CountExtensions(ctx, tech, isExt)
 	})
 }

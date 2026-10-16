@@ -346,7 +346,7 @@ func TestDetectTechnologyPeloAMI(t *testing.T) {
 		t.Fatalf("v=%q err=%v", v, err)
 	}
 	pattern := regexp.MustCompile(`^(?:[0-9]+)$`)
-	d, err := c.DetectTechnology(ctx, "auto", pattern)
+	d, err := c.DetectTechnology(ctx, "auto", pattern.MatchString)
 	if err != nil || d.Technology != "sip" || d.Notice == "" {
 		t.Fatalf("ambos carregados, sip tem 2 ramais e pjsip 0: %+v err=%v", d, err)
 	}

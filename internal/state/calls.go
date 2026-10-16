@@ -30,6 +30,12 @@ func (v *view) recalc(numbers map[string]struct{}) {
 			x.calls = calls
 			v.markDirty(n)
 		}
+		if x.gone && len(x.calls) == 0 {
+			v.removeExt(n) // apagado no PBX: a ultima chamada acabou, agora ele sai
+			if v.onPrune != nil {
+				v.onPrune()
+			}
+		}
 	}
 }
 
