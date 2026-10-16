@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -146,4 +148,18 @@ func TestSIGHUPReloadsGroups(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatal("epoch nao mudou depois do SIGHUP")
+}
+
+// A linha de log da protecao de 1 s tem de trazer uniqueid e linkedid (e e a unica saida do hook onNoPeer).
+func TestOnNoPeerLogsUniqueidAndLinkedid(t *testing.T) {
+	var buf bytes.Buffer
+	d := &daemon{log: slog.New(slog.NewTextHandler(&buf, nil))}
+	d.onNoPeer("u-1", "l-1")
+	out := buf.String()
+	t.Log(strings.TrimSpace(out))
+	for _, want := range []string{"chamada em conversa sem outro lado resolvido", "uniqueid=u-1", "linkedid=l-1", "level=INFO"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("log sem %q: %s", want, out)
+		}
+	}
 }

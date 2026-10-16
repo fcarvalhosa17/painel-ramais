@@ -632,7 +632,10 @@ func TestCallEventsFollowViewMode(t *testing.T) {
 type noPeerLog struct{ uids [][2]string }
 
 func (l *noPeerLog) hook(h *harness) {
-	f := func(uid, linked string) { l.uids = append(l.uids, [2]string{uid, linked}) }
+	f := func(uid, linked string) {
+		l.uids = append(l.uids, [2]string{uid, linked})
+		h.t.Logf("LOG protecao: chamada em conversa sem outro lado resolvido uniqueid=%s linkedid=%s", uid, linked) // visivel com -v
+	}
 	h.s.onNoPeer, h.s.cur.onNoPeer = f, f
 }
 
