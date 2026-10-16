@@ -2,7 +2,7 @@ Copyright (c) 2026 Fabio Carvalhosa Sanchez. Todos os direitos reservados.
 
 # Painel de Ramais (Fase 1: coletor, empacotamento e instalador)
 
-Painel **somente leitura** que substitui a visão do FOP em servidores **Issabel 5** (Rocky Linux 8 ou 9). Esta fase entrega o
+Painel **somente leitura** que substitui a visão do FOP em servidores **Issabel 5** (alvo suportado: Rocky Linux 8 com Issabel 5). Esta fase entrega o
 coletor (daemon em Go, uma conexão AMI), a API local em `127.0.0.1`, o pacote RPM e o instalador `instalar.py`. A tela final é a
 Fase 2, junto com o item no menu do Issabel (ADR-004). O painel não executa nenhuma ação de controle no Asterisk.
 
@@ -46,7 +46,7 @@ de acesso direto só existem pelo `instalar.py`). Nenhum pacote do Issabel é de
 
 | Caminho | Dono e modo | Observação |
 |---|---|---|
-| `/usr/bin/painel-ramais` | root 0755 | binário estático linux/amd64 (el8 e el9) |
+| `/usr/bin/painel-ramais` | root 0755 | binário estático linux/amd64 (Rocky Linux 8) |
 | `/etc/painel-ramais/config.yaml` | root:painel-ramais 0640 | `config (noreplace)`: upgrade não sobrescreve |
 | `/etc/painel-ramais/secret`, `ami-secret` | painel-ramais 0600 | gerados no `%post` só se não existirem |
 | `/var/lib/painel-ramais/` | painel-ramais 0750 | banco SQLite e histórico |
@@ -395,9 +395,9 @@ rpm -e painel-ramais && rm -rf /var/lib/painel-ramais /var/lib/painel-ramais-ins
 
 O `rpm -e` remove binário, unit, conf do Apache e o bloco AMI. O booleano SELinux `httpd_can_network_connect` **não** é revertido.
 
-## 9. Roteiro de ensaio em Rocky 8 e Rocky 9 (container ou VM)
+## 9. Roteiro de ensaio em Rocky Linux 8 (container ou VM)
 
-Pendente de execução: este repositório foi desenvolvido no Windows, sem Linux disponível. Rode em **Rocky 8 mínimo** e **Rocky 9**,
+Pendente de execução: este repositório foi desenvolvido no Windows, sem Linux disponível. Rode em **Rocky 8 mínimo**,
 com o simulador (`cmd/amisim`, modos `sip` e `pjsip`) no lugar do Asterisk. Preparação: copie o bundle, extraia e entre na pasta.
 
 1. **Sem python3 (só Rocky 8 mínimo):** `rpm -q python3` deve dizer `package python3 is not installed`; `ls /usr/libexec/platform-python` existe.
@@ -513,7 +513,7 @@ Testes do instalador: `python -m unittest` (stdlib, Python 3.6+). Compatibilidad
 Nada roda no GitHub além da publicação da release feita pelo `.\build.ps1 release` (único caminho de publicação). Consequências, a registrar como lacunas:
 
 - `go test -race` **não roda**: não há gcc local (o detector de corrida exige cgo). Os testes de Go e de Python (`go vet`, `go test ./...`, `python -m unittest`) rodam só localmente, antes de cada commit.
-- O teste de RPM em Rocky 8/9 (`rpm -i/-U/-e`, rc -> final) **deixa de rodar sozinho**. Só manual, num container Rocky: `tools/ci-build.sh <versao>` gera os RPMs e `tools/rpm-smoke.sh` os exercita.
+- O teste de RPM em Rocky 8 (`rpm -i/-U/-e`, rc -> final) **deixa de rodar sozinho**. Só manual, num container Rocky: `tools/ci-build.sh <versao>` gera os RPMs e `tools/rpm-smoke.sh` os exercita.
 - Os testes de instalação, upgrade, rollback e carga reais são feitos **no servidor**, seguindo o `docs/homologacao/ROTEIRO-MANUAL.md`.
 
 ### Ferramentas de build reproduzíveis (sem administrador)

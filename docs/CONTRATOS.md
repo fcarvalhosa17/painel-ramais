@@ -990,7 +990,7 @@ Origem: `docs/ADENDO-FASE-1-INSTALADOR.md`. Substitui o `discovery.sh`, que não
 - Python 3.6 ou superior, só biblioteca padrão, sem pip.
 - Proibido (não existe no 3.6): `dataclasses`, `subprocess.run(capture_output=...)` e `text=` (usar `stdout=PIPE, stderr=PIPE, universal_newlines=True`), `from __future__ import annotations`, operador `:=`, `datetime.fromisoformat`, `asyncio.run`.
 - Conferência no desenvolvimento: `vermin --target=3.6- instalar.py tools/bundle.py` sem violação (resultado em 2026-10-13: mínimo 3.5, venv em `.tools/venv`). **Exceção de tamanho:** o `instalar.py` passa de 800 linhas (cerca de 980). Não foi dividido porque o instalador precisa funcionar a partir de um único arquivo executável copiado do bundle, com a primeira linha poliglota (`sh`/`python`) e testes que fazem `mock.patch` das funções do módulo; dividir em módulo auxiliar mudaria o `sys.path` do `platform-python` e a forma de patch. Aceito como exceção.
-- Primeiras linhas poliglotas: o `sh` executa o próprio arquivo com `python3` se existir, senão com `/usr/libexec/platform-python` (presente no Rocky 8 mínimo e no Rocky 9); para o Python as mesmas linhas são uma string sem efeito. Forma de referência: em 2026-10-13 o `sh` do Git Bash escolheu o `python3` falso quando existia e o `platform-python` falso quando não, repassando os argumentos, e o Python 3.12 executou o arquivo; falta confirmar no Rocky 8 mínimo (A7):
+- Primeiras linhas poliglotas: o `sh` executa o próprio arquivo com `python3` se existir, senão com `/usr/libexec/platform-python` (presente no Rocky 8 mínimo); para o Python as mesmas linhas são uma string sem efeito. Forma de referência: em 2026-10-13 o `sh` do Git Bash escolheu o `python3` falso quando existia e o `platform-python` falso quando não, repassando os argumentos, e o Python 3.12 executou o arquivo; falta confirmar no Rocky 8 mínimo (A7):
 
 ```
 #!/bin/sh
@@ -1124,10 +1124,10 @@ Especificação mais adendo. "Linux" = precisa de container ou VM Rocky (o geren
 | C2 | Modo `auto` detecta a tecnologia no simulador SIP e no PJSIP | especificação | não |
 | C3 | AMI derrubado no meio da carga: nenhum ramal `unregistered`, todos `unknown`; na volta, snapshot refeito e clientes com epoch novo | especificação | não |
 | C4 | "Com quem fala" correto em chamada interna, externa e depois de transferência | especificação | não |
-| C5 | `rpm -i`, `rpm -U` e `rpm -e` em Rocky 8 e Rocky 9 com o simulador no lugar do Asterisk | especificação | sim |
+| C5 | `rpm -i`, `rpm -U` e `rpm -e` em Rocky 8 com o simulador no lugar do Asterisk | especificação | sim |
 | C6 | Atualização simulada do Issabel (regera `manager.conf`, reinicia httpd e Asterisk): serviço segue, reconecta sozinho, verificação de dependências acusa o que sumiu | especificação | sim |
 | C7 | Todo `.sh`, `.service`, `.conf`, `.yaml` (e `.py`, `.ini`) do repositório com fim de linha LF | especificação e adendo | não |
-| A1 | `./instalar.py verificar` em Rocky 8 mínimo e Rocky 9 com o simulador | adendo | sim |
+| A1 | `./instalar.py verificar` em Rocky 8 mínimo com o simulador | adendo | sim |
 | A2 | `instalar` interativo e com `--respostas` | adendo | sim |
 | A3 | `instalar` de novo com bundle mais novo (upgrade) e com o mesmo bundle (idempotência: sem usuário, grupo ou config duplicados) | adendo | sim |
 | A4 | `status` | adendo | sim |
@@ -1140,7 +1140,7 @@ Especificação mais adendo. "Linux" = precisa de container ou VM Rocky (o geren
 | A11 | No tar.gz, `instalar.py` com modo 0755 e sem CR | adendo | não (`tar -tvzf` mostra o modo) |
 | A12 | `LEIAME-INSTALACAO.md` com passo a passo de campo e exemplo de laço ssh para vários servidores | adendo | não |
 
-Infraestrutura de teste que os critérios com Linux pedem (a desenhar pelo qa/devops, sem decisão aqui): imagem Rocky 8 mínima e Rocky 9 com systemd como init; httpd com e sem `mod_proxy_wstunnel`; um `asterisk` falso que responde aos `-rx` usados pelo `verificar` e pelo `%post`, mais o simulador na 5038; um marcador de "Issabel 5 presente" (S9); `manager.conf` e `manager_custom.conf` de teste. Montar a imagem baixa pacotes dentro do container: precisa de ok do usuário.
+Infraestrutura de teste que os critérios com Linux pedem (a desenhar pelo qa/devops, sem decisão aqui): imagem Rocky 8 mínima com systemd como init; httpd com e sem `mod_proxy_wstunnel`; um `asterisk` falso que responde aos `-rx` usados pelo `verificar` e pelo `%post`, mais o simulador na 5038; um marcador de "Issabel 5 presente" (S9); `manager.conf` e `manager_custom.conf` de teste. Montar a imagem baixa pacotes dentro do container: precisa de ok do usuário.
 
 Suposição nova, **S9**: o nome do pacote que marca "Issabel 5 presente" (candidatos `issabel-framework` ou `issabelPBX`) precisa ser confirmado num servidor real; até lá o `verificar` aceita qualquer um dos dois.
 
@@ -1150,7 +1150,7 @@ Suposição nova, **S9**: o nome do pacote que marca "Issabel 5 presente" (candi
 
 `README.md` (raiz do repositório, português):
 1. O que é e o que não é (somente leitura; fase 1 sem tela)
-2. Requisitos: Rocky 8 ou 9, Issabel 5, Asterisk 13 ou mais, SIP ou PJSIP
+2. Requisitos: Rocky Linux 8 com Issabel 5, Asterisk 13 ou mais, SIP ou PJSIP
 3. Instalação em campo com o bundle e o `instalar.py` (aponta para o `LEIAME-INSTALACAO.md`)
 4. Instalação manual com `rpm -i` e o que o `%post` faz em cada arquivo
 5. Configuração (`config.yaml`, tabela da seção 6)

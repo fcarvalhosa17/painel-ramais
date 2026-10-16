@@ -11,7 +11,7 @@ mesmos passos (titulo e texto) que o `homologar` mostra, um por vez.
 
 Voce precisa de:
 
-- a VM Issabel 5 em Rocky 8 ou 9 com acesso root e dois checkpoints planejados: **limpo** (agora, antes de instalar) e **instalado** (depois da etapa 7);
+- a VM Rocky Linux 8 com Issabel 5, com acesso root e dois checkpoints planejados: **limpo** (agora, antes de instalar) e **instalado** (depois da etapa 7);
 - tres ramais de teste registrados (A, B e C), um tronco (T) com um numero de entrada, um celular seu (X), uma fila (F) com um ramal agente e um ring group (R);
 - um segundo terminal ssh na VM (o primeiro fica preso no `homologar`);
 - o computador onde o pacote sera analisado, com este repositorio e Python 3.

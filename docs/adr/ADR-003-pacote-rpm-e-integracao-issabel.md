@@ -2,6 +2,8 @@
 
 **Data**: 2026-10-13
 **Status**: Proposto. O desenho está fechado; passa a Aceito depois do spike em containers Rocky 8 mínimo e Rocky 9 com a saída anexada a este arquivo (seção "Spike pendente"). Motivo: o comportamento de `%post`/`%postun` gerados pelo nfpm, do `ProxyPass` dentro de `<Location>` no httpd do Rocky 8 e do eventfilter na versão de Asterisk do Issabel 5 ainda não foi visto rodando.
+
+> Nota (2026-10): o ponto do el9 (Rocky 9) deste ADR foi superado. O unico alvo suportado e Rocky Linux 8 com Issabel 5; o resto do texto e historico.
 **Porta**: 1 via. Caminhos instalados, marcadores do bloco AMI e nome do usuário de sistema ficam nos servidores dos clientes; mudar depois exige script de migração que reconheça o formato antigo.
 
 ### Contexto

@@ -1,6 +1,6 @@
 # Painel de Ramais - instalacao em campo
 
-O instalador e offline: nada e baixado da internet durante a instalacao (o download do pacote e o passo 1). Requisitos: Issabel 5 em Rocky Linux 8 ou 9,
+O instalador e offline: nada e baixado da internet durante a instalacao (o download do pacote e o passo 1). Requisitos: Rocky Linux 8 com Issabel 5 (unico alvo suportado),
 acesso root. O Python 3 nao precisa estar instalado (no Rocky 8 minimo o instalador usa o platform-python).
 
 ## Passo a passo (um servidor)
