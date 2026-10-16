@@ -3,6 +3,7 @@
 # ja vencidos em 2026-10-13); nenhum segredo real. Fingerprint inclui o numero da linha: se o arquivo mudar de
 # linha, rode `gitleaks detect --no-git` e atualize aqui (nunca ignore um achado sem conferir que e vetor de teste).
 internal/config/config_unix_test.go:generic-api-key:12
+internal/config/config_unix_test.go:generic-api-key:14
 internal/api/sec_test.go:generic-api-key:40
 internal/auth/token_test.go:generic-api-key:13
 internal/auth/token_test.go:generic-api-key:17
