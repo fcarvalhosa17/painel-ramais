@@ -328,6 +328,43 @@ func TestDeleteAllSessions(t *testing.T) {
 	}
 }
 
+func TestDeleteTokenSessionsBySubject(t *testing.T) {
+	s := open(t)
+	uid := int64(1)
+	if err := s.CreateUser(ctx, "issabel:user:ana", "$2a$04$x", now); err != nil {
+		t.Fatal(err)
+	}
+	mk := func(b byte, kind, sub string) {
+		se := Session{IDHash: [32]byte{b}, Kind: kind, Subject: sub, CreatedAt: now, ExpiresAt: now.Add(time.Hour)}
+		if kind == "password" {
+			se.UserID = &uid
+		}
+		if err := s.CreateSession(ctx, se); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk(1, "token", "issabel:admin:ana")
+	mk(2, "token", "issabel:user:ana")
+	mk(3, "token", "issabel:user:bia")
+	mk(4, "token", "ana")
+	mk(5, "password", "issabel:user:ana") // sessao de senha nunca casa
+	if n, err := s.DeleteTokenSessionsBySubject(ctx); err != nil || n != 0 {
+		t.Fatalf("sem subjects: %d %v", n, err)
+	}
+	if n, err := s.DeleteTokenSessionsBySubject(ctx, "issabel:admin:ana", "issabel:user:ana"); err != nil || n != 2 {
+		t.Fatalf("n = %d, err = %v (queria 2)", n, err)
+	}
+	for b, want := range map[byte]bool{1: false, 2: false, 3: true, 4: true, 5: true} {
+		if _, err := s.GetSession(ctx, [32]byte{b}, now); (err == nil) != want {
+			t.Errorf("sessao %d: err = %v, deveria existir = %v", b, err, want)
+		}
+	}
+	// O subject entra como parametro, nunca como SQL.
+	if n, err := s.DeleteTokenSessionsBySubject(ctx, "x') OR 1=1 --"); err != nil || n != 0 {
+		t.Errorf("injecao: %d %v", n, err)
+	}
+}
+
 // Migracao real v1 -> v2 (cache de nomes): backup painel.db.bak-v1 com os dados antigos,
 // dados mantidos e tabela nova criada. E o que o rollback do instalador usa.
 func TestRealMigrationV1ToV2(t *testing.T) {

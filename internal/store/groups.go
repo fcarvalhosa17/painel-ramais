@@ -83,16 +83,26 @@ func checkExisting(ctx context.Context, tx *sql.Tx, rows []GroupRow) error {
 		return err
 	}
 	rs.Close()
+	// Guarda so as primeiras mensagens e CONTA o resto: linhas x faixas pode dar milhoes de
+	// sobreposicoes e juntar todas as mensagens esgotaria a memoria.
+	const maxMsgs = 20
 	var msgs []string
+	total := 0
 	for _, r := range rows {
 		for _, h := range have {
 			if r.Start <= h.End && h.Start <= r.End {
-				msgs = append(msgs, fmt.Sprintf("linha %d: %d-%d sobrepoe %d-%d do grupo %q ja gravado", r.Line, r.Start, r.End, h.Start, h.End, h.Name))
+				total++
+				if len(msgs) < maxMsgs {
+					msgs = append(msgs, fmt.Sprintf("linha %d: %d-%d sobrepoe %d-%d do grupo %q ja gravado", r.Line, r.Start, r.End, h.Start, h.End, h.Name))
+				}
 			}
 		}
 	}
-	if len(msgs) > 0 {
-		return fmt.Errorf("%w:\n%s", ErrOverlap, strings.Join(limit(msgs, 20), "\n"))
+	if total > 0 {
+		if total > maxMsgs {
+			msgs = append(msgs, fmt.Sprintf("... e mais %d", total-maxMsgs))
+		}
+		return fmt.Errorf("%w:\n%s", ErrOverlap, strings.Join(msgs, "\n"))
 	}
 	return nil
 }

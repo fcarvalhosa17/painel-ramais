@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -87,6 +88,9 @@ func parseGroupRecord(line int, rec []string) (GroupRow, error) {
 	if n := utf8.RuneCountInString(name); n < 1 || n > 64 {
 		return GroupRow{}, fmt.Errorf("linha %d: nome do grupo deve ter de 1 a 64 caracteres", line)
 	}
+	if strings.ContainsFunc(name, badNameRune) {
+		return GroupRow{}, fmt.Errorf("linha %d: nome do grupo com caractere de controle ou de formatacao invisivel", line)
+	}
 	if strings.EqualFold(name, noGroupName) {
 		return GroupRow{}, fmt.Errorf("linha %d: %q e nome reservado", line, noGroupName)
 	}
@@ -103,6 +107,12 @@ func parseGroupRecord(line int, rec []string) (GroupRow, error) {
 		return GroupRow{}, fmt.Errorf("linha %d: faixa %d-%d com inicio maior que o fim", line, start, end)
 	}
 	return GroupRow{Line: line, Name: name, Start: start, End: end}, nil
+}
+
+// badNameRune: a mesma regra do <usuario> do sub issabel: (auth.ValidIssabelSub): controle (Cc,
+// inclui C1), formatacao (Cf: bidi, largura zero, ALM, BOM) e separador de linha/paragrafo (Zl, Zp).
+func badNameRune(r rune) bool {
+	return unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp)
 }
 
 func parseNum(s string) (int64, error) {
