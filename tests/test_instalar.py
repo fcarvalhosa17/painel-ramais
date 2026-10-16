@@ -307,6 +307,77 @@ class Health(unittest.TestCase):
             self.assertEqual(instalar.ler_health(8790)["status"], "degraded")
 
 
+class MemoriaDoDaemon(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        d = self.tmp.name
+        os.makedirs(d + "/proc/42")
+        with open(d + "/proc/42/status", "w") as f:
+            f.write("Name:\tpainel-ramais\nVmRSS:\t   51200 kB\n")
+        ticks = 100
+        p = mock.patch.object(os, "sysconf", create=True, return_value=ticks)  # Windows nao tem os.sysconf
+        p.start()
+        self.addCleanup(p.stop)
+        # starttime = 1000 s; uptime do host = 1000 + 90061 s (1d 1h 1min 1s)
+        with open(d + "/proc/42/stat", "w") as f:
+            f.write("42 (painel ramais) S " + " ".join(["0"] * 18) + " %d 0 0\n" % (1000 * ticks))
+        with open(d + "/proc/uptime", "w") as f:
+            f.write("91061.00 1.00\n")
+        self.met = d + "/metrics.json"
+
+    def grava(self, **kw):
+        import json
+        base = {"pid": 42, "updated": 5000, "heap_live": 10485760, "heap_inuse": 20971520}
+        base.update(kw)
+        with open(self.met, "w") as f:
+            json.dump(base, f)
+
+    def linhas(self, agora=5030):
+        return instalar.memoria_do_daemon("42", proc=self.tmp.name + "/proc", metricas=self.met, agora=agora)
+
+    def test_tudo_disponivel(self):
+        self.grava()
+        rss, heap, up = self.linhas()
+        self.assertIn("50.0 MiB", rss)
+        self.assertIn("10.0 MiB pos-GC", heap)
+        self.assertIn("20.0 MiB", heap)
+        self.assertIn("1d 01h 01min", up)
+
+    def test_sem_arquivo_de_metricas(self):
+        rss, heap, up = self.linhas()
+        self.assertIn("50.0 MiB", rss)
+        self.assertIn("indisponivel", heap)
+
+    def test_arquivo_velho_ou_de_outro_pid(self):
+        self.grava()
+        self.assertIn("indisponivel", self.linhas(agora=5000 + instalar.METRICAS_VELHA + 1)[1])
+        self.grava(pid=7)
+        self.assertIn("outro processo", self.linhas()[1])
+
+    def test_sem_proc(self):
+        self.grava(pid=999)
+        rss, heap, up = instalar.memoria_do_daemon("999", proc=self.tmp.name + "/proc", metricas=self.met, agora=5030)
+        self.assertIn("indisponivel", rss)
+        self.assertIn("indisponivel", up)
+        self.assertIn("pos-GC", heap)
+
+    def test_status_mostra_memoria_mesmo_sem_health(self):
+        saida = io.StringIO()
+        tabela = [("MainPID", 0, "42\n")]
+        with mock.patch.object(instalar, "versao_instalada", return_value="0.1.2-1"), \
+                mock.patch.object(instalar, "socket_ativo", return_value=True), \
+                mock.patch.object(instalar, "servico_ativo", return_value=True), \
+                mock.patch.object(instalar, "run", fake_run(tabela)), \
+                mock.patch.object(instalar, "memoria_do_daemon", return_value=["Memoria RSS:     X", "Heap Go:         Y", "Uptime do daemon: Z"]), \
+                mock.patch.object(instalar, "ler_health", side_effect=OSError("recusado")), \
+                mock.patch("sys.stdout", saida):
+            rc = instalar.cmd_status(argparse.Namespace())
+        self.assertEqual(rc, instalar.EXIT_FALHA)
+        self.assertIn("Memoria RSS:     X", saida.getvalue())
+        self.assertIn("Health: sem resposta", saida.getvalue())
+
+
 class Fluxos(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

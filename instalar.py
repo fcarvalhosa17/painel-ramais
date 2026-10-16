@@ -865,6 +865,51 @@ def cmd_instalar(args):
 
 # ---------------------------------------------------------------- status / rollback / remover
 
+METRICAS = "/run/painel-ramais/metrics.json"  # escrito pelo daemon a cada 30 s (unit: RuntimeDirectory=painel-ramais)
+METRICAS_VELHA = 120  # s: arquivo mais antigo que isso = daemon parado ou travado
+
+
+def _mib(n):
+    return "%.1f MiB" % (n / 1048576.0)
+
+
+def _duracao(seg):
+    seg = int(seg)
+    d, r = divmod(seg, 86400)
+    h, r = divmod(r, 3600)
+    return "%dd %02dh %02dmin" % (d, h, r // 60)
+
+
+def memoria_do_daemon(pid, proc="/proc", metricas=METRICAS, agora=None):
+    """Linhas de 'RSS / Heap / Uptime' do daemon. RSS e uptime vem de /proc/<pid>; heap pos-GC do metrics.json.
+    Cada fonte que falhar vira 'indisponivel' (nunca derruba o status)."""
+    rss = heap = up = "indisponivel"
+    try:
+        with open("%s/%s/status" % (proc, pid)) as f:
+            m = re.search(r"^VmRSS:\s+(\d+) kB", f.read(), re.M)
+        if m:
+            rss = _mib(int(m.group(1)) * 1024)
+        with open("%s/%s/stat" % (proc, pid)) as f:
+            inicio = int(f.read().rsplit(")", 1)[1].split()[19])  # starttime (campo 22), em ticks
+        with open("%s/uptime" % proc) as f:
+            up = _duracao(float(f.read().split()[0]) - inicio / os.sysconf("SC_CLK_TCK"))
+    except (OSError, ValueError, IndexError):
+        pass
+    try:
+        with open(metricas) as f:
+            d = json.load(f)
+        idade = (agora if agora is not None else time.time()) - d["updated"]
+        if d["pid"] != int(pid):
+            heap = "indisponivel (arquivo de outro processo)"
+        elif idade > METRICAS_VELHA:
+            heap = "indisponivel (arquivo com %ds)" % idade
+        else:
+            heap = "%s pos-GC (em uso %s)" % (_mib(d["heap_live"]), _mib(d["heap_inuse"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return ["Memoria RSS:     " + rss, "Heap Go:         " + heap, "Uptime do daemon: " + up]
+
+
 def cmd_status(args):
     v = versao_instalada()
     if not v:
@@ -875,6 +920,10 @@ def cmd_status(args):
     dizer("Socket (%s): %s" % (SOCKET, "ativo" if sock else "PARADO"))
     ativo = servico_ativo() and sock
     dizer("Servico:          " + ("ativo" if servico_ativo() else "PARADO"))
+    rc, pid = run(["systemctl", "show", "-p", "MainPID", "--value", PKG + ".service"])
+    pid = pid.strip()
+    for linha in memoria_do_daemon(pid) if rc == 0 and pid.isdigit() and pid != "0" else             ["Memoria RSS:     indisponivel", "Heap Go:         indisponivel", "Uptime do daemon: indisponivel"]:
+        dizer(linha)
     try:
         h = ler_health(ler_porta())
     except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
