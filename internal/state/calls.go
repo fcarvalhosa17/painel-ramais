@@ -65,7 +65,9 @@ func (v *view) callFor(c *channel) model.Call {
 			c.knownOK, c.knownDir, c.knownPeer = true, dir, p
 		}
 	case state != model.CallTalking:
-		// tocando/em espera: nada a proteger
+		// tocando/em espera: a protecao recomeca do zero quando voltar a Up sem outro lado
+		c.noPeerAt, c.noPeerSeen = time.Time{}, false
+		delete(v.noPeer, c.uid)
 	case c.knownOK:
 		dir, p = c.knownDir, c.knownPeer // o outro lado esta trocando de perna: mantem o ultimo conhecido
 	default:

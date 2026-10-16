@@ -706,3 +706,21 @@ func TestFarEndLeavingKeepsLastResolvedPeer(t *testing.T) {
 	}
 	wantPeer(t, c, model.PeerExternal, "11999990000", "Cliente")
 }
+
+// Em espera nao ha o que proteger: ao tirar da espera, a protecao de 1 s recomeca (nao herda o prazo velho).
+func TestUnholdRestartsNoPeerGrace(t *testing.T) {
+	h := newHarness(t)
+	h.online()
+	at := h.step()
+	c := chn(at, "v1", "L1", "PJSIP/2001-v1", "2001", "2001", "Maria", "97")
+	c.Up = true
+	h.feed(c)
+	h.feed(model.HoldChanged{At: at.Add(100 * time.Millisecond), Uniqueid: "v1", OnHold: true})
+	if got := h.call("2001"); got.State != model.CallHold {
+		t.Fatalf("em espera: %+v", got)
+	}
+	h.feed(model.HoldChanged{At: at.Add(5 * time.Second), Uniqueid: "v1", OnHold: false})
+	if got := h.call("2001"); got.State != model.CallRinging {
+		t.Fatalf("depois do Unhold deve passar pela protecao de 1 s: %+v", got)
+	}
+}
