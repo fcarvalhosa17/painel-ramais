@@ -14,7 +14,8 @@ import (
 )
 
 // Medicao do heap Go pos-GC via endpoint de debug do daemon (PAINEL_DEBUG_ADDR,
-// loopback, desligado por padrao). RSS mistura heap, pilhas e memoria que o runtime
+// loopback, desligado por padrao). So existe no daemon compilado com -tags debug:
+// o binario de release nao tem o endpoint nem o net/http/pprof. RSS mistura heap, pilhas e memoria que o runtime
 // ainda nao devolveu ao SO; HeapInuse/HeapAlloc depois de runtime.GC() mostram so o
 // que o programa retem de fato.
 

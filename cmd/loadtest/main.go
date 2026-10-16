@@ -36,7 +36,7 @@ func main() {
 		captures = flag.String("captures", "testdata/capturas", "pasta de capturas para o \"com quem fala\" por reproducao (vazio desliga)")
 		replaySp = flag.Float64("replay-speed", 20, "velocidade da reproducao das capturas")
 		noMatrix = flag.Bool("skip-matrix", false, "pula os cenarios passo a passo")
-		heap     = flag.Bool("heap", false, "mede heap Go pos-GC (1/min), perfis pprof inicio/fim e veredito de crescimento; liga o endpoint de debug do daemon (loopback)")
+		heap     = flag.Bool("heap", false, "mede heap Go pos-GC (1/min), perfis pprof inicio/fim e veredito de crescimento; liga o endpoint de debug do daemon (loopback); exige o daemon compilado com -tags debug (o binario de release nao tem o endpoint)")
 		warmup   = flag.Duration("warmup", 0, "aquecimento depois do preenchimento de nomes, fora da regressao do heap (10m no CI)")
 		_        = flag.Duration("heap-every", time.Minute, "intervalo das amostras de heap (so para teste de fumaca; padrao 1 min)")
 	)

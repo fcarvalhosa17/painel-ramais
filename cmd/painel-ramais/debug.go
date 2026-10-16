@@ -1,3 +1,5 @@
+//go:build debug
+
 package main
 
 import (
@@ -16,7 +18,7 @@ import (
 // envDebugAddr liga o endpoint de diagnostico de memoria. Desligado por padrao
 // (variavel ausente ou vazia). So aceita endereco de loopback; qualquer outro valor
 // e recusado e o daemon segue sem o endpoint. Existe para o teste de carga
-// (cmd/loadtest) medir o heap Go pos-GC; nao faz parte da rc.1.
+// (cmd/loadtest) medir o heap Go pos-GC; compilado so com -tags debug (fora do binario de release).
 const envDebugAddr = "PAINEL_DEBUG_ADDR"
 
 // debugHandler serve /debug/mem (heap pos-GC em JSON) e /debug/pprof/heap?gc=1.

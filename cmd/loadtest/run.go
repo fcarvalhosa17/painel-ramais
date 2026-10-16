@@ -33,7 +33,7 @@ type opts struct {
 	fillTimeout             time.Duration
 	replaySpeed             float64
 	capturesDir             string
-	heap                    bool          // mede heap pos-GC e perfis pprof (daemon com PAINEL_DEBUG_ADDR)
+	heap                    bool          // mede heap pos-GC e perfis pprof (daemon compilado com -tags debug, com PAINEL_DEBUG_ADDR)
 	warmup                  time.Duration // aquecimento depois do preenchimento de nomes, fora da regressao
 	outDir                  string        // onde gravar CSV/pb.gz do heap
 }
