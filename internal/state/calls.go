@@ -69,9 +69,21 @@ func (v *view) callFor(c *channel) model.Call {
 		c.noPeerAt, c.noPeerSeen = time.Time{}, false
 		delete(v.noPeer, c.uid)
 	case c.knownOK:
-		dir, p = c.knownDir, c.knownPeer // o outro lado esta trocando de perna: mantem o ultimo conhecido
+		// O outro lado esta trocando de perna: mantem o ultimo conhecido, mas so por noPeerGrace.
+		// Passado o prazo, publica "em conversa" com o outro lado desconhecido (e loga), preservando
+		// a direcao ja resolvida para nao voltar a "internal".
+		if v.waitNoPeer(c, false) {
+			dir, p = c.knownDir, c.knownPeer
+		} else {
+			v.logNoPeer(c)
+			dir = c.knownDir
+		}
 	default:
-		state = v.unresolved(c)
+		if v.waitNoPeer(c, true) {
+			state = model.CallRinging
+		} else {
+			v.logNoPeer(c)
+		}
 	}
 	switch {
 	case state == model.CallRinging:
@@ -87,24 +99,29 @@ func (v *view) callFor(c *channel) model.Call {
 	return call
 }
 
-// unresolved decide o estado de um canal Up que nunca teve outro lado: "tocando" por noPeerGrace;
-// depois (ou ja na restauracao por snapshot, onde nao ha evento a esperar) "em conversa" e loga.
-func (v *view) unresolved(c *channel) model.CallState {
+// waitNoPeer diz se o canal Up sem outro lado ainda esta dentro de noPeerGrace (e o registra para o
+// Flush reavaliar). Na restauracao por snapshot (immediateOnSnap) nao ha evento a esperar: nao espera.
+func (v *view) waitNoPeer(c *channel, immediateOnSnap bool) bool {
 	if c.noPeerAt.IsZero() {
 		c.noPeerAt = v.at
 	}
-	if !c.fromSnap && v.at.Sub(c.noPeerAt) < noPeerGrace {
+	if !(immediateOnSnap && c.fromSnap) && v.at.Sub(c.noPeerAt) < noPeerGrace {
 		v.noPeer[c.uid] = struct{}{}
-		return model.CallRinging
+		return true
 	}
 	delete(v.noPeer, c.uid)
-	if !c.noPeerSeen {
-		c.noPeerSeen = true
-		if v.onNoPeer != nil {
-			v.onNoPeer(c.uid, c.linkedID)
-		}
+	return false
+}
+
+// logNoPeer avisa (uma vez por canal) que a protecao publicou "em conversa" sem outro lado.
+func (v *view) logNoPeer(c *channel) {
+	if c.noPeerSeen {
+		return
 	}
-	return model.CallTalking
+	c.noPeerSeen = true
+	if v.onNoPeer != nil {
+		v.onNoPeer(c.uid, c.linkedID)
+	}
 }
 
 // expireNoPeer reavalia, a cada Flush, os canais esperando a protecao de 1 s (sem evento novo

@@ -707,6 +707,36 @@ func TestFarEndLeavingKeepsLastResolvedPeer(t *testing.T) {
 	wantPeer(t, c, model.PeerExternal, "11999990000", "Cliente")
 }
 
+// O ultimo peer conhecido so vale por noPeerGrace: depois disso (reavaliado no Flush) a chamada
+// segue "em conversa", com a direcao ja resolvida, mas com outro lado desconhecido, e e logada.
+func TestKnownPeerFallbackExpiresAfterGrace(t *testing.T) {
+	h := newHarness(t)
+	h.online()
+	var lg noPeerLog
+	lg.hook(h)
+	at := h.step()
+	h.feed(chn(at, "t1", "t1", "PJSIP/operadora-0001", "operadora", "11999990000", "Cliente", "2001"),
+		chn(at, "e1", "t1", "PJSIP/2001-0002", "2001", "2001", "Maria", ""),
+		up(at, "t1"), model.DialStarted{At: at, SrcUniqueid: "t1", DstUniqueid: "e1"}, up(at, "e1"),
+		model.BridgeEntered{At: at, BridgeID: "b1", Uniqueid: "t1"}, model.BridgeEntered{At: at, BridgeID: "b1", Uniqueid: "e1"})
+	at = h.step()
+	h.feed(model.BridgeLeft{At: at, BridgeID: "b1", Uniqueid: "t1"}, model.ChannelHungup{At: at, Uniqueid: "t1"})
+	h.now = h.now.Add(500 * time.Millisecond)
+	h.s.Flush()
+	wantPeer(t, h.call("2001"), model.PeerExternal, "11999990000", "Cliente")
+	h.now = h.now.Add(600 * time.Millisecond)
+	h.s.Flush()
+	c := h.call("2001")
+	if c.Direction != model.DirInbound || c.State != model.CallTalking || c.Peer.Kind != model.PeerUnknown {
+		t.Fatalf("apos o prazo: %+v", c)
+	}
+	h.now = h.now.Add(10 * time.Minute)
+	h.s.Flush()
+	if len(lg.uids) != 1 || lg.uids[0] != [2]string{"e1", "t1"} {
+		t.Fatalf("log: %v", lg.uids)
+	}
+}
+
 // Em espera nao ha o que proteger: ao tirar da espera, a protecao de 1 s recomeca (nao herda o prazo velho).
 func TestUnholdRestartsNoPeerGrace(t *testing.T) {
 	h := newHarness(t)
