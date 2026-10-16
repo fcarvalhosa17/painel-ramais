@@ -1,6 +1,6 @@
 #!/bin/sh
 "exec" "$(command -v python3 || echo /usr/libexec/platform-python)" "$0" "$@"
-# Instalador do Painel de Ramais (Issabel 5 / Rocky 8+). Contrato: docs/CONTRATOS.md secao 15.
+# Instalador do Painel de Ramais (Issabel 5 / Rocky Linux 8). Contrato: docs/CONTRATOS.md secao 15.
 # Python 3.6+, somente biblioteca padrao. Poliglota: a linha 2 e comando sh e expressao python.
 # Papel: orquestrar e validar. NUNCA edita manager_custom.conf, Apache ou SELinux (isso e o %post do RPM)
 # e nunca grava no SQLite (usa a CLI do daemon).
@@ -269,14 +269,10 @@ def c_so():
                     k, v = ln.strip().split("=", 1)
                     info[k] = v.strip('"')
     except (OSError, IOError):
-        return (ERRO, "Sistema operacional", "/etc/os-release ilegivel. Alvo suportado: Rocky Linux 8 ou superior.")
-    major = (_ver(info.get("VERSION_ID", "0")) or (0,))[0]
+        return (ERRO, "Sistema operacional", "/etc/os-release ilegivel. Alvo suportado: Rocky Linux 8 com Issabel 5.")
     nome = info.get("PRETTY_NAME", info.get("ID", "?"))
-    familia = "rhel" in info.get("ID_LIKE", "") or info.get("ID") in ("rhel", "rocky")
-    if not familia or major < 8:
-        return (ERRO, "Sistema operacional (%s)" % nome, "Requer Rocky Linux 8 ou superior (familia EL).")
-    if info.get("ID") != "rocky":
-        return (AVISO, "Sistema operacional (%s)" % nome, "Nao e Rocky; so Rocky 8+ e suportado oficialmente.")
+    if info.get("ID") != "rocky" or not re.match(r"^8(\.|$)", info.get("VERSION_ID", "")):
+        return (ERRO, "Sistema operacional (%s)" % nome, "Alvo suportado: Rocky Linux 8 com Issabel 5.")
     return (OK, "Sistema operacional (%s)" % nome, "")
 
 
