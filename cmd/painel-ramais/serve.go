@@ -153,6 +153,7 @@ func (d *daemon) start() {
 	d.run("manutencao", func() error { housekeep(ctx, d.st, d.log); return nil })
 	go onSIGHUP(ctx, d.hupChan, d.st, d.events, d.srv, d.log)
 	startDebug(ctx, d.log)
+	startMetrics(ctx, d.log)
 }
 
 // stop para de aceitar conexoes, drena as em voo e fecha o resto (os WebSockets

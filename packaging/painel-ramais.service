@@ -23,6 +23,9 @@ ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
 ReadWritePaths=/var/lib/painel-ramais
+# /run/painel-ramais (0750) so para o metrics.json (memoria do daemon, lido por instalar.py status); sem porta nem socket
+RuntimeDirectory=painel-ramais
+RuntimeDirectoryMode=0750
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 ProtectKernelTunables=yes
