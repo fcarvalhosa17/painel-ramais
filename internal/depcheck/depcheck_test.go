@@ -1,18 +1,31 @@
 package depcheck
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 )
 
 const goodCustom = "[outro]\n; BEGIN painel-ramais\n[painel-ramais]\nsecret = x\n; END painel-ramais\n"
 
+// fakeMode faz o statFile devolver o modo dado (o stat real do Windows nao tem o modo do Linux).
+func fakeMode(t *testing.T, mode fs.FileMode) {
+	t.Helper()
+	old := statFile
+	statFile = func(string) (fs.FileInfo, error) {
+		return fstest.MapFS{"f": &fstest.MapFile{Mode: mode}}.Stat("f")
+	}
+	t.Cleanup(func() { statFile = old })
+}
+
 func setup(t *testing.T, manager, custom string) *Checker {
 	t.Helper()
+	fakeMode(t, 0o640)
 	d := t.TempDir()
 	c := &Checker{
 		ManagerConf: filepath.Join(d, "manager.conf"), ManagerCustomConf: filepath.Join(d, "manager_custom.conf"),
@@ -44,7 +57,7 @@ func TestAllOK(t *testing.T) {
 			t.Errorf("%+v", it)
 		}
 	}
-	if !c.OK() || len(c.Results()) != 3 {
+	if !c.OK() || len(c.Results()) != 5 {
 		t.Error("OK()/Results()")
 	}
 }
@@ -143,5 +156,110 @@ func TestUnreadableByServiceIsJudgedByAMILogin(t *testing.T) {
 	c := setup(t, "#include manager_custom.conf\n", goodCustom)
 	if got := c.Check()[1]; got.Status != StatusOK {
 		t.Errorf("so custom bloqueado: %+v", got)
+	}
+}
+
+func byName(items []Item, name string) Item {
+	for _, it := range items {
+		if it.Name == name {
+			return it
+		}
+	}
+	return Item{}
+}
+
+// Pendencia 3: o modo do manager_custom.conf e vigiado; so le o stat.
+func TestManagerCustomPerm(t *testing.T) {
+	cases := []struct {
+		mode fs.FileMode
+		want string
+	}{
+		{0o640, StatusOK}, {0o600, StatusOK}, {0o660, StatusOK}, {0o440, StatusOK}, {0o750, StatusOK},
+		{0o644, StatusFail}, {0o604, StatusFail}, {0o601, StatusFail}, {0o666, StatusFail}, {0o777, StatusFail},
+	}
+	for _, tc := range cases {
+		c := setup(t, "#include manager_custom.conf\n", goodCustom)
+		fakeMode(t, tc.mode)
+		it := byName(c.Check(), "manager_custom_perm")
+		if it.Status != tc.want {
+			t.Errorf("modo %04o: %+v", tc.mode, it)
+		}
+		if tc.want == StatusFail {
+			want := fmt.Sprintf("(modo %04o)", tc.mode)
+			if !strings.Contains(it.Detail, "chmod o-rwx ") || !strings.Contains(it.Detail, want) || !strings.Contains(it.Detail, "senha AMI") {
+				t.Errorf("modo %04o: detalhe sem a dica: %q", tc.mode, it.Detail)
+			}
+		}
+	}
+}
+
+// stat falho (ausente, EACCES no diretorio) e unknown, nunca ok.
+func TestManagerCustomPermStatFailureIsUnknown(t *testing.T) {
+	for name, serr := range map[string]error{
+		"ausente": &fs.PathError{Op: "stat", Path: "x", Err: fs.ErrNotExist},
+		"eacces":  &fs.PathError{Op: "stat", Path: "x", Err: fs.ErrPermission},
+	} {
+		c := setup(t, "#include manager_custom.conf\n", goodCustom)
+		statFile = func(string) (fs.FileInfo, error) { return nil, serr }
+		it := byName(c.Check(), "manager_custom_perm")
+		if it.Status != StatusUnknown || it.Detail == "" {
+			t.Errorf("%s: %+v", name, it)
+		}
+	}
+	// Mudanca de estado sai no log (logChanges).
+	c := setup(t, "#include manager_custom.conf\n", goodCustom)
+	var logs []string
+	c.Log = func(msg string, args ...any) { logs = append(logs, fmt.Sprint(msg, args)) }
+	c.Check()
+	fakeMode(t, 0o644)
+	c.Check()
+	if len(logs) != 1 || !strings.Contains(logs[0], "manager_custom_perm") {
+		t.Errorf("logs: %v", logs)
+	}
+}
+
+func TestIssabelKeyItem(t *testing.T) {
+	c := setup(t, "#include manager_custom.conf\n", goodCustom)
+	c.IssabelKeyFile = "/etc/painel-ramais-issabel.key"
+	var delivered []byte
+	var calls int
+	c.OnIssabelKey = func(k []byte) { delivered, calls = k, calls+1 }
+	key := []byte("0123456789abcdef0123456789abcdef")
+	notExist := &fs.PathError{Op: "lstat", Path: "k", Err: fs.ErrNotExist}
+	rejected := fmt.Errorf("auth.issabel_key_file: %w: permissao 0644, o maximo aceito e 0640", ErrKeyInvalid)
+	cases := []struct {
+		name, want string
+		key        []byte
+		err        error
+		detail     string
+	}{
+		{"valida", StatusOK, key, nil, "integracao ligada"},
+		{"ausente", StatusOK, nil, notExist, "integracao com o menu desligada"},
+		{"recusada", StatusFail, nil, rejected, "chmod 0640 /etc/painel-ramais-issabel.key"},
+		{"erro de leitura", StatusUnknown, nil, &fs.PathError{Op: "open", Path: "k", Err: fs.ErrPermission}, "sem leitura da chave"},
+		{"volta a valida", StatusOK, key, nil, "integracao ligada"},
+	}
+	for i, tc := range cases {
+		c.IssabelKey = func() ([]byte, error) { return tc.key, tc.err }
+		it := byName(c.Check(), "issabel_key")
+		if it.Status != tc.want || !strings.Contains(it.Detail, tc.detail) {
+			t.Errorf("%s: %+v", tc.name, it)
+		}
+		if calls != i+1 || string(delivered) != string(tc.key) {
+			t.Errorf("%s: o verificador deve receber a chave (ou nil) a cada verificacao: calls=%d key=%q", tc.name, calls, delivered)
+		}
+	}
+	if d := byName(c.Check(), "issabel_key").Detail; !strings.Contains(d, "ligada") {
+		t.Errorf("detalhe: %s", d)
+	}
+	// Recusada tambem traz o problema vindo do erro.
+	c.IssabelKey = func() ([]byte, error) { return nil, rejected }
+	if d := byName(c.Check(), "issabel_key").Detail; !strings.Contains(d, "permissao 0644") || !strings.Contains(d, "chown painel-ramais:") {
+		t.Errorf("recusada: %s", d)
+	}
+	// Sem fonte de chave configurada: integracao desligada, nao falha.
+	c.IssabelKey = nil
+	if it := byName(c.Check(), "issabel_key"); it.Status != StatusOK || delivered != nil {
+		t.Errorf("sem fonte: %+v", it)
 	}
 }

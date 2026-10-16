@@ -46,7 +46,9 @@ func CheckVersion(version string) error {
 // Detection é o resultado da escolha de tecnologia.
 type Detection struct {
 	Technology string // "sip" ou "pjsip"
-	Warning    string // não vazio quando o log deve avisar
+	// Notice é não vazio quando os dois módulos estão carregados (o padrão do Issabel 5):
+	// registrar em Info, não é anomalia.
+	Notice string
 }
 
 // ResolveTechnology decide a tecnologia. configured: "auto", "sip" ou "pjsip".
@@ -83,8 +85,8 @@ func ResolveTechnology(configured string, pjsipLoaded, sipLoaded bool, count fun
 	if ns > np {
 		tech = "sip"
 	}
-	return Detection{Technology: tech, Warning: fmt.Sprintf(
-		"chan_pjsip.so e chan_sip.so estão carregados (ramais: pjsip=%d, sip=%d); usando %s", np, ns, tech)}, nil
+	return Detection{Technology: tech, Notice: fmt.Sprintf(
+		"chan_pjsip.so e chan_sip.so carregados (padrão do Issabel 5); modo auto usa %s (ramais: pjsip=%d, sip=%d)", tech, np, ns)}, nil
 }
 
 // EnsureSameTechnology falha se a tecnologia mudou depois de uma reconexão.

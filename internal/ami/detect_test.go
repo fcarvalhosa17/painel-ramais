@@ -39,18 +39,22 @@ func TestResolveTechnology(t *testing.T) {
 		pj, sp     bool
 		count      func(string) (int, error)
 		want       string
-		warn, fail bool
+		notice     string // texto exato do aviso (vazio = sem aviso)
+		fail       bool
 	}{
-		{"auto só pjsip", "auto", true, false, nil, "pjsip", false, false},
-		{"auto só sip", "auto", false, true, nil, "sip", false, false},
-		{"auto ambos, sip tem ramais", "auto", true, true, counts(0, 120), "sip", true, false},
-		{"auto ambos, pjsip tem ramais", "auto", true, true, counts(300, 2), "pjsip", true, false},
-		{"auto ambos, empate vai para pjsip", "auto", true, true, counts(0, 0), "pjsip", true, false},
-		{"auto nenhum", "auto", false, false, nil, "", false, true},
-		{"vazio equivale a auto", "", true, false, nil, "pjsip", false, false},
-		{"sip forçado e carregado", "sip", true, true, nil, "sip", false, false},
-		{"pjsip forçado sem módulo", "pjsip", false, true, nil, "", false, true},
-		{"valor inválido", "iax", true, true, nil, "", false, true},
+		{"auto só pjsip", "auto", true, false, nil, "pjsip", "", false},
+		{"auto só sip", "auto", false, true, nil, "sip", "", false},
+		{"auto ambos, sip tem ramais", "auto", true, true, counts(0, 120), "sip",
+			"chan_pjsip.so e chan_sip.so carregados (padrão do Issabel 5); modo auto usa sip (ramais: pjsip=0, sip=120)", false},
+		{"auto ambos, pjsip tem ramais", "auto", true, true, counts(812, 0), "pjsip",
+			"chan_pjsip.so e chan_sip.so carregados (padrão do Issabel 5); modo auto usa pjsip (ramais: pjsip=812, sip=0)", false},
+		{"auto ambos, empate vai para pjsip", "auto", true, true, counts(0, 0), "pjsip",
+			"chan_pjsip.so e chan_sip.so carregados (padrão do Issabel 5); modo auto usa pjsip (ramais: pjsip=0, sip=0)", false},
+		{"auto nenhum", "auto", false, false, nil, "", "", true},
+		{"vazio equivale a auto", "", true, false, nil, "pjsip", "", false},
+		{"sip forçado e carregado", "sip", true, true, nil, "sip", "", false},
+		{"pjsip forçado sem módulo", "pjsip", false, true, nil, "", "", true},
+		{"valor inválido", "iax", true, true, nil, "", "", true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -58,7 +62,7 @@ func TestResolveTechnology(t *testing.T) {
 			if (err != nil) != c.fail {
 				t.Fatalf("err=%v", err)
 			}
-			if d.Technology != c.want || (d.Warning != "") != c.warn {
+			if d.Technology != c.want || d.Notice != c.notice {
 				t.Fatalf("got %+v", d)
 			}
 		})

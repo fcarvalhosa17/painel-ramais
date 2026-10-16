@@ -1,6 +1,6 @@
 // Package depcheck verifica a cada 60 s as dependencias da integracao com o
-// Issabel: login AMI, include de manager_custom.conf e conf do Apache.
-// Somente leitura; nao importa pacote interno.
+// Issabel: login AMI, include e permissao de manager_custom.conf, conf do Apache
+// e chave do menu do Issabel. Somente leitura; nao importa pacote interno.
 package depcheck
 
 import (
@@ -29,6 +29,10 @@ const (
 	endMarker   = "; END painel-ramais"
 )
 
+// ErrKeyInvalid: a leitura da chave do Issabel achou o arquivo, mas ele viola a regra
+// (permissao, dono, tipo ou conteudo). Quem fornece Checker.IssabelKey embrulha o erro com ele.
+var ErrKeyInvalid = errors.New("chave do Issabel recusada")
+
 // Item e o resultado de uma verificacao (formato de /api/health deps[]).
 type Item struct {
 	Name      string
@@ -52,18 +56,26 @@ type Checker struct {
 	Now                                        func() time.Time
 	Log                                        func(msg string, args ...any)
 
+	// IssabelKey le a chave do Issabel: erro que casa com fs.ErrNotExist = ausente;
+	// com ErrKeyInvalid = recusada; qualquer outro = erro de leitura. IssabelKeyFile so
+	// entra nas mensagens. OnIssabelKey recebe, a cada verificacao, a chave valida ou nil:
+	// e a fonte unica da chave do verificador de tokens.
+	IssabelKey     func() ([]byte, error)
+	IssabelKeyFile string
+	OnIssabelKey   func(key []byte)
+
 	mu   sync.RWMutex
 	last []Item
 }
 
-// Check executa as tres verificacoes e guarda o resultado.
+// Check executa as verificacoes e guarda o resultado.
 func (c *Checker) Check() []Item {
 	now := time.Now
 	if c.Now != nil {
 		now = c.Now
 	}
 	t := now()
-	items := []Item{c.checkLogin(t), c.checkInclude(t), c.checkApache(t)}
+	items := []Item{c.checkLogin(t), c.checkInclude(t), c.checkApache(t), c.checkIssabelKey(t), c.checkManagerPerm(t)}
 	c.mu.Lock()
 	prev := c.last
 	c.last = items
@@ -200,6 +212,61 @@ func (c *Checker) checkApache(t time.Time) Item {
 		return failRead(it, p, err, "confira as permissoes de /etc/httpd/conf.d")
 	}
 	it.Status, it.Detail = StatusOK, p+" presente"
+	return it
+}
+
+func (c *Checker) checkIssabelKey(t time.Time) Item {
+	it := Item{Name: "issabel_key", CheckedAt: t}
+	var key []byte
+	var err error
+	if c.IssabelKey != nil {
+		key, err = c.IssabelKey()
+	} else {
+		err = fs.ErrNotExist
+	}
+	switch {
+	case err == nil:
+		it.Status, it.Detail = StatusOK, "chave do Issabel valida: integracao ligada"
+	case errors.Is(err, fs.ErrNotExist):
+		key = nil
+		it.Status, it.Detail = StatusOK, "chave do Issabel ausente: integracao com o menu desligada"
+	case errors.Is(err, ErrKeyInvalid):
+		key = nil
+		p := pick(c.IssabelKeyFile, "<arquivo da chave>")
+		it.Status = StatusFail
+		it.Detail = fmt.Sprintf("%v. Corrija: chown painel-ramais:<grupo do PHP> %s; chmod 0640 %s", err, p, p)
+	default:
+		key = nil
+		it.Status, it.Detail = StatusUnknown, fmt.Sprintf("sem leitura da chave do Issabel (%v); a integracao com o menu fica desligada", err)
+	}
+	if c.OnIssabelKey != nil {
+		c.OnIssabelKey(key)
+	}
+	return it
+}
+
+// statFile e trocavel nos testes (o modo de arquivo do Windows nao representa o do Linux).
+var statFile = os.Stat
+
+// checkManagerPerm vigia o modo do manager_custom.conf (tem a senha AMI): o %post tira o
+// acesso de outros e uma atualizacao do Issabel pode devolve-lo. So le o modo (stat);
+// nunca altera o arquivo. Stat que falha (ausente, EACCES no diretorio) nunca vira ok.
+func (c *Checker) checkManagerPerm(t time.Time) Item {
+	it := Item{Name: "manager_custom_perm", CheckedAt: t}
+	p := pick(c.ManagerCustomConf, DefaultManagerCustomConf)
+	fi, err := statFile(p)
+	if err != nil {
+		it.Status = StatusUnknown
+		it.Detail = fmt.Sprintf("sem stat de %s (%v); nao da para vigiar a permissao", p, errors.Unwrap(err))
+		return it
+	}
+	mode := fi.Mode().Perm()
+	if mode&0o007 != 0 {
+		it.Status = StatusFail
+		it.Detail = fmt.Sprintf("%s acessivel a outros (modo %04o): contem a senha AMI. Rode: chmod o-rwx %s", filepath.Base(p), mode, p)
+		return it
+	}
+	it.Status, it.Detail = StatusOK, fmt.Sprintf("%s sem acesso para outros (modo %04o)", filepath.Base(p), mode)
 	return it
 }
 
