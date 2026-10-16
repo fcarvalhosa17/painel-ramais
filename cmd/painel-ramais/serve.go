@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -22,6 +23,7 @@ import (
 	"painel-ramais/internal/model"
 	"painel-ramais/internal/state"
 	"painel-ramais/internal/store"
+	"painel-ramais/internal/web"
 )
 
 const (
@@ -108,21 +110,59 @@ func newDaemon(cfg *config.Config, hup <-chan os.Signal) (*daemon, error) {
 	d.hub = api.NewHub(log, nil)
 	d.sup = newSupervisor(ami.Config{Address: cfg.AMI.Address, Username: cfg.AMI.Username, Secret: amiSecret},
 		cfg.Technology, cfg.AMI.NameFillPerSecond, cfg.Pattern, log)
-	d.deps = &depcheck.Checker{Log: log.Warn, Login: func() depcheck.LoginResult {
-		a := d.sup.Status()
-		return depcheck.LoginResult{Known: a.LoginKnown, OK: a.LoginOK, Detail: a.LoginDetail, At: a.LoginAt}
-	}}
+	verifier := auth.NewVerifier(authSecret)
+	// A verificacao de dependencias e a fonte unica da chave do Issabel: o que o /api/health
+	// mostra e exatamente o que o verificador de tokens usa (ADR-004 item 2).
+	d.deps = &depcheck.Checker{
+		Log: log.Warn, IssabelKeyFile: cfg.Auth.IssabelKeyFile, OnIssabelKey: verifier.SetIssabelKey,
+		IssabelKey: func() ([]byte, error) { return issabelKey(cfg, authSecret) },
+		Login: func() depcheck.LoginResult {
+			a := d.sup.Status()
+			return depcheck.LoginResult{Known: a.LoginKnown, OK: a.LoginOK, Detail: a.LoginDetail, At: a.LoginAt}
+		},
+	}
 	d.sup.onLogin = func() { d.deps.Check() }
+	d.deps.Check() // chave do Issabel carregada antes de aceitar o primeiro token
 	d.srv = api.New(api.Options{
-		Store: st, Verifier: auth.NewVerifier(authSecret), Limiter: auth.NewLimiter(), Hub: d.hub,
+		Store: st, Verifier: verifier, Limiter: nameLimiter(), Hub: d.hub,
 		Stats: d.state.Stats, AMI: d.sup.Status, Deps: d.deps.Results,
 		SessionTTL: cfg.Auth.SessionTTL, RetentionDays: cfg.History.RetentionDays, Version: version, Log: log,
+		Static:       web.Static(),
+		ReloadGroups: func(ctx context.Context) error { return reloadAfterRequest(ctx, st, d.events) },
 	})
 	d.http = &http.Server{
 		Addr: cfg.Listen, Handler: d.srv.Handler(), ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout: readTimeout, IdleTimeout: 2 * time.Minute, MaxHeaderBytes: 16 << 10,
 	}
 	return d, nil
+}
+
+// nameLimiter e o limite de login por nome de usuario: 20 falhas em 5 min, acima do limite de
+// 5 por IP do cliente, para que quem erra de um IP nao trave a senha certa de outro.
+func nameLimiter() *auth.Limiter {
+	l := auth.NewLimiter()
+	l.Max = 20
+	return l
+}
+
+// keyRule marca o erro da chave do Issabel como regra violada para o depcheck, sem mudar a mensagem.
+type keyRule struct{ error }
+
+func (e keyRule) Unwrap() error      { return e.error }
+func (keyRule) Is(target error) bool { return target == depcheck.ErrKeyInvalid }
+
+// issabelKey le a chave do Issabel e traduz a recusa de regra para a linguagem do depcheck.
+// Chave igual ao segredo do daemon e recusada: quem lesse o segredo (token livre da CLI)
+// emitiria tokens de administrador do Issabel, e a separacao das duas chaves perderia o sentido.
+func issabelKey(cfg *config.Config, authSecret []byte) ([]byte, error) {
+	k, err := cfg.IssabelKey()
+	if err == nil && hmac.Equal(k, authSecret) {
+		k, err = nil, fmt.Errorf("auth.issabel_key_file: %w: igual ao auth.secret_file; gere uma chave diferente", config.ErrKeyInvalid)
+	}
+	if errors.Is(err, config.ErrKeyInvalid) {
+		err = keyRule{err}
+	}
+	return k, err
 }
 
 // run lanca uma goroutine; erro dela (fora do desligamento) derruba o daemon.
@@ -212,8 +252,19 @@ func errString(err error) string {
 	return err.Error()
 }
 
-// loadGroups le as faixas do banco e entrega ao estado (epoch novo).
+// loadGroupsMu serializa leitura do banco + envio ao estado: sem ele, a recarga do import
+// web e a do SIGHUP podem se cruzar (A le, B grava e le e envia, A envia o velho por cima)
+// e o estado fica com os grupos antigos ate a proxima recarga.
+var loadGroupsMu sync.Mutex
+
+// groupsReadHook roda entre a leitura e o envio (so os testes o definem, para abrir a janela da corrida).
+var groupsReadHook func()
+
+// loadGroups le as faixas do banco e entrega ao estado (epoch novo). Devolve ctx.Err()
+// se o contexto acabar antes da entrega: quem chama nao pode achar que o estado recebeu.
 func loadGroups(ctx context.Context, st *store.Store, events chan<- model.Event) error {
+	loadGroupsMu.Lock()
+	defer loadGroupsMu.Unlock()
 	rows, err := st.GroupRanges(ctx)
 	if err != nil {
 		return err
@@ -222,11 +273,24 @@ func loadGroups(ctx context.Context, st *store.Store, events chan<- model.Event)
 	for i, r := range rows {
 		ranges[i] = model.GroupRange{Start: r.Start, End: r.End, Name: r.Name}
 	}
+	if groupsReadHook != nil {
+		groupsReadHook()
+	}
 	select {
 	case events <- model.GroupsLoaded{At: time.Now(), Ranges: ranges}:
+		return nil
 	case <-ctx.Done():
+		return ctx.Err()
 	}
-	return nil
+}
+
+// reloadAfterRequest e o ReloadGroups da API: o pedido HTTP ja gravou os grupos, entao a
+// recarga nao pode morrer com o cancelamento do pedido (cliente que fechou a aba); fica
+// limitada a 10 s para nao pendurar se o estado parou.
+func reloadAfterRequest(ctx context.Context, st *store.Store, events chan<- model.Event) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	return loadGroups(ctx, st, events)
 }
 
 // onSIGHUP: a CLI mudou grupos ou usuarios. Relê os grupos (epoch novo) e fecha
@@ -237,7 +301,7 @@ func onSIGHUP(ctx context.Context, hup <-chan os.Signal, st *store.Store, events
 		case <-ctx.Done():
 			return
 		case <-hup:
-			if err := loadGroups(ctx, st, events); err != nil {
+			if err := loadGroups(ctx, st, events); err != nil && ctx.Err() == nil {
 				log.Error("SIGHUP: ler grupos", "erro", err.Error())
 			}
 			n := srv.Revalidate(ctx)

@@ -71,11 +71,11 @@ func (c *cli) usage() int {
   painel-ramais group import [--replace] <arquivo.csv | ->   (- le o CSV do stdin)
   painel-ramais group list
   painel-ramais group del <grupo>
-  painel-ramais session purge [--all]
+  painel-ramais session purge [--all | --issabel <usuario>]
   painel-ramais capturar --minutos N --saida ARQ|- [--anonimizar] [--digitos-externos 7]
   painel-ramais filtrar [--anonimizar] [--digitos-externos 7]   (stdin -> stdout; mascara segredos com as regras do capturar)
   painel-ramais actions                                          (lista fixa de actions AMI, uma por linha)
-  painel-ramais token --sub <texto> [--ttl 60s]
+  painel-ramais token --sub <texto> [--ttl 60s] [--issabel]
   painel-ramais version
 `)
 	return exitUsage

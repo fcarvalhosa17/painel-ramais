@@ -10,7 +10,10 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 const (
@@ -19,6 +22,12 @@ const (
 	tokenSkew     = 5 * time.Second
 	maxTokenBytes = 1024
 	subMax        = 128
+
+	// Gramatica do sub assinado com a chave do Issabel (ADR-004 item 3, plano C1).
+	IssabelPrefix  = "issabel:"
+	AdminPrefix    = "issabel:admin:"
+	UserPrefix     = "issabel:user:"
+	issabelUserMax = 64 // runas do <usuario>
 )
 
 var b64 = base64.RawURLEncoding
@@ -34,6 +43,37 @@ type rawClaims struct {
 	Sub *string `json:"sub"`
 	Exp *int64  `json:"exp"`
 	JTI *string `json:"jti"`
+}
+
+// HasIssabelPrefix diz se o sub comeca com o prefixo reservado (sem diferenciar maiusculas).
+func HasIssabelPrefix(sub string) bool {
+	return len(sub) >= len(IssabelPrefix) && strings.EqualFold(sub[:len(IssabelPrefix)], IssabelPrefix)
+}
+
+// ValidIssabelSub confere a gramatica issabel:admin:<usuario> | issabel:user:<usuario>:
+// <usuario> de 1 a 64 runas, UTF-8 valido, sem controle (Cc), formatacao (Cf: bidi, largura
+// zero, soft hyphen, BOM) nem separador de linha/paragrafo (Zl, Zp); pode ter ':' e espaco.
+func ValidIssabelSub(sub string) bool {
+	var name string
+	switch {
+	case strings.HasPrefix(sub, AdminPrefix):
+		name = sub[len(AdminPrefix):]
+	case strings.HasPrefix(sub, UserPrefix):
+		name = sub[len(UserPrefix):]
+	default:
+		return false
+	}
+	if n := utf8.RuneCountInString(name); n < 1 || n > issabelUserMax || !utf8.ValidString(name) {
+		return false
+	}
+	return !strings.ContainsFunc(name, func(r rune) bool {
+		return unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp)
+	})
+}
+
+// IsAdmin: o papel de administrador deriva do subject gravado (nenhuma coluna propria).
+func IsAdmin(kind, subject string) bool {
+	return kind == "token" && strings.HasPrefix(subject, AdminPrefix)
 }
 
 // IssueToken gera um token assinado (CLI de teste; o emissor da fase 3 faz o mesmo).
@@ -67,9 +107,13 @@ func mac(secret []byte, p string) []byte {
 }
 
 // Verifier valida tokens e guarda os jti ja usados (uso unico, em memoria).
+// Tem duas chaves: o segredo do daemon (sub livre, sem o prefixo issabel:) e a
+// chave do Issabel (so sub issabel:admin:/issabel:user:), esta opcional e
+// trocavel em tempo de execucao.
 type Verifier struct {
-	secret []byte
-	Now    func() time.Time
+	secret  []byte
+	issabel atomic.Pointer[[]byte] // nil = integracao desligada
+	Now     func() time.Time
 
 	mu   sync.Mutex
 	seen map[string]int64 // jti -> exp
@@ -80,7 +124,19 @@ func NewVerifier(secret []byte) *Verifier {
 	return &Verifier{secret: secret, Now: time.Now, seen: map[string]int64{}}
 }
 
-// Verify confere o token na ordem do ADR-002 e consome o jti. Qualquer falha
+// SetIssabelKey liga (chave nao vazia) ou desliga (nil) a integracao com o Issabel.
+// A chave e copiada; vale para o proximo Verify.
+func (v *Verifier) SetIssabelKey(key []byte) {
+	if len(key) == 0 {
+		v.issabel.Store(nil)
+		return
+	}
+	k := append([]byte(nil), key...)
+	v.issabel.Store(&k)
+}
+
+// Verify confere o token na ordem do ADR-002 e do plano C1 (formato, HMAC com as duas
+// chaves, JSON estrito, regra do sub, exp, jti) e consome o jti. Qualquer falha
 // devolve ErrInvalidToken, sem dizer o motivo.
 func (v *Verifier) Verify(token string) (Claims, error) {
 	c, err := v.parse(token)
@@ -107,14 +163,31 @@ func (v *Verifier) parse(token string) (Claims, error) {
 		return Claims{}, ErrInvalidToken
 	}
 	sig, err := b64.DecodeString(parts[1])
-	if err != nil || !hmac.Equal(sig, mac(v.secret, parts[0])) {
+	if err != nil {
+		return Claims{}, ErrInvalidToken
+	}
+	// As duas comparacoes sempre rodam (sem curto-circuito).
+	viaSecret := hmac.Equal(sig, mac(v.secret, parts[0]))
+	viaIssabel := false
+	if k := v.issabel.Load(); k != nil {
+		viaIssabel = hmac.Equal(sig, mac(*k, parts[0]))
+	}
+	if !viaSecret && !viaIssabel {
 		return Claims{}, ErrInvalidToken
 	}
 	payload, err := b64.DecodeString(parts[0])
 	if err != nil {
 		return Claims{}, ErrInvalidToken
 	}
-	return decodeClaims(payload)
+	c, err := decodeClaims(payload)
+	if err != nil {
+		return Claims{}, err
+	}
+	// Chave do Issabel: so a gramatica issabel:. Segredo do daemon: nunca issabel:.
+	if !(viaIssabel && ValidIssabelSub(c.Sub)) && !(viaSecret && !HasIssabelPrefix(c.Sub)) {
+		return Claims{}, ErrInvalidToken
+	}
+	return c, nil
 }
 
 func decodeClaims(payload []byte) (Claims, error) {

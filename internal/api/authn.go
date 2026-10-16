@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -39,10 +40,36 @@ func (s *Server) session(h sessionHandler) http.HandlerFunc {
 	}
 }
 
+// EmergencyUser e o unico usuario de senha aceito em POST /api/login (ADR-004 item 5);
+// o instalador cria o usuario com este mesmo nome.
+const EmergencyUser = "emergencia"
+
 type sessionData struct {
 	Subject   string      `json:"subject"`
 	Kind      string      `json:"kind"`
+	Admin     bool        `json:"admin"`
 	ExpiresAt stampString `json:"expires_at"`
+}
+
+func newSessionData(kind, subject string, expires time.Time) sessionData {
+	return sessionData{Subject: subject, Kind: kind, Admin: auth.IsAdmin(kind, subject), ExpiresAt: stampString(expires)}
+}
+
+// sessionInfo: GET /api/session (a tela descobre papel e validade; renova como todo GET autenticado).
+func (s *Server) sessionInfo(w http.ResponseWriter, _ *http.Request, sess store.Session) {
+	writeOK(w, newSessionData(sess.Kind, sess.Subject, sess.ExpiresAt), nil)
+}
+
+// adminOnly exige sessao de administrador do Issabel; senao 403 forbidden.
+func (s *Server) adminOnly(h sessionHandler) sessionHandler {
+	return func(w http.ResponseWriter, r *http.Request, sess store.Session) {
+		if !auth.IsAdmin(sess.Kind, sess.Subject) {
+			s.log.Warn("acesso negado: so administrador", requestIDKey, requestID(r), "path", r.URL.Path, "sub", sess.Subject)
+			writeError(w, http.StatusForbidden, "forbidden", "Apenas administradores do Issabel podem alterar grupos")
+			return
+		}
+		h(w, r, sess)
+	}
 }
 
 // stampString serializa como RFC 3339 UTC com milissegundos.
@@ -65,12 +92,13 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, kind, subj
 		s.internalError(w, r, err)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name: cookieName, Value: cookie, Path: cookiePath, MaxAge: int(cookieMaxAge.Seconds()),
-		Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode,
-	})
+	c := &http.Cookie{Name: cookieName, Value: cookie, Path: cookiePath, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode}
+	if kind != "token" { // sessao de token (menu do Issabel): cookie de sessao do navegador, some ao fechar; o servidor ainda vence por inatividade
+		c.MaxAge = int(cookieMaxAge.Seconds())
+	}
+	http.SetCookie(w, c)
 	s.log.Info("sessao criada", requestIDKey, requestID(r), "kind", kind, "sub", subject)
-	writeOK(w, sessionData{Subject: subject, Kind: kind, ExpiresAt: stampString(se.ExpiresAt)}, nil)
+	writeOK(w, newSessionData(kind, subject, se.ExpiresAt), nil)
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
@@ -97,25 +125,54 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A tentativa e contada ANTES do bcrypt (reserva atomica); o acerto desfaz com Reset.
-	if !s.Limiter.Reserve(key) {
-		s.log.Warn("login bloqueado", requestIDKey, requestID(r), "user", who)
+	// Dois limites: por IP do cliente (5 em 5 min; quem erra de um lugar nao trava o usuario
+	// para os outros) e por nome (teto maior, contra tentativa distribuida em varios IPs).
+	ip := clientIP(r)
+	if !s.IPLimiter.Reserve(ip) || !s.Limiter.Reserve(key) {
+		s.log.Warn("login bloqueado", requestIDKey, requestID(r), "user", who, "ip", ip)
 		writeError(w, http.StatusTooManyRequests, "too_many_attempts", "Muitas tentativas; aguarde alguns minutos")
 		return
 	}
-	u, err := s.Store.UserByName(r.Context(), in.Username)
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		s.internalError(w, r, err)
-		return
+	// So o usuario reservado existe para o login; qualquer outro nome segue o caminho do
+	// usuario inexistente (Hash vazio, bcrypt falso), para o tempo nao revelar nada.
+	var u store.User
+	if strings.EqualFold(in.Username, EmergencyUser) {
+		var err error
+		if u, err = s.Store.UserByName(r.Context(), in.Username); err != nil && !errors.Is(err, store.ErrNotFound) {
+			s.internalError(w, r, err)
+			return
+		}
 	}
 	if !auth.CheckPassword(u.Hash, in.Password) { // Hash vazio: compara contra hash falso
 		// O log guarda so tamanho e hash curto do que foi digitado: quem erra o campo
 		// costuma colar a senha no lugar do usuario.
-		s.log.Warn("login recusado", requestIDKey, requestID(r), "user", who)
+		s.log.Warn("login recusado", requestIDKey, requestID(r), "user", who, "ip", ip)
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "Usuario ou senha invalidos")
 		return
 	}
 	s.Limiter.Reset(key)
+	s.IPLimiter.Reset(ip)
 	s.startSession(w, r, "password", u.Username, &u.ID)
+}
+
+// clientIP e o IP do cliente para o limite de login: o ultimo valor do X-Forwarded-For (o
+// Apache acrescenta o endereco que viu no fim; valores a esquerda sao do cliente e nao
+// valem) ou, sem o cabecalho (acesso direto em loopback), o RemoteAddr.
+func clientIP(r *http.Request) string {
+	if xs := r.Header.Values("X-Forwarded-For"); len(xs) > 0 {
+		last := xs[len(xs)-1]
+		if i := strings.LastIndexByte(last, ','); i >= 0 {
+			last = last[i+1:]
+		}
+		if ip := net.ParseIP(strings.TrimSpace(last)); ip != nil {
+			return ip.String()
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 // userTag identifica o usuario digitado sem gravar o texto: tamanho e 8 hex do SHA-256.

@@ -14,45 +14,11 @@ import (
 
 func init() { BcryptCost = bcrypt.MinCost }
 
-// Vetor de teste do CONTRATOS.md secao 3.3 (segredo de exemplo, nunca usar em producao).
-const (
-	vecSecret  = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
-	vecPayload = `{"sub":"issabel:admin","exp":1791902460,"jti":"q9Xh3c1bV0e8m2Lr5tYwZA"}`
-	vecToken   = "eyJzdWIiOiJpc3NhYmVsOmFkbWluIiwiZXhwIjoxNzkxOTAyNDYwLCJqdGkiOiJxOVhoM2MxYlYwZThtMkxyNXRZd1pBIn0.1FevVYbrsil2HqMU283VGL948fcwdxThKkYL6xtxxq0"
-)
-
-func vecVerifier(t *testing.T, at time.Time) *Verifier {
-	t.Helper()
-	secret, err := base64.StdEncoding.DecodeString(vecSecret)
-	if err != nil {
-		t.Fatal(err)
-	}
-	v := NewVerifier(secret)
-	v.Now = func() time.Time { return at }
-	return v
-}
-
-func TestVectorValidatesOnceOnly(t *testing.T) {
-	exp := time.Unix(1791902460, 0)
-	v := vecVerifier(t, exp.Add(-30*time.Second))
-	c, err := v.Verify(vecToken)
-	if err != nil || c.Sub != "issabel:admin" || c.Exp != 1791902460 {
-		t.Fatalf("vetor deveria validar: %+v %v", c, err)
-	}
-	if _, err := v.Verify(vecToken); err == nil {
-		t.Error("segundo uso do mesmo token deve falhar (jti de uso unico)")
-	}
-	// O payload exato do vetor e o que foi assinado.
-	secret, _ := base64.StdEncoding.DecodeString(vecSecret)
-	if got := sign(secret, []byte(vecPayload)); got != vecToken {
-		t.Errorf("assinatura divergente do vetor:\n%s\n%s", got, vecToken)
-	}
-}
-
 func TestTokenRejections(t *testing.T) {
 	secret, _ := base64.StdEncoding.DecodeString(vecSecret)
 	now := time.Unix(1791902400, 0)
 	mk := func(payload string) string { return sign(secret, []byte(payload)) }
+	vecToken := v3Secret
 	flip := vecToken[:len(vecToken)-1] + "A"
 	cases := map[string]string{
 		"assinatura trocada": flip,
@@ -71,13 +37,13 @@ func TestTokenRejections(t *testing.T) {
 		"muito grande":       mk(`{"sub":"` + strings.Repeat("a", 2000) + `","exp":1791902430,"jti":"q9Xh3c1bV0e8m2Lr5tYwZA"}`),
 	}
 	for name, tok := range cases {
-		if _, err := vecVerifier(t, now).Verify(tok); err != ErrInvalidToken {
+		if _, err := vecVerifier(t, now, true).Verify(tok); err != ErrInvalidToken {
 			t.Errorf("%s: err = %v, queria ErrInvalidToken", name, err)
 		}
 	}
 	// Limites aceitos: exp = agora + 65 s ainda vale.
 	ok := mk(`{"sub":"a","exp":1791902465,"jti":"q9Xh3c1bV0e8m2Lr5tYwZA"}`)
-	if _, err := vecVerifier(t, now).Verify(ok); err != nil {
+	if _, err := vecVerifier(t, now, true).Verify(ok); err != nil {
 		t.Errorf("exp = agora+65s deve valer: %v", err)
 	}
 	// Segredo diferente.
@@ -91,12 +57,12 @@ func TestTokenRejections(t *testing.T) {
 func TestIssueAndVerify(t *testing.T) {
 	secret := []byte(strings.Repeat("k", 32))
 	now := time.Now()
-	tok, err := IssueToken(secret, "issabel:admin", 60*time.Second, now)
+	tok, err := IssueToken(secret, "roteiro", 60*time.Second, now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	v := NewVerifier(secret)
-	if c, err := v.Verify(tok); err != nil || c.Sub != "issabel:admin" {
+	if c, err := v.Verify(tok); err != nil || c.Sub != "roteiro" {
 		t.Fatalf("%+v %v", c, err)
 	}
 	if _, err := IssueToken(secret, "a", 61*time.Second, now); err == nil {

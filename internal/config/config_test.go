@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,5 +90,84 @@ func TestSecrets(t *testing.T) {
 	c.Auth.SecretFile = filepath.Join(d, "nao-existe")
 	if _, err := c.AuthSecret(); err == nil {
 		t.Error("arquivo ausente deve falhar")
+	}
+}
+
+func TestIssabelKeyFileConfig(t *testing.T) {
+	c, err := Parse([]byte(""))
+	if err != nil || c.Auth.IssabelKeyFile != "/etc/painel-ramais-issabel.key" {
+		t.Fatalf("padrao: %+v %v", c, err)
+	}
+	if c, err = Parse([]byte("auth:\n  issabel_key_file: /x/chave\n")); err != nil || c.Auth.IssabelKeyFile != "/x/chave" {
+		t.Errorf("caminho proprio: %v", err)
+	}
+	for _, y := range []string{"auth:\n  issabel_key_file: ''\n", "auth:\n  issabel_key_file: chave\n"} {
+		if _, err := Parse([]byte(y)); err == nil {
+			t.Errorf("%q deveria ser recusado (vazio ou relativo)", y)
+		}
+	}
+}
+
+// Regra de permissao da chave do Issabel (plano C1), testada sobre o modo para rodar em qualquer SO.
+func TestKeyModeProblem(t *testing.T) {
+	const me = 1000
+	cases := []struct {
+		name string
+		mode fs.FileMode
+		uid  int
+		ok   bool
+	}{
+		{"0640 aceito", 0o640, me, true},
+		{"0600 aceito", 0o600, me, true},
+		{"0440 aceito", 0o440, me, true},
+		{"0400 aceito", 0o400, me, true},
+		{"0644 recusado (leitura de outros)", 0o644, me, false},
+		{"0660 recusado (escrita de grupo)", 0o660, me, false},
+		{"0650 recusado (execucao de grupo)", 0o650, me, false},
+		{"0604 recusado", 0o604, me, false},
+		{"0777 recusado", 0o777, me, false},
+		{"symlink recusado", fs.ModeSymlink | 0o640, me, false},
+		{"diretorio recusado", fs.ModeDir | 0o640, me, false},
+		{"dono diferente recusado", 0o640, 0, false},
+	}
+	for _, c := range cases {
+		if got := keyModeProblem(c.mode, c.uid, me); (got == "") != c.ok {
+			t.Errorf("%s: problema = %q", c.name, got)
+		}
+	}
+}
+
+// Conteudo e ausencia (roda no Windows tambem; permissao fica no config_unix_test.go).
+func TestIssabelKeyContentAndAbsence(t *testing.T) {
+	d := t.TempDir()
+	c := Defaults()
+	c.Auth.IssabelKeyFile = filepath.Join(d, "chave")
+	_, err := c.IssabelKey()
+	if !errors.Is(err, fs.ErrNotExist) || errors.Is(err, ErrKeyInvalid) {
+		t.Fatalf("ausente deve casar com fs.ErrNotExist e nao com ErrKeyInvalid: %v", err)
+	}
+	write := func(content string) {
+		t.Helper()
+		if err := os.WriteFile(c.Auth.IssabelKeyFile, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("  ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=\n")
+	if k, err := c.IssabelKey(); err != nil || len(k) != 32 || k[0] != 0x20 || k[31] != 0x3f {
+		t.Errorf("chave valida: %d bytes, %v", len(k), err)
+	}
+	for name, content := range map[string]string{
+		"curta (menos de 32 bytes)": "AAECAwQ=",
+		"base64 invalido":           "%%%",
+		"vazia":                     " \n",
+	} {
+		write(content)
+		if _, err := c.IssabelKey(); !errors.Is(err, ErrKeyInvalid) {
+			t.Errorf("%s: err = %v, queria ErrKeyInvalid", name, err)
+		}
+	}
+	write("AAECAwQ=")
+	if _, err := c.IssabelKey(); err == nil || !strings.Contains(err.Error(), "minimo 32") {
+		t.Errorf("mensagem da chave curta: %v", err)
 	}
 }

@@ -81,13 +81,13 @@ type deltaMsg struct {
 // ---- daemon como processo
 
 const (
-	testUser = "loadtest"
+	testUser = "emergencia" // unico usuario de senha que o login aceita (ADR-004)
 	testPass = "loadtest-senha-123"
 )
 
 type Daemon struct {
 	bin, dir, cfg, addr string
-	dbg                 string // endereco do endpoint de debug do daemon (so com -heap)
+	dbg                 string // endereco do endpoint de debug do daemon (so com -heap; daemon com -tags debug)
 	cmd                 *exec.Cmd
 	logf                *os.File
 	cookie              string

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"mime"
 	"net"
@@ -28,6 +29,8 @@ const (
 	cookieName   = "painel_session"
 	cookiePath   = "/painel-ramais/"
 	maxBodyBytes = 4096
+	// maxGroupsBodyBytes vale so para /api/groups/import e /api/groups/delete (CSV dentro do JSON).
+	maxGroupsBodyBytes = 1 << 20
 	// cookieMaxAge so precisa sobreviver a sessao: quem manda e o banco (inatividade). Com a
 	// tela aberta so por WebSocket nenhuma resposta REST renova o cookie.
 	cookieMaxAge = 7 * 24 * time.Hour
@@ -46,7 +49,8 @@ const localOnlyStatus = http.StatusNotFound
 type Options struct {
 	Store         *store.Store
 	Verifier      *auth.Verifier
-	Limiter       *auth.Limiter
+	Limiter       *auth.Limiter // por nome de usuario (teto maior que o do IP)
+	IPLimiter     *auth.Limiter // por IP do cliente; nil = padrao (5 falhas em 5 min)
 	Hub           *Hub
 	Stats         func() state.Stats
 	AMI           func() model.AMIStatus
@@ -57,6 +61,11 @@ type Options struct {
 	Version       string
 	Log           *slog.Logger
 	Now           func() time.Time
+	// Static e a tela embutida (index.html, acesso.html, assets/); nil desliga as rotas da tela.
+	Static fs.FS
+	// ReloadGroups relê os grupos do banco e os entrega ao estado (o caminho do SIGHUP);
+	// nil nos testes que nao precisam dele.
+	ReloadGroups func(context.Context) error
 }
 
 // Server e o handler HTTP do daemon.
@@ -76,6 +85,9 @@ func New(o Options) *Server {
 	if o.Log == nil {
 		o.Log = slog.Default()
 	}
+	if o.IPLimiter == nil {
+		o.IPLimiter = auth.NewLimiter()
+	}
 	return &Server{Options: o, hub: o.Hub, log: o.Log, started: o.Now(), loginSem: make(chan struct{}, maxConcurrentLogins)}
 }
 
@@ -85,16 +97,36 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/login", s.api(http.MethodPost, s.login))
 	mux.HandleFunc("/api/logout", s.api(http.MethodPost, s.logout))
 	mux.HandleFunc("/api/token", s.api(http.MethodPost, s.token))
+	mux.HandleFunc("/api/session", s.api(http.MethodGet, s.session(s.sessionInfo)))
 	mux.HandleFunc("/api/snapshot", s.api(http.MethodGet, s.session(s.snapshot)))
 	mux.HandleFunc("/api/groups", s.api(http.MethodGet, s.session(s.groups)))
+	mux.HandleFunc("/api/groups/import", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsImport))))
+	mux.HandleFunc("/api/groups/delete", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsDelete))))
 	mux.HandleFunc("/api/history", s.api(http.MethodGet, s.session(s.history)))
 	mux.HandleFunc("/api/health", s.api(http.MethodGet, s.localOnly(s.health)))
 	mux.HandleFunc("/debug", s.method(http.MethodGet, s.localOnly(s.session(s.debug))))
 	mux.HandleFunc("/ws", s.method(http.MethodGet, s.session(s.ws)))
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		writeError(w, http.StatusNotFound, "not_found", "Rota inexistente")
+	mux.HandleFunc("/acesso", s.page("/acesso", s.acesso))
+	mux.HandleFunc("/emergencia", s.page("/emergencia", s.emergenciaRedirect))
+	mux.HandleFunc("/emergencia/", s.page("/emergencia/", s.emergencia))
+	mux.HandleFunc("/assets", s.page("/assets", s.asset)) // 404 (sem isso o ServeMux redireciona para /assets/)
+	mux.HandleFunc("/assets/", s.page("", s.asset))
+	mux.HandleFunc("/", s.page("/", s.tela))
+	return s.middleware(noDotDot(mux))
+}
+
+// noDotDot responde 404 no envelope a caminho com segmento "..": sem isso o ServeMux
+// redirecionaria (301) /assets/../index.html para /index.html.
+func noDotDot(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, seg := range strings.Split(r.URL.Path, "/") {
+			if seg == ".." {
+				writeError(w, http.StatusNotFound, "not_found", "Rota inexistente")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
 	})
-	return s.middleware(mux)
 }
 
 // ---- envelope ----
@@ -276,12 +308,29 @@ func (s *Server) localOnly(h http.HandlerFunc) http.HandlerFunc {
 // decodeBody valida Content-Type e tamanho e decodifica o JSON estrito em v.
 // Devolve false depois de responder o erro.
 func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
+	return decodeBodyMax(w, r, v, maxBodyBytes)
+}
+
+func sizeText(n int64) string {
+	if n >= 1<<20 {
+		return fmt.Sprintf("%d MiB", n>>20)
+	}
+	return fmt.Sprintf("%d KiB", n>>10)
+}
+
+// decodeBodyMax e o decodeBody com teto de corpo proprio.
+func decodeBodyMax(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
+	// Mutacao disparada por outro site (navegador declara Sec-Fetch-Site: cross-site): recusa.
+	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+		writeError(w, http.StatusForbidden, "forbidden", "Requisicao de outro site nao permitida")
+		return false
+	}
 	mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mt != "application/json" {
 		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Use Content-Type: application/json")
 		return false
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	err = dec.Decode(v)
@@ -291,7 +340,7 @@ func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	var tooBig *http.MaxBytesError
 	switch {
 	case errors.As(err, &tooBig):
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "Corpo acima de 4 KiB")
+		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "Corpo acima de "+sizeText(limit))
 	case err != nil:
 		writeError(w, http.StatusBadRequest, "bad_request", "JSON invalido")
 	default:

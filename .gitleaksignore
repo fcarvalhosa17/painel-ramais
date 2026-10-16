@@ -1,0 +1,12 @@
+# Falsos positivos do gitleaks (generic-api-key): vetores de teste e exemplos de documentacao.
+# Sao chaves/tokens de EXEMPLO publicados no plano e no CONTRATOS (bytes 0x00-0x3f, tokens com exp=1791902460,
+# ja vencidos em 2026-10-13); nenhum segredo real. Fingerprint inclui o numero da linha: se o arquivo mudar de
+# linha, rode `gitleaks detect --no-git` e atualize aqui (nunca ignore um achado sem conferir que e vetor de teste).
+internal/config/config_unix_test.go:generic-api-key:14
+internal/api/sec_test.go:generic-api-key:40
+internal/auth/token_test.go:generic-api-key:13
+internal/auth/token_test.go:generic-api-key:17
+internal/auth/token_test.go:generic-api-key:21
+internal/auth/token_test.go:generic-api-key:27
+internal/api/tela_test.go:generic-api-key:16
+docs/CONTRATOS.md:generic-api-key:223

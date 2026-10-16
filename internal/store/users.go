@@ -121,6 +121,24 @@ func (s *Store) DeleteAllSessions(ctx context.Context) (int64, error) {
 	return res.RowsAffected()
 }
 
+// DeleteTokenSessionsBySubject apaga as sessoes de token cujo subject e um dos informados
+// (CLI session purge --issabel). Sessao de senha nunca casa: o subject dela e o nome do usuario.
+func (s *Store) DeleteTokenSessionsBySubject(ctx context.Context, subjects ...string) (int64, error) {
+	if len(subjects) == 0 {
+		return 0, nil
+	}
+	args := make([]any, len(subjects))
+	for i, sub := range subjects {
+		args[i] = sub
+	}
+	res, err := s.db.ExecContext(ctx,
+		"DELETE FROM sessions WHERE kind = 'token' AND subject IN (?"+strings.Repeat(",?", len(subjects)-1)+")", args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 func affected(res sql.Result, err error) error {
 	if err != nil {
 		return err

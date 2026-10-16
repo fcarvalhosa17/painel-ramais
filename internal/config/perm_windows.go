@@ -11,3 +11,6 @@ func checkSecretPerm(path string) error {
 	}
 	return nil
 }
+
+// readIssabelKeyFile: so existencia no Windows (desenvolvimento), como checkSecretPerm.
+func readIssabelKeyFile(path string) ([]byte, error) { return os.ReadFile(path) }

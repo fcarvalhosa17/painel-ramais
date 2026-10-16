@@ -37,6 +37,9 @@ type env struct {
 	stats state.Stats
 	ami   model.AMIStatus
 	now   time.Time
+	// reloads conta as chamadas a ReloadGroups; reloadErr, se nao nil, e o erro devolvido.
+	reloads   int
+	reloadErr error
 }
 
 func newEnv(t *testing.T) *env {
@@ -53,8 +56,12 @@ func newEnv(t *testing.T) *env {
 	secret, _ := base64.StdEncoding.DecodeString("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=")
 	ver := auth.NewVerifier(secret)
 	ver.Now = func() time.Time { return time.Unix(1791902430, 0) }
+	issabel, _ := base64.StdEncoding.DecodeString("ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=")
+	ver.SetIssabelKey(issabel)
 	e.srv = New(Options{
-		Store: st, Verifier: ver, Limiter: auth.NewLimiter(), Hub: e.hub, SessionTTL: 8 * time.Hour, RetentionDays: 30,
+		Static:       testStatic,
+		ReloadGroups: func(context.Context) error { e.reloads++; return e.reloadErr },
+		Store:        st, Verifier: ver, Limiter: nameLimiterForTest(), Hub: e.hub, SessionTTL: 8 * time.Hour, RetentionDays: 30,
 		Stats: func() state.Stats { return e.stats }, AMI: func() model.AMIStatus { return e.ami },
 		Deps:    func() []depcheck.Item { return []depcheck.Item{{Name: "ami_user", Status: "ok", CheckedAt: e.now}} },
 		Version: "0.1.0-test", Log: log, Now: func() time.Time { return e.now },
@@ -127,8 +134,8 @@ func (e *env) expect(res *http.Response, status int, code string) body {
 // login devolve o cabecalho Cookie para as chamadas seguintes.
 func (e *env) login() map[string]string {
 	e.t.Helper()
-	e.addUser("fabio", "uma-senha-longa")
-	res := e.do("POST", "/api/login", `{"username":"fabio","password":"uma-senha-longa"}`, map[string]string{"Content-Type": "application/json"})
+	e.addUser("emergencia", "uma-senha-longa")
+	res := e.do("POST", "/api/login", `{"username":"emergencia","password":"uma-senha-longa"}`, map[string]string{"Content-Type": "application/json"})
 	e.expect(res, 200, "")
 	for _, c := range res.Cookies() {
 		if c.Name == cookieName {
@@ -174,15 +181,15 @@ func TestAuthRequiredEverywhere(t *testing.T) {
 		e.expect(e.do("GET", p, "", nil), 401, "unauthorized")
 	}
 	e.expect(e.do("GET", "/api/snapshot", "", map[string]string{"Cookie": cookieName + "=inventado"}), 401, "unauthorized")
-	e.expect(e.do("GET", "/", "", nil), 404, "not_found")
+	e.expect(e.do("GET", "/nao-existe", "", nil), 404, "not_found")
 	e.expect(e.do("GET", "/api/login", "", nil), 405, "method_not_allowed")
 	e.expect(e.do("POST", "/api/snapshot", "", nil), 405, "method_not_allowed")
 }
 
 func TestLoginCookieAndErrors(t *testing.T) {
 	e := newEnv(t)
-	e.addUser("fabio", "uma-senha-longa")
-	res := e.do("POST", "/api/login", `{"username":"FABIO","password":"uma-senha-longa"}`, jsonHdr)
+	e.addUser("emergencia", "uma-senha-longa")
+	res := e.do("POST", "/api/login", `{"username":"EMERGENCIA","password":"uma-senha-longa"}`, jsonHdr)
 	if sc := res.Header.Get("Set-Cookie"); !strings.Contains(sc, "Secure") || !strings.Contains(sc, "HttpOnly") ||
 		!strings.Contains(sc, "SameSite=Strict") || !strings.Contains(sc, "Path=/painel-ramais/") || !strings.Contains(sc, "Max-Age=604800") {
 		t.Errorf("Set-Cookie: %s", sc)
@@ -194,7 +201,7 @@ func TestLoginCookieAndErrors(t *testing.T) {
 		ExpiresAt string `json:"expires_at"`
 	}
 	json.Unmarshal(b.Data, &d)
-	if d.Subject != "fabio" || d.Kind != "password" || d.ExpiresAt != "2026-10-13T22:30:00.000Z" {
+	if d.Subject != "emergencia" || d.Kind != "password" || d.ExpiresAt != "2026-10-13T22:30:00.000Z" {
 		t.Errorf("data: %s", b.Data)
 	}
 	// O banco guarda so o hash (32 bytes) do cookie.
@@ -203,25 +210,25 @@ func TestLoginCookieAndErrors(t *testing.T) {
 		t.Errorf("sessao nao gravada pelo hash: %v", err)
 	}
 
-	e.expect(e.do("POST", "/api/login", `{"username":"fabio","password":"errada-errada"}`, jsonHdr), 401, "invalid_credentials")
+	e.expect(e.do("POST", "/api/login", `{"username":"emergencia","password":"errada-errada"}`, jsonHdr), 401, "invalid_credentials")
 	e.expect(e.do("POST", "/api/login", `{"username":"ninguem","password":"errada-errada"}`, jsonHdr), 401, "invalid_credentials")
-	e.expect(e.do("POST", "/api/login", `{"username":"fabio","password":"x"}`, map[string]string{"Content-Type": "text/plain"}), 415, "unsupported_media_type")
-	e.expect(e.do("POST", "/api/login", `{"username":"fabio","password":"x","extra":1}`, jsonHdr), 400, "bad_request")
+	e.expect(e.do("POST", "/api/login", `{"username":"emergencia","password":"x"}`, map[string]string{"Content-Type": "text/plain"}), 415, "unsupported_media_type")
+	e.expect(e.do("POST", "/api/login", `{"username":"emergencia","password":"x","extra":1}`, jsonHdr), 400, "bad_request")
 	e.expect(e.do("POST", "/api/login", `{"username":"","password":"x"}`, jsonHdr), 400, "bad_request")
-	e.expect(e.do("POST", "/api/login", `{"username":"fabio","password":"`+strings.Repeat("a", 5000)+`"}`, jsonHdr), 413, "payload_too_large")
+	e.expect(e.do("POST", "/api/login", `{"username":"emergencia","password":"`+strings.Repeat("a", 5000)+`"}`, jsonHdr), 413, "payload_too_large")
 	e.expect(e.do("POST", "/api/login", `nao-e-json`, jsonHdr), 400, "bad_request")
 }
 
 func TestLoginRateLimit(t *testing.T) {
 	e := newEnv(t)
-	e.addUser("fabio", "uma-senha-longa")
-	bad := `{"username":"fabio","password":"errada-errada"}`
+	e.addUser("emergencia", "uma-senha-longa")
+	bad := `{"username":"emergencia","password":"errada-errada"}`
 	for i := 0; i < 5; i++ {
 		e.expect(e.do("POST", "/api/login", bad, jsonHdr), 401, "invalid_credentials")
 	}
 	e.expect(e.do("POST", "/api/login", bad, jsonHdr), 429, "too_many_attempts")
 	// Mesmo a senha certa fica bloqueada na janela.
-	e.expect(e.do("POST", "/api/login", `{"username":"fabio","password":"uma-senha-longa"}`, jsonHdr), 429, "too_many_attempts")
+	e.expect(e.do("POST", "/api/login", `{"username":"emergencia","password":"uma-senha-longa"}`, jsonHdr), 429, "too_many_attempts")
 }
 
 func TestLogoutIsIdempotentAndKillsSession(t *testing.T) {
@@ -239,14 +246,14 @@ func TestLogoutIsIdempotentAndKillsSession(t *testing.T) {
 
 func TestTokenExchangeIsSingleUse(t *testing.T) {
 	e := newEnv(t)
-	tok := `{"token":"eyJzdWIiOiJpc3NhYmVsOmFkbWluIiwiZXhwIjoxNzkxOTAyNDYwLCJqdGkiOiJxOVhoM2MxYlYwZThtMkxyNXRZd1pBIn0.1FevVYbrsil2HqMU283VGL948fcwdxThKkYL6xtxxq0"}`
+	tok := `{"token":"` + tokV1Issabel + `"}`
 	res := e.do("POST", "/api/token", tok, jsonHdr)
 	var cookie string
 	for _, c := range res.Cookies() {
 		cookie = c.Name + "=" + c.Value
 	}
 	b := e.expect(res, 200, "")
-	if !strings.Contains(string(b.Data), `"kind":"token"`) || !strings.Contains(string(b.Data), `"subject":"issabel:admin"`) {
+	if !strings.Contains(string(b.Data), `"kind":"token"`) || !strings.Contains(string(b.Data), `"subject":"issabel:admin:fabio"`) || !strings.Contains(string(b.Data), `"admin":true`) {
 		t.Errorf("data: %s", b.Data)
 	}
 	e.expect(e.do("GET", "/api/groups", "", map[string]string{"Cookie": cookie}), 200, "")
@@ -503,7 +510,7 @@ func TestWSClosedWhenSessionRemoved(t *testing.T) {
 	for e.hub.Pub().Clients != 1 && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
-	if err := e.st.DeleteUser(context.Background(), "fabio"); err != nil {
+	if err := e.st.DeleteUser(context.Background(), "emergencia"); err != nil {
 		t.Fatal(err)
 	}
 	if n := e.srv.Revalidate(context.Background()); n != 1 {
@@ -711,3 +718,10 @@ func waitSnapshot(t *testing.T, e *env, cookie map[string]string, tech string) s
 }
 
 func regexpExt() *regexp.Regexp { return regexp.MustCompile(`^[0-9]+$`) }
+
+// nameLimiterForTest espelha o limite por nome do daemon (20 em 5 min); o limite por IP e o padrao (5).
+func nameLimiterForTest() *auth.Limiter {
+	l := auth.NewLimiter()
+	l.Max = 20
+	return l
+}

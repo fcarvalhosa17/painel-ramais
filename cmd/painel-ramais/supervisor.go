@@ -234,8 +234,8 @@ func (s *supervisor) detect(ctx context.Context, c *ami.Client) (string, model.T
 	if err != nil {
 		return "", "", err
 	}
-	if det.Warning != "" {
-		s.log.Warn(det.Warning)
+	if det.Notice != "" {
+		s.log.Info(det.Notice)
 	}
 	if err := ami.EnsureSameTechnology(s.lockedTo, det.Technology); err != nil {
 		return "", "", err

@@ -17,9 +17,9 @@ import (
 func TestLoginParallelWrongPasswordHitsLimitOnce(t *testing.T) {
 	e := newEnv(t)
 	auth.BcryptCost = 12 // hash real do contrato: a comparacao custa centenas de ms
-	e.addUser("alvo", "senha-correta-123")
+	e.addUser("emergencia", "senha-correta-123")
 	auth.BcryptCost = bcrypt.MinCost
-	codes := parallelLogins(e, 40, `{"username":"alvo","password":"errada-xxxxxx"}`)
+	codes := parallelLogins(e, 40, `{"username":"emergencia","password":"errada-xxxxxx"}`)
 	t.Logf("40 tentativas paralelas: %v", codes)
 	if codes[401] > 5 || codes[401]+codes[429] != 40 {
 		t.Errorf("codigos: %v (no maximo 5x401, o resto 429)", codes)
@@ -27,7 +27,7 @@ func TestLoginParallelWrongPasswordHitsLimitOnce(t *testing.T) {
 	// Consome o que sobrou da cota (a semaforo recusa sem contar); o total de 401 nunca passa de 5.
 	total := codes[401]
 	for i := 0; i < 5; i++ {
-		res := e.do("POST", "/api/login", `{"username":"alvo","password":"errada-xxxxxx"}`, jsonHdr)
+		res := e.do("POST", "/api/login", `{"username":"emergencia","password":"errada-xxxxxx"}`, jsonHdr)
 		res.Body.Close()
 		if res.StatusCode == 401 {
 			total++
@@ -37,7 +37,7 @@ func TestLoginParallelWrongPasswordHitsLimitOnce(t *testing.T) {
 		t.Errorf("total de 401 = %d, queria exatamente 5", total)
 	}
 	// A conta segue bloqueada ate a janela passar, mesmo com a senha certa.
-	e.expect(e.do("POST", "/api/login", `{"username":"alvo","password":"senha-correta-123"}`, jsonHdr), 429, "too_many_attempts")
+	e.expect(e.do("POST", "/api/login", `{"username":"emergencia","password":"senha-correta-123"}`, jsonHdr), 429, "too_many_attempts")
 }
 
 func parallelLogins(e *env, n int, body string) map[int]int {
@@ -63,11 +63,11 @@ func parallelLogins(e *env, n int, body string) map[int]int {
 // sem gastar tentativa do usuario; liberado, o mesmo login passa.
 func TestLoginBcryptConcurrencyCap(t *testing.T) {
 	e := newEnv(t)
-	e.addUser("fabio", "uma-senha-longa")
+	e.addUser("emergencia", "uma-senha-longa")
 	for i := 0; i < maxConcurrentLogins; i++ {
 		e.srv.loginSem <- struct{}{}
 	}
-	ok := `{"username":"fabio","password":"uma-senha-longa"}`
+	ok := `{"username":"emergencia","password":"uma-senha-longa"}`
 	for i := 0; i < 10; i++ {
 		e.expect(e.do("POST", "/api/login", ok, jsonHdr), 429, "too_many_attempts")
 	}

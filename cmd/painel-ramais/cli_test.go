@@ -31,8 +31,11 @@ func newRig(t *testing.T) *rig {
 	d := t.TempDir()
 	secret := filepath.Join(d, "secret")
 	os.WriteFile(secret, []byte("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=\n"), 0o600)
+	issabel := filepath.Join(d, "issabel.key") // bytes 0x20 a 0x3f, a chave de exemplo do plano (C1)
+	os.WriteFile(issabel, []byte("ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=\n"), 0o600)
 	cfg := filepath.Join(d, "config.yaml")
-	y := "data_dir: " + filepath.ToSlash(d) + "\nauth:\n  secret_file: " + filepath.ToSlash(secret) + "\n"
+	y := "data_dir: " + filepath.ToSlash(d) + "\nauth:\n  secret_file: " + filepath.ToSlash(secret) +
+		"\n  issabel_key_file: " + filepath.ToSlash(issabel) + "\n"
 	os.WriteFile(cfg, []byte(y), 0o600)
 	return &rig{t: t, dir: d, cfg: cfg, euid: 1000}
 }
@@ -167,7 +170,7 @@ func TestGroupCommands(t *testing.T) {
 
 func TestTokenCommand(t *testing.T) {
 	r := newRig(t)
-	if code := r.run("", "token", "--sub", "issabel:admin", "--config", r.cfg); code != 0 {
+	if code := r.run("", "token", "--sub", "roteiro", "--config", r.cfg); code != 0 {
 		t.Fatalf("token: %d %q", code, r.err.String())
 	}
 	tok := strings.TrimSpace(r.out.String())
@@ -176,7 +179,7 @@ func TestTokenCommand(t *testing.T) {
 	}
 	secret := mustSecret(t)
 	v := auth.NewVerifier(secret)
-	if c, err := v.Verify(tok); err != nil || c.Sub != "issabel:admin" {
+	if c, err := v.Verify(tok); err != nil || c.Sub != "roteiro" {
 		t.Errorf("token invalido: %v", err)
 	}
 	if c, _ := v.Verify(tok); c.Sub != "" {
@@ -200,4 +203,51 @@ func mustSecret(t *testing.T) []byte {
 		b[i] = byte(i)
 	}
 	return b
+}
+
+func mustIssabelKey() []byte {
+	b := make([]byte, 32)
+	for i := range b {
+		b[i] = byte(0x20 + i)
+	}
+	return b
+}
+
+func TestTokenIssabel(t *testing.T) {
+	r := newRig(t)
+	// Com --issabel: assinado com a chave do Issabel; o verificador aceita como administrador.
+	if code := r.run("", "token", "--issabel", "--sub", "issabel:admin:ana", "--config", r.cfg); code != 0 {
+		t.Fatalf("token --issabel: %d %q", code, r.err.String())
+	}
+	tok := strings.TrimSpace(r.out.String())
+	v := auth.NewVerifier(mustSecret(t))
+	if _, err := v.Verify(tok); err == nil {
+		t.Fatal("sem a chave do Issabel carregada o verificador deve recusar")
+	}
+	v.SetIssabelKey(mustIssabelKey())
+	c, err := v.Verify(tok)
+	if err != nil || c.Sub != "issabel:admin:ana" || !auth.IsAdmin("token", c.Sub) {
+		t.Fatalf("token do Issabel: %+v %v", c, err)
+	}
+	// Operador.
+	r.run("", "token", "--issabel", "--sub", "issabel:user:bia", "--config", r.cfg)
+	if c, err := v.Verify(strings.TrimSpace(r.out.String())); err != nil || auth.IsAdmin("token", c.Sub) {
+		t.Errorf("operador: %+v %v", c, err)
+	}
+	// Sub fora da gramatica com --issabel, e sub issabel: sem --issabel: erro de uso.
+	for _, sub := range []string{"roteiro", "issabel:admin:", "issabel:root:x", "issabel:admin"} {
+		if code := r.run("", "token", "--issabel", "--sub", sub, "--config", r.cfg); code != 1 || r.out.Len() != 0 {
+			t.Errorf("--issabel --sub %q: %d", sub, code)
+		}
+	}
+	for _, sub := range []string{"issabel:x", "issabel:admin:ana", "ISSABEL:user:ana", "issabel:"} {
+		if code := r.run("", "token", "--sub", sub, "--config", r.cfg); code != 1 || !strings.Contains(r.err.String(), "use --issabel para sub issabel:") || r.out.Len() != 0 {
+			t.Errorf("sem --issabel --sub %q: %d %q", sub, code, r.err.String())
+		}
+	}
+	// Chave ausente: erro de ambiente (2), sem token.
+	os.Remove(filepath.Join(r.dir, "issabel.key"))
+	if code := r.run("", "token", "--issabel", "--sub", "issabel:admin:ana", "--config", r.cfg); code != 2 || r.out.Len() != 0 {
+		t.Errorf("chave ausente: %d %q", code, r.err.String())
+	}
 }
