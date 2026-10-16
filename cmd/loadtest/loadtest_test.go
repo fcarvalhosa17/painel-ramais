@@ -282,3 +282,26 @@ func TestTrackerContaEmConversaSemOutroLado(t *testing.T) {
 		t.Fatalf("queria 1 ocorrencia: on=%v n=%d %v", on, n, s)
 	}
 }
+
+func TestTrackerNoPeerIgnoraTaintedEForaDoRegime(t *testing.T) {
+	trk := NewTracker()
+	t0 := time.Now()
+	trk.CountNoPeerFrom(t0)
+	mk := func(num, id string) View {
+		return mkView(num, "registered", "inuse", amisim.CallView{ID: id, Direction: "internal", State: "talking", Peer: amisim.PeerView{Kind: "unknown"}})
+	}
+	trk.tainted["1"] = true
+	trk.Observe(mk("1", "9.1"), t0.Add(time.Second), true)
+	if _, n, _ := trk.NoPeer(); n != 0 {
+		t.Fatalf("tainted nao conta: %d", n)
+	}
+	trk.StopNoPeer(t0.Add(2 * time.Second))
+	trk.Observe(mk("2", "9.2"), t0.Add(3*time.Second), true)
+	if _, n, _ := trk.NoPeer(); n != 0 {
+		t.Fatalf("depois do fim do regime nao conta: %d", n)
+	}
+	trk.Observe(mk("3", "9.3"), t0.Add(time.Second), true)
+	if _, n, _ := trk.NoPeer(); n != 1 {
+		t.Fatalf("dentro do regime conta: %d", n)
+	}
+}

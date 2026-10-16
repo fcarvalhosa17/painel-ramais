@@ -1087,6 +1087,7 @@ func (x *runner) regime() {
 		time.Sleep(regimeEvery)
 	}
 	f.RegimeDur = time.Since(t0)
+	x.trk.StopNoPeer(time.Now())
 	if o.heap {
 		heapAt(time.Now())
 		if err := x.d.HeapProfile(filepath.Join(o.outDir, "fim-"+r.Mode+".pb.gz")); err != nil {

@@ -70,6 +70,7 @@ type Tracker struct {
 	observed   int
 	// "em conversa" sem outro lado: contado depois de noPeerFrom (fim do aquecimento), 1 vez por chamada.
 	noPeerFrom    time.Time
+	noPeerTo      time.Time // fim do regime; zero = ate o fim do teste
 	noPeerSeen    map[string]bool
 	nNoPeer       int
 	noPeerSamples []string
@@ -194,10 +195,20 @@ func (t *Tracker) CountNoPeerFrom(from time.Time) {
 	t.mu.Unlock()
 }
 
+// StopNoPeer encerra a contagem (fim do regime): rajada, queda e restauracao tem estados proprios.
+func (t *Tracker) StopNoPeer(at time.Time) {
+	t.mu.Lock()
+	t.noPeerTo = at
+	t.mu.Unlock()
+}
+
 // noteNoPeer conta chamada "talking" com outro lado "unknown" vista no WS. O daemon nunca deve
 // publicar isso: a protecao de 1 s tambem conta (ela publica exatamente esse estado). Quem chama segura t.mu.
 func (t *Tracker) noteNoPeer(v View, recv time.Time, measure bool) {
-	if !measure || t.noPeerFrom.IsZero() || recv.Before(t.noPeerFrom) || recv.Before(t.grace) {
+	if !measure || t.noPeerFrom.IsZero() || recv.Before(t.noPeerFrom) || recv.Before(t.grace) || t.tainted[v.Number] {
+		return // tainted: estado herdado de chamada restaurada por snapshot, nao de evento ao vivo
+	}
+	if !t.noPeerTo.IsZero() && recv.After(t.noPeerTo) {
 		return
 	}
 	for _, c := range v.Calls {
