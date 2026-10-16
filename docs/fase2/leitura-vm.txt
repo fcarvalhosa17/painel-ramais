@@ -1,0 +1,356 @@
+=== 1 ===
+Rocky Linux release 8.8 (Green Obsidian)
+issabel-addons 5.0.0-1
+issabel-agenda 5.0.0-1
+issabel-asterisk-sounds 1.2.3-2
+issabel-centos8-provides 1-1.el8
+issabel-config_helpers 5.0.0-1
+issabel-email_admin 5.0.0-1
+issabel-endpointconfig2 5.0.0-1.el8
+issabel-extras 5.0.0-1
+issabel-firstboot 5.0.0-1
+issabel-fixfonts 1.0.0-2
+issabel-framework 5.0.0-1
+issabel-framework-themes-extra 5.0.0-1
+issabel-geoip 1.6.12-3
+issabel-license 5.0.0-1
+issabel-my_extension 5.0.0-1
+issabel-network-agent 1.0.0-2
+issabel-network_applet 1.0.0-0
+issabel-packetbl 1.0-3
+issabel-packet_capture 1.0.0-4
+issabelPBX 2.12.0-1.el8
+issabel-pbx 5.0.0-1
+issabel-portknock 4.0.0-2
+issabel-prosody-auth 1.0-3
+issabel-reports 5.0.0-1
+issabel-security 5.0.0-1
+issabel-system 5.0.0-1
+issabel-theme_designer 1.0.0-3
+issabel-two_factor_auth 1.0.0-4
+issabel-upnpc 1.0.0-3
+issabel-wizard 1.0.0-4
+PHP 7.4.33 (cli) (built: Aug  1 2023 08:47:49) ( NTS )
+Server version: Apache/2.4.37 (rocky)
+=== 2 ===
+CREATE TABLE menu (id varchar(40), IdParent varchar(40), Link varchar(250), Name varchar(250), Type varchar(20), order_no Integer);
+id|IdParent|Name|Type|Link|order_no
+pbxadmin|pbxconfig|PBX Configuration|framed|/admin/|1
+voicemail|pbxconfig|Voicemail|module||3
+monitoring|pbxconfig|Calls Recordings|module||4
+pbxconfig||PBX|||5
+endpoints|pbxconfig|Batch Configurations|module||5
+conference|pbxconfig|Conference|module||6
+tools|pbxconfig|Tools|module||8
+fop2|pbxconfig|Operator Panel|module||9
+endpoint_configurator|pbxconfig|Endpoint Configurator|module||51
+=== 3 ===
+CREATE TABLE acl_action (description varchar(200), id INTEGER PRIMARY KEY, name varchar(10));
+CREATE TABLE acl_group (description TEXT, id INTEGER PRIMARY KEY, name varchar(200));
+CREATE TABLE acl_membership (
+  id INTEGER  NOT NULL   PRIMARY KEY,
+  id_user INTEGER  NOT NULL default '0',
+  id_group INTEGER   NOT NULL default '0'
+);
+CREATE TABLE acl_user (id INTEGER PRIMARY KEY, name varchar(50), description varchar(180), md5_password varchar(50), extension varchar(20));
+CREATE TABLE acl_user_permission (id INTEGER PRIMARY KEY, id_action int(11), id_user int(11), id_resource int(11));
+CREATE TABLE acl_resource (id INTEGER PRIMARY KEY, name varchar(50), description varchar(180));
+CREATE TABLE acl_group_permission (id INTEGER NOT NULL PRIMARY KEY,  id_action INTEGER NOT NULL, id_group INTEGER NOT NULL, id_resource INTEGER NOT NULL);
+CREATE TABLE acl_user_shortcut(
+       id           INTEGER     NOT NULL   PRIMARY KEY,
+       id_user      INTEGER     NOT NULL,
+       id_resource  INTEGER     NOT NULL,
+       type         VARCHAR(25) NOT NULL,
+       description  VARCHAR(25)
+);
+CREATE TABLE sticky_note(
+       id           INTEGER   NOT NULL   PRIMARY KEY,
+       id_user      INTEGER   NOT NULL,
+       id_resource  INTEGER   NOT NULL,
+       date_edit    DATETIME  NOT NULL,
+       description  TEXT
+, auto_popup INTEGER NOT NULL DEFAULT '0');
+CREATE TABLE acl_notification
+(
+    id              INTEGER     NOT NULL    PRIMARY KEY,
+    datetime_create DATETIME    NOT NULL,
+    level           VARCHAR(32) NOT NULL    DEFAULT 'info',
+    id_user         INTEGER,
+    id_resource     INTEGER,
+    content         TEXT,
+
+    FOREIGN KEY (id_user) REFERENCES acl_user(id),
+    FOREIGN KEY (id_resource) REFERENCES acl_resource(id)
+);
+CREATE TABLE acl_module_privileges (
+    id              INTEGER     NOT NULL    PRIMARY KEY,
+    id_resource     INTEGER     NOT NULL,
+    privilege       VARCHAR(32) NOT NULL,
+    desc_privilege  TEXT,
+
+    FOREIGN KEY (id_resource) REFERENCES acl_resource(id)
+);
+CREATE TABLE acl_module_user_permissions (
+    id                  INTEGER     NOT NULL    PRIMARY KEY,
+    id_user             INTEGER     NOT NULL,
+    id_module_privilege INTEGER     NOT NULL,
+
+    FOREIGN KEY (id_user) REFERENCES acl_user(id),
+    FOREIGN KEY (id_module_privilege) REFERENCES acl_module_privileges(id)
+);
+CREATE TABLE acl_module_group_permissions (
+    id                  INTEGER     NOT NULL    PRIMARY KEY,
+    id_group            INTEGER     NOT NULL,
+    id_module_privilege INTEGER     NOT NULL,
+
+    FOREIGN KEY (id_group) REFERENCES acl_group(id),
+    FOREIGN KEY (id_module_privilege) REFERENCES acl_module_privileges(id)
+);
+CREATE TABLE acl_profile_properties
+(
+       id_profile   INTEGER     NOT NULL,
+       property     VARCHAR(32) NOT NULL,
+       value        VARCHAR(256),
+
+       PRIMARY KEY (id_profile, property),
+       FOREIGN KEY (id_profile) REFERENCES acl_user_profile (id_profile)
+);
+CREATE TABLE acl_user_profile
+(
+       id_profile   INTEGER     NOT NULL,
+       id_user      INTEGER     NOT NULL,
+       id_resource  INTEGER     NOT NULL,
+       profile      VARCHAR(32) NOT NULL,
+
+       PRIMARY KEY (id_profile),
+       FOREIGN KEY (id_user)     REFERENCES acl_user(id),
+       FOREIGN KEY (id_resource) REFERENCES acl_resource(id)
+);
+=== 4 ===
+id|name|grupo|acao
+44|conference|administrator|access
+description|id|name
+total access|1|administrator
+Operator|2|Operator
+extension user|3|extension
+description|id|name
+Access the resource|1|access
+View the resource|2|view
+Create into resource|3|create
+Delete in resource|4|delete
+Update into resource|5|update
+=== 5 ===
+/var/www/db/:
+total 636
+drwxrwxrwx. 2 asterisk asterisk   4096 out 16 16:30 .
+drwxr-xr-x. 7 root     root       4096 out 15 14:50 ..
+-rw-r--r--. 1 asterisk asterisk  77824 out 15 15:03 acl.db
+-rw-r--r--. 1 asterisk asterisk  16384 out 15 14:47 addons.db
+-rw-r--r--. 1 asterisk asterisk  12288 out 15 14:47 address_book.db
+-rw-r--r--. 1 asterisk asterisk   8192 out 15 14:48 attacks.db
+-rw-r--r--. 1 asterisk asterisk   8192 out 15 14:47 calendar.db
+-rw-r--r--. 1 asterisk asterisk  12288 out 15 14:48 control_panel_design.db
+-rw-r--r--. 1 asterisk asterisk  36864 out 15 14:48 countries.db
+-rw-r--r--. 1 asterisk asterisk  16384 out 15 14:48 dashboard.db
+-rw-r--r--. 1 asterisk asterisk  36864 out 16 16:01 email.db
+-rw-r--r--. 1 asterisk asterisk  12288 out 15 14:47 FTP.db
+-rw-r--r--. 1 asterisk asterisk  24576 out 15 14:47 hardware_detector.db
+-rw-r--r--. 1 asterisk asterisk  40960 out 15 14:48 iptables.db
+-rw-r--r--. 1 asterisk asterisk  16384 out 15 14:50 menu.db
+-rw-r--r--. 1 asterisk asterisk   8192 out 15 14:47 network.db
+-rw-r--r--. 1 asterisk asterisk   8192 out 15 14:50 rate.db
+-rw-r--r--. 1 asterisk asterisk   8192 out 15 14:47 register.db
+-rw-r--r--. 1 asterisk asterisk 274432 out 16 16:30 samples.db
+-rw-r--r--. 1 root     root          0 out 15 14:47 settings_2026Oct15_174702
+-rw-r--r--. 1 asterisk asterisk   8192 out 15 14:47 settings.db
+-rw-r--r--. 1 asterisk asterisk   8192 out 15 14:48 trunk.db
+
+/var/www/html/modules/:
+total 296
+drwxr-xr-x. 74 asterisk asterisk 4096 out 15 14:50 .
+drwxr-xr-x. 18 asterisk asterisk 4096 out 15 14:50 ..
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 addons_availables
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 addons_license
+drwxr-xr-x.  9 asterisk asterisk 4096 out 15 14:47 address_book
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 antispam
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 applet_admin
+drwxr-xr-x.  7 asterisk asterisk 4096 out 15 14:48 asterisk_cli
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 asterisk_log
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 backup_restore
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 betachannel
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 billing_rates
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 billing_report
+drwxr-xr-x.  7 root     root     4096 out 15 14:50 billing_setup
+drwxr-xr-x.  9 asterisk asterisk 4096 out 15 14:47 calendar
+drwxr-xr-x. 10 root     root     4096 out 15 14:50 cdrreport
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 channelusage
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:48 conference
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 currency
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 dashboard
+drwxr-xr-x.  7 root     root     4096 out 15 14:50 dest_distribution
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 dhcp_by_mac
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 dhcp_clientlist
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 dhcp_server
+drwxr-xr-x.  7 root     root     4096 out 15 14:50 email_accounts
+drwxr-xr-x.  7 root     root     4096 out 15 14:50 email_domains
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 email_list
+drwxr-xr-x.  7 root     root     4096 out 15 14:50 email_relay
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 email_stats
+drwxr-xr-x. 10 root     root     4096 out 15 14:50 endpoint_configurator
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:48 extensions_batch
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:48 festival
+drwxr-xr-x.  7 asterisk asterisk 4096 out 15 14:48 file_editor
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 graphic_report
+drwxr-xr-x.  7 asterisk asterisk 4096 out 15 14:47 grouplist
+drwxr-xr-x.  7 asterisk asterisk 4096 out 15 14:47 group_permission
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 hardware_detector
+drwxr-xr-x.  3 asterisk asterisk 4096 out 15 14:47 _issabelpanel
+drwxr-xr-x.  6 asterisk asterisk 4096 out 15 14:47 _issabelutils
+drwxr-xr-x.  7 asterisk asterisk 4096 out 15 14:47 language
+drwxr-xr-x.  7 root     root     4096 out 15 14:50 meet
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 missed_calls
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:48 monitoring
+drwxr-xr-x.  9 asterisk asterisk 4096 out 15 14:48 myex_config
+drwxr-xr-x.  7 asterisk asterisk 4096 out 15 14:47 network_parameters
+drwxr-xr-x.  9 root     root     4096 out 15 14:50 packet_capture
+drwxr-xr-x.  7 asterisk asterisk 4096 out 15 14:47 ping
+drwxr-xr-x.  7 asterisk asterisk 4096 out 15 14:48 qr_batch
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:48 recordings
+drwxr-xr-x.  8 asterisk asterisk 4096 out 15 14:47 registration
+drwxr-xr-x.  8 root     root     4096 out 15 14:50 remote_smtp
+drwxr-xr-x.  7 root     root     4096 out 15 14:50 sec_2fa
+drwxr-xr-x.  8 root     root     4096 out 15 14:48 sec_accessaudit
+drwxr-xr-x.  8 root     root     4096 out 15 14:48 sec_advanced_settings
+drwxr-xr-x.  8 root     root     4096 out 15 14:48 sec_fb_admin
+drwxr-xr-x.  8 root     root     4096 out 15 14:48 sec_fb_banned
+drwxr-xr-x.  7 root     root     4096 out 15 14:48 sec_geoip_key
+drwxr-xr-x. 10 root     root     4096 out 15 14:48 sec_geoip_map
+drwxr-xr-x.  7 root     root     4096 out 15 14:48 sec_letsencrypt
+drwxr-xr-x.  6 root     root     4096 out 15 14:48 sec_portknock_if
+drwxr-xr-x.  6 root     root     4096 out 15 14:48 sec_portknock_users
+drwxr-xr-x.  8 root     root     4096 out 15 14:48 sec_ports
+drwxr-xr-x.  8 root     root     4096 out 15 14:48 sec_rules
+ls: não foi possível acessar '/var/www/html/modules/control_panel': Arquivo ou diretório inexistente
+/var/www/html/fop2
+=== 6 ===
+asterisk asterisk asterisk                                 httpd
+asterisk asterisk asterisk                                 php-fpm
+root     root     (null)                                   httpd
+root     root     (null)                                   php-fpm
+User asterisk
+Group asterisk
+user=asterisk
+group=asterisk
+listen = /run/php-fpm/www.sock
+uid=992(asterisk) gid=989(asterisk) grupos=989(asterisk)
+uid=48(apache) gid=48(apache) grupos=48(apache)
+=== 7 ===
+disable_functions =
+session.gc_maxlifetime = 1440
+session.save_path = "/var/lib/php/session-asterisk"
+curl
+hash
+json
+pdo_sqlite
+sqlite3
+=== 8 ===
+Disabled
+getsebool:  SELinux is disabled
+-                                   670 ?        00:00:07 php-fpm
+ls: não foi possível acessar '/etc/painel-ramais': Arquivo ou diretório inexistente
+/var/www/html/modules:
+system_u:object_r:httpd_sys_content_t:s0 addons_availables
+system_u:object_r:httpd_sys_content_t:s0 addons_license
+system_u:object_r:httpd_sys_content_t:s0 address_book
+system_u:object_r:httpd_sys_content_t:s0 antispam
+system_u:object_r:httpd_sys_content_t:s0 applet_admin
+system_u:object_r:httpd_sys_content_t:s0 asterisk_cli
+system_u:object_r:httpd_sys_content_t:s0 asterisk_log
+system_u:object_r:httpd_sys_content_t:s0 backup_restore
+system_u:object_r:httpd_sys_content_t:s0 betachannel
+system_u:object_r:httpd_sys_content_t:s0 billing_rates
+system_u:object_r:httpd_sys_content_t:s0 billing_report
+system_u:object_r:httpd_sys_content_t:s0 billing_setup
+system_u:object_r:httpd_sys_content_t:s0 calendar
+system_u:object_r:httpd_sys_content_t:s0 cdrreport
+system_u:object_r:httpd_sys_content_t:s0 channelusage
+system_u:object_r:httpd_sys_content_t:s0 conference
+system_u:object_r:httpd_sys_content_t:s0 currency
+system_u:object_r:httpd_sys_content_t:s0 dashboard
+system_u:object_r:httpd_sys_content_t:s0 dest_distribution
+=== 9 ===
+HTTP/1.1 200 OK
+Date: Fri, 16 Oct 2026 19:30:37 GMT
+Server: Apache/2.4.37 (rocky) OpenSSL/1.1.1k
+Last-Modified: Wed, 17 Apr 2024 02:28:23 GMT
+ETag: "2045-616419bcf3fc0"
+Accept-Ranges: bytes
+Content-Length: 8261
+Content-Type: image/vnd.microsoft.icon
+
+=== 10 ===
+total 60
+drwxr-xr-x. 2 root root    4096 out 15 14:50 .
+drwxr-xr-x. 5 root root    4096 out 15 14:43 ..
+-rw-r--r--. 1 root root    2926 set 22  2023 autoindex.conf
+-rw-r--r--. 1 root root     524 abr 16  2024 issabel.conf
+-rw-r--r--. 1 root root     132 fev 21  2024 issabel-endpointconfig.conf
+-rw-r--r--. 1 root root     562 abr 16  2024 issabel-htaccess.conf
+-rw-r--r--. 1 root mailman  674 dez  2  2021 mailman.conf
+-rw-r--r--. 1 root root    1618 out 15 14:47 php.conf
+-rw-r--r--. 1 root root     400 set 22  2023 README
+-rw-r--r--. 1 root root    8720 set 22  2023 ssl.conf
+-rw-r--r--. 1 root root    1252 set 22  2023 userdir.conf
+-rw-r--r--. 1 root root     574 set 22  2023 welcome.conf
+-rw-r--r--. 1 root root     415 fev 21  2024 wstunnel-asterisk.conf
+cat: /etc/httpd/conf.d/painel-ramais.conf: Arquivo ou diretório inexistente
+ headers_module (shared)
+ rewrite_module (shared)
+ proxy_module (shared)
+ proxy_ajp_module (shared)
+ proxy_balancer_module (shared)
+ proxy_connect_module (shared)
+ proxy_express_module (shared)
+ proxy_fcgi_module (shared)
+ proxy_fdpass_module (shared)
+ proxy_ftp_module (shared)
+ proxy_http_module (shared)
+ proxy_hcheck_module (shared)
+ proxy_scgi_module (shared)
+ proxy_uwsgi_module (shared)
+ proxy_wstunnel_module (shared)
+ proxy_http2_module (shared)
+=== 11 ===
+o pacote painel-ramais não está instalado
+ls: não foi possível acessar '/etc/painel-ramais/': Arquivo ou diretório inexistente
+f: /etc/painel-ramais/secret
+dr-xr-xr-x root root /
+drwxr-xr-x root root etc
+                     painel-ramais - arquivo ou diretório inexistente
+inactive
+inactive
+=== 12 ===
+-rwxr-xr-x. 1 root root 20713 abr 16  2024 /usr/bin/issabel-dbprocess
+-rwxr-xr-x. 1 root root  6226 abr 16  2024 /usr/bin/issabel-menumerge
+-rwxr-xr-x. 1 root root  2866 abr 16  2024 /usr/bin/issabel-menuremove
+28:$arrConf['issabel_dsn'] = array(
+39:$arrConf['mainTheme'] = load_theme($arrConf['basePath']."/"); //theme para la parte plantilla principal de Issabel (se usa para la inclusion de los css)
+53:$arrConf['elx_framework_globalmodules'] = array('_issabelutils', 'registration', '_issabelpanel');
+fop2-2-2.31.37
+issabel-addons-5.0.0-1
+issabel-agenda-5.0.0-1
+issabel-email_admin-5.0.0-1
+issabel-endpointconfig2-5.0.0-1.el8
+issabel-extras-5.0.0-1
+issabel-framework-5.0.0-1
+issabel-license-5.0.0-1
+issabel-my_extension-5.0.0-1
+issabel-network_applet-1.0.0-0
+issabel-packet_capture-1.0.0-4
+issabel-pbx-5.0.0-1
+issabel-reports-5.0.0-1
+issabel-security-5.0.0-1
+issabel-system-5.0.0-1
+issabel-theme_designer-1.0.0-3
+issabel-two_factor_auth-1.0.0-4
+issabel-upnpc-1.0.0-3

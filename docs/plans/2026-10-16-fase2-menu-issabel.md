@@ -2,7 +2,7 @@
 
 **Data**: 2026-10-16
 **Decisão de arquitetura**: `docs/adr/ADR-004-tela-e-menu-do-issabel.md` (Proposto). Base: ADR-001 (WebSocket), ADR-002 (sessão e token), ADR-003 (pacote), `docs/CONTRATOS.md`.
-**Leitura da VM**: `docs/fase2/leitura-vm.txt` não existia quando este plano foi escrito. Nada aqui assume valor da VM; o que depende dela está na seção 8 e no ADR-004 ("A confirmar pela VM").
+**Leitura da VM**: `docs/fase2/leitura-vm.txt` chegou em 2026-10-16; os valores reais estão na seção 8 e no ADR-004 ("Leitura da VM").
 
 Regra deste plano: cada arquivo tem um dono só. Ninguém edita arquivo de outro agente; precisou, pede ao gerente. Contrato novo entra aqui primeiro e depois o backend o leva para o `docs/CONTRATOS.md` (tarefa B11).
 
@@ -371,18 +371,96 @@ Texto para o backend levar ao `CONTRATOS.md` 15.5 (B11), no lugar dos passos 2, 
 
 ---
 
-## 8. Espera a VM (não começar)
+## 8. Integração com o menu do Issabel (valores da VM, 2026-10-16)
 
-Dono: devops, salvo indicação. Começa quando `docs/fase2/leitura-vm.txt` existir e o tech-lead revisar as respostas contra o ADR-004.
+Fonte: `docs/fase2/leitura-vm.txt` e ADR-004, seção "Leitura da VM". Alvo único: Rocky Linux 8 com Issabel 5. Donos: devops (PHP, `menu.xml`, `packaging/`, `instalar.py`, roteiro); backend (item `issabel_menu` do depcheck).
 
-| Item | Depende de (ADR-004, "A confirmar pela VM") |
-|---|---|
-| Módulo PHP `painel_ramais` (só `_moduleContent`, sem código com efeito no topo do `index.php`; emite token pelo C1; iframe do C4) | 2, 3, 6, 7, 8, 9 |
-| `menu.xml` e registro no menu, logo depois do Operator Panel, grupos `administrator` e `Operator`, sem tocar em item do Issabel | 1, 6 |
-| Grupo da chave no `nfpm.yaml`, no `%post` (criação da chave como os outros segredos) e no `instalar.py` | 2, 4 |
-| `instalar.py menu` (instala, atualiza e remove o item; trata item já existente, porque o `issabel-menumerge` só concede grupos na criação) | 1, 6 |
-| Checagens do menu no `verificar` e no `status` | 1, 2, 5 |
-| SELinux da chave e cabeçalhos globais do Apache | 4, 5 |
+**8a. Item de menu.** `menuid` = `painel_ramais`. Arquivo `packaging/issabel/menu.xml`, instalado em `/usr/share/painel-ramais/issabel/menu.xml` (root 0644):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<module>
+  <menulist>
+    <menuitem menuid="painel_ramais" desc="Painel de Ramais" parent="pbxconfig" module="yes" link="" order="10" type="module">
+      <permissions>
+        <group id="1" name="administrator" desc="total access"></group>
+        <group id="2" name="Operator" desc="Operator"></group>
+      </permissions>
+    </menuitem>
+  </menulist>
+</module>
+```
+
+- Registro: `%post` roda `/usr/bin/issabel-menumerge /usr/share/painel-ramais/issabel/menu.xml` como root se o executável existir (camada do RPM, ADR-003); falha só registra no log, como os outros passos.
+- Armadilha confirmada no código: com o item já existente, o `issabel-menumerge` atualiza nome, pai, tipo e ordem, mas **nunca** as permissões. Por isso ninguém edita `acl.db` à mão; quando faltar grupo, o caminho é `instalar.py menu --recriar` (8c), que remove e registra de novo.
+- Remoção: `%postun` com `$1=0` roda `/usr/bin/issabel-menuremove painel_ramais` se o executável existir. O `deleteMenu` do Issabel só sobe para o pai quando o item é filho único; `pbxconfig` tem vários filhos, então só o nosso item sai.
+
+**8b. Módulo PHP.** Arquivo `packaging/issabel/painel_ramais/index.php`, instalado em `/var/www/html/modules/painel_ramais/index.php` (root:root 0644; diretório root:root 0755). O arquivo só define funções: nenhum código com efeito fora delas (o `index.php` do módulo é alcançável direto pela URL, sem ACL).
+
+```php
+<?php
+function _moduleContent(&$smarty, $module_name)
+{
+    global $arrConf, $pACL;  // $pACL vem do index.php do Issabel
+    $raw = @file_get_contents('/etc/painel-ramais-issabel.key');
+    $key = ($raw === false) ? false : base64_decode(trim($raw), true);
+    if ($key === false || strlen($key) < 32) {
+        return '<p>Painel de Ramais: integração com o Issabel desligada (chave ausente ou ilegível). '
+             . 'Avise o administrador do servidor (./instalar.py status).</p>';
+    }
+    $user = isset($_SESSION['issabel_user']) ? (string)$_SESSION['issabel_user'] : '';
+    if (!preg_match('/^[^\p{Cc}\p{Cf}\p{Zl}\p{Zp}]{1,64}$/u', $user)) {
+        return '<p>Painel de Ramais: usuário do Issabel inválido para o painel.</p>';
+    }
+    if (!isset($pACL)) {
+        $pACL = new paloACL(new paloDB($arrConf['issabel_dsn']['acl']));
+    }
+    $papel = (bool)$pACL->isUserAdministratorGroup($user) ? 'admin' : 'user';
+    $b64 = function ($s) { return rtrim(strtr(base64_encode($s), '+/', '-_'), '='); };
+    $p = $b64(json_encode(array(
+        'sub' => 'issabel:' . $papel . ':' . $user,
+        'exp' => time() + 60,
+        'jti' => $b64(random_bytes(16)),
+    ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    $t = $p . '.' . $b64(hash_hmac('sha256', $p, $key, true));
+    return '<iframe src="/painel-ramais/#t=' . htmlspecialchars($t, ENT_QUOTES) . '" allow="fullscreen" '
+         . 'title="Painel de Ramais" style="width:100%;height:calc(100vh - 140px);min-height:560px;border:0"></iframe>';
+}
+```
+
+- Papel: `isUserAdministratorGroup` devolve o nome do grupo (membro do grupo id 1), `false` ou `NULL` (usuário sem grupo); usar só como booleano, nunca `!== false`.
+- Teste do emissor: não há teste automatizado (regra do usuário: nenhum teste novo neste computador). Verificar na VM, Etapa 16b: o token do módulo é aceito pelo daemon (tela carrega sem senha, sem `invalid_token` no journal) e o papel `administrator`/`Operator` aparece certo. Idem para `instalar.py menu`.
+- Altura do iframe: ponto de partida; a Etapa 16b confere na área de conteúdo (cerca de 1250 x 700 px).
+
+**8c. `instalar.py menu`** (root; só stdlib; leitura com `sqlite3.connect("file:/var/www/db/<db>?mode=ro", uri=True)`):
+
+1. Pré-requisitos: `/usr/bin/issabel-menumerge` executável, `/var/www/db/menu.db` e `/var/www/db/acl.db` legíveis, `/usr/share/painel-ramais/issabel/menu.xml` e `/var/www/html/modules/painel_ramais/index.php` presentes. Faltou: ERRO com o que falta.
+2. Item: `SELECT IdParent, Type, order_no FROM menu WHERE id = 'painel_ramais'`. Ausente: roda `issabel-menumerge <menu.xml>` e lê de novo. Esperado `pbxconfig`, `module`, `10`; diferente: AVISO com o valor lido.
+3. Permissões: `SELECT p.id_group FROM acl_group_permission p JOIN acl_resource r ON r.id = p.id_resource JOIN acl_action a ON a.id = p.id_action WHERE r.name = 'painel_ramais' AND a.name = 'access'`. Precisa conter 1 e 2. Faltou: AVISO "grupo sem acesso ao item; rode ./instalar.py menu --recriar" (grupo a mais, colocado pelo administrador, só aparece no relatório).
+4. `--recriar`: `issabel-menuremove painel_ramais` e `issabel-menumerge <menu.xml>`, depois os passos 2 e 3. Apaga permissões que o administrador tenha dado a outros grupos: a mensagem diz isso antes de rodar.
+5. Chave: confere `/etc/painel-ramais-issabel.key` com dono `painel-ramais`, grupo `asterisk`, modo 0640; diferente: AVISO com o `chown`/`chmod`.
+6. `instalar` chama o `menu` (passos 1 a 3 e 5) depois do passo 9; `verificar` (antes de instalar) só informa: `issabel-menumerge` presente e `fop2` com `order_no` 9; `status` mostra os passos 2, 3 e 5 em uma linha cada; `remover` não precisa de passo extra (o `%postun` remove o item).
+
+Depcheck do daemon (backend, item novo `issabel_menu`): o usuário `painel-ramais` lê `menu.db` (0644). Abre com `file:/var/www/db/menu.db?mode=ro` e `busy_timeout` de 1 s, consulta só `SELECT 1 FROM menu WHERE id = 'painel_ramais'`. Presente: `ok`. Ausente: `fail`, detalhe "item do menu do Issabel ausente; rode ./instalar.py menu". Erro de abertura ou leitura: `unknown`. O daemon não lê `acl.db` (permissões são do `instalar.py`). Constante do caminho em `internal/depcheck`, ao lado das de `manager.conf`.
+
+**8d. Chave no pacote.** Não entra em `contents` do `nfpm.yaml` (é gerada, como os segredos). `%post`, antes do `issabel-menumerge`:
+- arquivo não existe: `umask 077`, `head -c 32 /dev/urandom | base64 -w0` num temporário em `/etc`; se `cmp -s` com `/etc/painel-ramais/secret` (mesmo conteúdo), gera de novo; `mv` para `/etc/painel-ramais-issabel.key`;
+- sempre (novo ou existente, sem tocar no conteúdo): se `getent group asterisk` existe, `chown painel-ramais:asterisk` e `chmod 0640`; senão `chown painel-ramais:painel-ramais`, `chmod 0600` e registra "grupo asterisk ausente: integração com o menu desligada";
+- `%postun` com `$1=0`: `rm -f /etc/painel-ramais-issabel.key`. o `%postun` já a apaga na remoção, então o `remover --purge` não precisa de passo extra.
+- `contents` ganha: `packaging/issabel/menu.xml` → `/usr/share/painel-ramais/issabel/menu.xml` e `packaging/issabel/painel_ramais/index.php` → `/var/www/html/modules/painel_ramais/index.php` (root:root 0644) e o diretório `/var/www/html/modules/painel_ramais` (root:root 0755).
+
+**8e. Versão 0.1.2-rc.3** (busca no repositório em 2026-10-16):
+- `build.ps1`: nenhum valor a trocar; a versão vem do argumento (`.\build.ps1 release -Version 0.1.2 -Pre rc.3`). O padrão `0.1.1` da linha 8 e os exemplos das linhas 1 a 3 ficam.
+- `packaging/nfpm.yaml`: nenhum (usa `${VERSION}` e `${RELEASE}`).
+- `cmd/painel-ramais/main.go:12` `var version = "0.1.1"`: trocado pelo `-ldflags` no build; não precisa mudar.
+- `instalar.py:157`: exemplo em docstring; não muda.
+- `docs/homologacao/ROTEIRO-MANUAL.md`: linhas 24 e 25 (`TAG=v0.1.2-rc.3`, `VERSAO_RPM=0.1.2-0.1.rc.3`), 77 e 84 (nome do bundle) e a seção "Upgrade da rc.1 para a rc.2" (linhas 272 a 281) vira "da rc.2 para a rc.3".
+- `README.md:17` e `packaging/LEIAME-INSTALACAO.md:12` (`VERSAO=0.1.1`): exemplo de versão final; a URL do RPM avulso só funciona com versão final. Trocar para `0.1.2-rc.3` só se o texto ganhar o nome de RPM de rc (`0.1.2-0.1.rc.3`).
+
+**8f. Etapa 16b, sessão do Issabel de 24 min** (devops leva para o roteiro). Fluxo real: cada carga de `index.php?menu=painel_ramais` executa o módulo e gera token novo; a sessão do painel é própria (12 h sem uso, renovada pelo WebSocket) e não depende da sessão do Issabel depois de criada.
+- **Comando:** abra o painel pelo menu, deixe a tela aberta mais de 24 min sem usar o Issabel (pode ser na TV); depois recarregue a página inteira (F5).
+- **Resultado esperado:** durante os 24 min a tela continua atualizando. No F5: se a sessão do Issabel expirou, aparece o login do Issabel; depois de entrar, abrir o menu mostra a tela sem pedir outra senha. Se a sessão do Issabel ainda existir (a coleta do PHP é por amostragem), a tela abre direto. Nunca "Sessão encerrada" com o Issabel logado.
+- **Anotar também:** se o próprio Issabel troca a página inteira pelo login sem F5 (algum aviso periódico do tema), a TV perde a tela; anote o tempo e o que apareceu.
 
 ---
 
@@ -407,7 +485,7 @@ Nada da seção 4, 5 ou 7 depende da VM.
 | Risco | Mitigação |
 |---|---|
 | `/etc/asterisk` sem `x` para outros: `manager_custom_perm` fica `unknown` para sempre e o health fica `degraded` | Item 10 da VM. Se acontecer, decisão do usuário: aceitar `unknown`, ou tratar `EACCES` do diretório como `ok` (se o serviço, que é "outro", não atravessa a pasta, nenhum outro usuário atravessa) |
-| Cabeçalho global do Issabel (`X-Frame-Options: DENY` ou CSP) somado ao do daemon bloqueia o iframe | Item 5 da VM; spike 1 do ADR-004 |
+| Cabeçalho global do Issabel (`X-Frame-Options: DENY` ou CSP) somado ao do daemon bloqueia o iframe | Fechado pela VM: o Apache não define nenhum (ADR-004, item 5 da leitura) |
 | `connect-src 'self'` não cobrir `ws:`/`wss:` num navegador antigo | Medição no WebKit (F9); se falhar, o daemon monta `connect-src 'self' wss://<Host>` com o `Host` validado |
 | Primeira exibição acima de 2 s com 10.000 ramais | Desenhar indicadores e a primeira tela de cards antes do mapa e do gráfico; medir de novo antes de otimizar o protocolo |
 | Vetores novos aparecem no gitleaks | Atualizar o baseline em `.claude/agent-memory/seguranca` com os arquivos e linhas dos vetores V0 a V3 |

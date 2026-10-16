@@ -1,7 +1,7 @@
 ## ADR-004: Tela no menu do Issabel (iframe com token), chave separada do Issabel e acesso de emergência
 
 **Data**: 2026-10-16
-**Status**: Proposto. O desenho do lado do daemon e da tela está fechado e pode ser implementado sem a VM. Passa a Aceito depois de duas coisas: (1) a leitura da VM (`docs/fase2/leitura-vm.txt`, ainda inexistente em 2026-10-16) responder a seção "A confirmar pela VM"; (2) o spike da seção "Spike pendente" rodar num Issabel 5 real, com a saída anexada aqui.
+**Status**: Aceito em 2026-10-16 (decisão do usuário, depois da leitura da VM em `docs/fase2/leitura-vm.txt`; seção "Leitura da VM"). A verificação no Issabel real com o módulo instalado (seção "Verificação na VM") continua obrigatória antes da release e vai anexada aqui.
 **Porta**: 1 via para o formato do `sub`, o caminho da chave e a regra de permissão: o emissor é um módulo PHP instalado nos servidores dos clientes, e mudar depois exige atualizar os dois lados juntos. 2 vias para a tecnologia da tela (HTML, CSS e JS embutidos no binário, sem build), que só tem consumidor dentro do repositório.
 
 ### Contexto
@@ -20,13 +20,13 @@ Estudo feito sem VM (clone do IssabelFoundation `framework`, `pbx` e `ai_assista
 
 ### Decisão
 
-**1. Entrada pelo menu: módulo PHP que emite token e monta um iframe.** O item de menu é do tipo módulo (não framed). O `_moduleContent` do módulo, a cada abertura, lê a chave, monta o `sub` (item 3), assina um token no formato do ADR-002 (TTL 60 s, uso único) e devolve um `<iframe src="/painel-ramais/#t=<token>" allow="fullscreen">`. O token vai no fragmento, que nunca chega ao Apache nem ao log de acesso. A tela lê o fragmento, apaga-o da barra com `history.replaceState`, troca por sessão em `POST /api/token` e segue com cookie, como na fase 1. O módulo PHP, o `menu.xml` e o registro no menu esperam a VM.
+**1. Entrada pelo menu: módulo PHP que emite token e monta um iframe.** O item de menu é do tipo módulo (não framed). O `_moduleContent` do módulo, a cada abertura, lê a chave, monta o `sub` (item 3), assina um token no formato do ADR-002 (TTL 60 s, uso único) e devolve um `<iframe src="/painel-ramais/#t=<token>" allow="fullscreen">`. O token vai no fragmento, que nunca chega ao Apache nem ao log de acesso. A tela lê o fragmento, apaga-o da barra com `history.replaceState`, troca por sessão em `POST /api/token` e segue com cookie, como na fase 1. Módulo PHP, `menu.xml` e registro no menu: plano da fase 2, seção 8 (valores da VM).
 
-**2. Chave do Issabel separada.** Arquivo `/etc/painel-ramais-issabel.key`, fora de `/etc/painel-ramais/` (o diretório é `root:painel-ramais 0750` e o PHP não o atravessa). Conteúdo: base64 de 32 bytes aleatórios ou mais, como o `secret`. Dono `painel-ramais` (o daemon lê como dono), grupo = o grupo do processo PHP do Issabel (a confirmar pela VM), modo 0640. Configuração nova `auth.issabel_key_file` (padrão o caminho acima).
+**2. Chave do Issabel separada.** Arquivo `/etc/painel-ramais-issabel.key`, fora de `/etc/painel-ramais/` (o diretório é `root:painel-ramais 0750` e o PHP não o atravessa). Conteúdo: base64 de 32 bytes aleatórios ou mais, como o `secret`. Dono `painel-ramais` (o daemon lê como dono), grupo = o grupo do processo PHP do Issabel (`asterisk`, pela VM), modo 0640. Configuração nova `auth.issabel_key_file` (padrão o caminho acima).
 - Regra de permissão no daemon: arquivo regular (não symlink), dono = usuário do serviço, nenhum bit fora de `0640` (aceita 0640, 0600, 0440, 0400; recusa escrita de grupo e qualquer bit de outros). Falhou a regra: a chave não é usada.
 - Sem o arquivo, ou com permissão errada, ou com conteúdo inválido: o daemon sobe normalmente, só os tokens `issabel:` são recusados, e a verificação de dependências (60 s) mostra o motivo no item `issabel_key`. Arquivo ausente é `ok` com o detalhe "integração com o menu do Issabel desligada", para uma instalação sem o módulo não ficar `degraded`; permissão ou conteúdo errado é `fail` com a correção.
 - A mesma verificação de 60 s entrega a chave lida ao verificador de tokens: criar, trocar, apagar ou estragar a permissão da chave vale em até 60 s, sem reiniciar o serviço, e o que o `/api/health` mostra é exatamente o que o verificador usa.
-- Quem cria a chave: o `%post` do RPM (como os outros segredos), quando o grupo for conhecido pela VM. A regra "o `%post` só faz `chmod` no `manager_custom.conf`" vale para arquivos do Issabel; arquivos do painel (`/etc/painel-ramais*`, `/var/lib/painel-ramais`, a chave) são do RPM.
+- Quem cria a chave: o `%post` do RPM (como os outros segredos), com grupo `asterisk` (plano, seção 8d). A regra "o `%post` só faz `chmod` no `manager_custom.conf`" vale para arquivos do Issabel; arquivos do painel (`/etc/painel-ramais*`, `/var/lib/painel-ramais`, a chave) são do RPM.
 
 **3. `sub` com papel no prefixo, assinado com a chave.** Gramática para tokens assinados com a chave do Issabel: `issabel:admin:<usuario>` para quem está no grupo `administrator` do Issabel, `issabel:user:<usuario>` para os demais grupos com acesso ao item; `<usuario>` de 1 a 64 caracteres, sem caractere de controle (pode conter `:`). O payload continua com exatamente `sub`, `exp` e `jti` (ADR-002 item 13 intacto).
 - Verificação com duas chaves: a assinatura é conferida contra a chave do Issabel (se carregada) e contra o segredo do daemon, ambas com `hmac.Equal`. Casou com a chave do Issabel: o `sub` tem de seguir a gramática acima. Casou com o segredo do daemon: o `sub` **não** pode começar com `issabel:` (comparação sem diferenciar maiúsculas). Qualquer outra combinação: `401 invalid_token`, a mesma resposta de sempre.
@@ -71,20 +71,35 @@ Estudo feito sem VM (clone do IssabelFoundation `framework`, `pbx` e `ai_assista
 - O processo PHP do Issabel roda com um grupo único e conhecido (no código estudado, `asterisk`); qualquer processo com esse grupo lê a chave e emite token de administrador do painel. Aceitável porque esse mesmo grupo já lê `manager.conf`, que dá muito mais poder; a confirmar pela VM.
 - "Documentada só no LEIAME" vale para a documentação de uso (README, roteiros); o contrato técnico (`docs/CONTRATOS.md`, este ADR e o plano da fase 2) cita a rota porque o código a implementa. A rota não é segredo: a proteção é a senha.
 
-### A confirmar pela VM (`docs/fase2/leitura-vm.txt`)
+### Leitura da VM (`docs/fase2/leitura-vm.txt`, 2026-10-16)
 
-Nada abaixo foi visto rodando. Cada item tem dono quando a leitura chegar:
+Issabel 5 (issabel-framework 5.0.0-1, issabelPBX 2.12.0) em Rocky Linux 8.8, PHP 7.4.33 (php-fpm), Apache 2.4.37. O arquivo é dado colado da VM; os itens abaixo são o que ele mostra. Código do `issabel-menumerge`, do `paloSantoInstaller` e da `paloSantoACL` relido no clone do IssabelFoundation/framework.
 
-1. `menuid` real do Operator Panel e do menu pai (PBX), e a ordem dos itens, para posicionar o novo item logo depois sem renumerar os do Issabel.
-2. Grupo (e usuário) do processo PHP/httpd do Issabel: vira o grupo da chave 0640 no `%post`, no `nfpm.yaml` e no `instalar.py`.
-3. `open_basedir` do PHP: se permite ler `/etc/painel-ramais-issabel.key`. Se não permitir, o caminho da chave muda (porta de 1 via: decidir antes do primeiro cliente).
-4. SELinux: modo, contexto que o arquivo da chave recebe em `/etc` e se o httpd consegue lê-lo; estado de `httpd_can_network_connect`.
-5. Cabeçalhos globais do Apache e do PHP do Issabel (`X-Frame-Options`, `Content-Security-Policy`, `Header always set`): se somam aos do daemon e bloqueiam o iframe ou o WebSocket.
-6. ACL real: nomes exatos dos grupos `administrator` e `Operator`; como o PHP obtém o usuário logado e testa se ele é do grupo `administrator` (API da `paloSantoACL`); como o `issabel-menumerge` grava as permissões do item.
-7. Versão do PHP (para `hash_hmac`, `random_bytes` e `hash_equals`).
-8. Issabel servido por HTTPS e o nome de host usado pelos operadores (origem do iframe).
-9. Se o tema do Issabel envolve o conteúdo do módulo em algo que impeça `allow="fullscreen"` ou limite a altura do iframe.
-10. Permissão de `/etc/asterisk` (bit de execução para outros): sem ele o item `manager_custom_perm` (pendência 3) fica `unknown` e o health fica `degraded` para sempre (ver Riscos no plano).
+| # | Item | Valor real | Efeito no desenho |
+|---|---|---|---|
+| 1 | Operator Panel e posição | `fop2`, `IdParent` `pbxconfig`, `Type` module, `order_no` 9 (é o FOP2 2.31.37, não tocar); próximo item `endpoint_configurator`, `order_no` 51 | o painel entra como `painel_ramais`, `pbxconfig`, module, `order_no` 10, sem renumerar nada |
+| 2 | Usuário e grupo do PHP | `httpd` e `php-fpm` rodam como `asterisk:asterisk` (uid 992, gid 989) | chave `painel-ramais:asterisk` 0640 |
+| 3 | `open_basedir` | não aparece na leitura (`disable_functions` vazio) | sem mudança de caminho; o módulo trata chave ilegível com mensagem clara e a Etapa 16b confere a leitura real |
+| 4 | SELinux | `Disabled` | nada a fazer; o `%post` continua tratando `Enforcing` como hoje |
+| 5 | Cabeçalhos globais | nenhum `Content-Security-Policy`, `X-Frame-Options` ou `frame-ancestors` no Apache (`headers_module` carregado, sem regra) | os cabeçalhos do daemon valem sozinhos |
+| 6 | ACL | `administrator` id 1, `Operator` id 2, `extension` id 3; ação `access` id 1; tabelas `acl_resource`, `acl_group_permission`; usuário logado em `$_SESSION['issabel_user']` (código do framework) | item liberado para os grupos 1 e 2; administrador = membro do grupo id 1 |
+| 7 | PHP | 7.4.33 com `hash`, `json`, `sqlite3`, `pdo_sqlite`; `random_bytes` e `hash_equals` são do núcleo | emissor viável sem extensão nova |
+| 8 | HTTPS | Apache com OpenSSL responde em HTTPS | cookie `Secure` funciona |
+| 9 | Tema e altura do iframe | não aparece na leitura | conferido na Etapa 16b (área de cerca de 1250 x 700 px) |
+| 10 | `/etc/asterisk` | não aparece na leitura | o risco do `manager_custom_perm` em `unknown` continua (plano, Riscos) |
+| 11 | Bancos do Issabel | `/var/www/db/menu.db` e `acl.db` `asterisk:asterisk` 0644 (pasta 0777); `menu(id, IdParent, Link, Name, Type, order_no)` | legíveis pelo usuário `painel-ramais` e pelo root em modo somente leitura |
+| 12 | Ferramentas | `/usr/bin/issabel-menumerge` e `/usr/bin/issabel-menuremove` presentes | registro e remoção pelas ferramentas do próprio Issabel |
+| 13 | Sessão do PHP | `session.gc_maxlifetime = 1440` (24 min) | a sessão do Issabel expira bem antes da do painel (12 h sem uso): Etapa 16b cobre |
+
+Divergências entre a VM e o estudo sem VM:
+
+| Estudo | VM | Consequência |
+|---|---|---|
+| PHP como módulo do httpd (suposição) | php-fpm, também `asterisk:asterisk` | nenhuma: o grupo da chave é o mesmo |
+| SELinux talvez `Enforcing` | `Disabled` | nada a fazer nesta VM; o RPM mantém o tratamento |
+| Operator Panel como item genérico | é o FOP2 comercial (`fop2`), `order_no` 9 | o painel fica em 10; nenhum item do Issabel é alterado |
+| `isUserAdministratorGroup` da `paloSantoACL` devolve booleano | devolve o nome do grupo (membro do id 1), `false` (outros grupos) ou `NULL` (sem grupo) | o módulo só usa o valor como booleano (`(bool)`), nunca compara com `!== false` (plano, seção 8) |
+| `issabel-menumerge` só concede grupos na criação | confirmado no código: no update só atualiza o menu e o recurso, nunca as permissões | `instalar.py menu --recriar` remove e registra de novo quando faltar grupo |
 
 ### Consequências
 
@@ -102,7 +117,7 @@ Nada abaixo foi visto rodando. Cada item tem dono quando a leitura chegar:
 - Sessões abertas sobrevivem à remoção da chave (até 12 h sem uso); o remédio é `painel-ramais session purge --all` (ou `--issabel <usuario>`). Aceito.
 - O `jti` de uso único fica só em memória: depois de um restart do daemon, um token interceptado pode ser reaproveitado por até 65 s. Aceito.
 
-O ADR continua Proposto até a leitura da VM; o aceite dos riscos não muda o status.
+Os três riscos continuam valendo com o ADR Aceito.
 
 ### Critério de validação
 
@@ -111,13 +126,13 @@ O ADR continua Proposto até a leitura da VM; o aceite dos riscos não muda o st
 3. Medição local (simulador de 10.000 ramais, plano seção 6): primeira exibição abaixo de 2 s e a rajada de 3.000 desregistros refletida na tela em menos de 1 s, sem tarefa longa acima de 200 ms depois da primeira exibição.
 4. No Issabel real (spike): o item aparece logo depois do Operator Panel para `administrator` e `Operator` e não aparece para outros grupos; abrir o endereço direto mostra o aviso; o iframe abre a tela; `session purge --issabel` derruba a aba aberta em até 1 s.
 
-### Spike pendente (promove este ADR a Aceito)
+### Verificação na VM (antes da release; Etapa 16b do roteiro)
 
-Precisa da VM e do módulo PHP. Saída de cada item anexada aqui:
+Precisa do módulo PHP instalado. Saída de cada item anexada aqui:
 1. `curl -skI https://127.0.0.1/painel-ramais/ -H 'Sec-Fetch-Dest: document'` e `-H 'Sec-Fetch-Dest: iframe'` pelo Apache do Issabel: 303 e 200, com os cabeçalhos do daemon e sem cabeçalho global conflitante.
 2. Navegador logado como usuário do grupo `Operator` e como `administrator`: item na posição certa, tela no iframe, botão de grupos só para o administrador.
-3. Usuário de um grupo sem o item: sem item no menu e sem acesso ao `index.php?menu=<menuid>`.
-4. `ls -lZ /etc/painel-ramais-issabel.key` depois do `%post`: dono, grupo, modo e contexto esperados; leitura pelo PHP comprovada pela tela abrindo.
+3. Usuário do grupo `extension`: sem item no menu e sem acesso ao `index.php?menu=painel_ramais`.
+4. `ls -l /etc/painel-ramais-issabel.key` depois do `%post`: `painel-ramais asterisk` 0640; leitura pelo PHP comprovada pela tela abrindo.
 
 ### Agentes impactados
 
