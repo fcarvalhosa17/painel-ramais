@@ -126,8 +126,8 @@ Uptime do daemon: 1d 03h 12min
 
 - **RSS** e a memoria que o sistema operacional atribui ao processo. **Heap Go pos-GC** e o que o painel realmente mantem vivo depois da coleta de lixo (o numero que revela vazamento). O daemon grava esse valor a cada 30 s em `/run/painel-ramais/metrics.json` (modo 0600, so root e o usuario do painel leem).
 - **O que e normal:** subir nas primeiras horas, enquanto os nomes dos ramais sao preenchidos, e depois ficar num patamar que oscila para cima e para baixo. Anote os tres valores na instalacao e uma vez por dia (por exemplo `sudo ./instalar.py status | grep -E 'Memoria|Heap|Uptime'`).
-- **Alerta sugerido:** heap pos-GC que so cresce, sem voltar, por 24 h seguidas, em mais de 1 MiB por hora (o mesmo limite do teste de carga); ou RSS que tambem so cresce no mesmo periodo. Guarde as anotacoes e `journalctl -u painel-ramais --since -1d` e avise o time.
-- `indisponivel` em uma linha significa que a fonte nao respondeu (daemon recem-iniciado: espere 30 s; arquivo velho: daemon travado; sem arquivo: pacote anterior a esta versao). O `status` continua funcionando.
+- **Alerta sugerido:** heap pos-GC que so cresce, sem voltar, por 24 h seguidas, em mais de 1 MiB por hora (o mesmo valor); ou RSS que tambem so cresce no mesmo periodo. Guarde as anotacoes e `journalctl -u painel-ramais --since -1d` e avise o time.
+- `indisponivel` em uma linha significa que a fonte nao respondeu. Causas: arquivo velho (mais de 120 s: daemon travado); daemon parado (o systemd apaga `/run/painel-ramais` ao parar o servico); `status` rodado sem `sudo` (o arquivo e 0600: permissao negada); pacote de versao anterior a esta, que ainda nao grava o arquivo. No Rocky 8 (systemd 239) o daemon usa a pasta fixa `/run/painel-ramais`, entao nao ha ajuste a fazer. O restante do `status` continua funcionando.
 - Reiniciar o painel zera o uptime e o heap; um aumento logo depois de um restart ou de uma queda do AMI e esperado (o painel remonta o estado inteiro).
 
 ## Seguranca (leia antes de instalar em producao)
