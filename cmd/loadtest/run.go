@@ -1014,6 +1014,9 @@ type FillRes struct {
 	Samples                                   []FillSample
 }
 
+// regimeEvery: intervalo do laco do regime; variavel so para o teste.
+var regimeEvery = 10 * time.Second
+
 // regime: carga sob preenchimento de nomes ("carga") ate todos os nomes chegarem (ou fillTimeout),
 // depois mais o.duration em regime com nomes completos ("carga-pos").
 func (x *runner) regime() {
@@ -1036,6 +1039,11 @@ func (x *runner) regime() {
 		heap = append(heap, HeapSample{T: now, Inuse: in, Alloc: al, Warmed: !now.Before(warmEnd)})
 	}
 	for {
+		// Fim do regime checado ANTES do NameProgress: ele faz GET /api/snapshot e deixa o cache
+		// de snapshot (~3 MiB) residente; a amostra final logo depois dele entrava como degrau.
+		if f.Complete && time.Since(post) >= o.warmup+o.duration {
+			break
+		}
 		if o.heap && f.Complete {
 			now := time.Now()
 			if heapNext.IsZero() {
@@ -1067,14 +1075,11 @@ func (x *runner) regime() {
 				post = time.Now()
 			}
 		}
-		if f.Complete && time.Since(post) >= o.warmup+o.duration {
-			break
-		}
 		if !f.Complete && time.Since(t0) >= o.fillTimeout {
 			x.logf("[%s] preenchimento de nomes nao terminou em %s", r.Mode, o.fillTimeout)
 			break
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(regimeEvery)
 	}
 	f.RegimeDur = time.Since(t0)
 	if o.heap {
