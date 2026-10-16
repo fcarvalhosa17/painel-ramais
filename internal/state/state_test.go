@@ -598,3 +598,33 @@ func TestHangupAfterSyncDoesNotAccumulate(t *testing.T) {
 		t.Errorf("canais residuais: %d", len(h.s.cur.chans))
 	}
 }
+
+// Cada evento de chamada e tratado no modo da view que o recebe: montagem lembra
+// Hangups para nao ressuscitar canal do snapshot; depois do sync, modo normal.
+func TestCallEventsFollowViewMode(t *testing.T) {
+	h := newHarness(t)
+	h.online()
+	if h.s.cur.isBuilding {
+		t.Fatal("view publicada ainda em modo de montagem")
+	}
+	// Ressincronizacao: Hangup de canal desconhecido e lembrado, e o snapshot atrasado nao o ressuscita.
+	at := h.step()
+	h.feed(model.SyncStarted{At: at, Technology: model.TechPJSIP, Reason: model.SyncOverflow},
+		model.EndpointSeen{At: at, Name: "2001"}, model.EndpointSeen{At: at, Name: "2002"},
+		model.ChannelHungup{At: at, Uniqueid: "g1"},
+		chn(at, "g1", "g1", "PJSIP/2001-g1", "2001", "2001", "", "2002"))
+	if len(h.s.building.chans) != 0 || len(h.s.building.hungup) != 1 {
+		t.Fatalf("montagem: chans=%d hungup=%d", len(h.s.building.chans), len(h.s.building.hungup))
+	}
+	h.feed(model.SyncFinished{At: at})
+	if h.s.cur.isBuilding || len(h.s.cur.hungup) != 0 {
+		t.Fatalf("publicada: isBuilding=%v hungup=%d", h.s.cur.isBuilding, len(h.s.cur.hungup))
+	}
+	// Normal: Hangup de desconhecido nao grava nada; canal criado e encerrado some sem rastro.
+	at = h.step()
+	h.feed(model.ChannelHungup{At: at, Uniqueid: "x1"},
+		chn(at, "n1", "n1", "PJSIP/2001-n1", "2001", "2001", "", "2002"))
+	if h.s.cur.chans["n1"] == nil || len(h.s.cur.hungup) != 0 {
+		t.Fatalf("normal: n1=%v hungup=%d", h.s.cur.chans["n1"], len(h.s.cur.hungup))
+	}
+}
