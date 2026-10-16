@@ -113,6 +113,23 @@ nenhum arquivo e gerado (os dados brutos ficam na pasta temporaria indicada na m
 **Antes de enviar.** No computador com este repositorio: `python3 tools/analisar_homologacao.py homologacao-AAAAMMDD-HHMMSS.tar.gz` lista as divergencias painel x Asterisk
 e as linhas em que a mascara pode ter falhado; revise essas linhas antes de compartilhar o arquivo.
 
+## Acompanhar a memoria nos primeiros dias
+
+O `status` mostra a memoria do daemon, sem abrir porta nem instalar nada:
+
+```
+sudo ./instalar.py status
+Memoria RSS:     48.3 MiB
+Heap Go:         6.1 MiB pos-GC (em uso 12.4 MiB)
+Uptime do daemon: 1d 03h 12min
+```
+
+- **RSS** e a memoria que o sistema operacional atribui ao processo. **Heap Go pos-GC** e o que o painel realmente mantem vivo depois da coleta de lixo (o numero que revela vazamento). O daemon grava esse valor a cada 30 s em `/run/painel-ramais/metrics.json` (modo 0600, so root e o usuario do painel leem).
+- **O que e normal:** subir nas primeiras horas, enquanto os nomes dos ramais sao preenchidos, e depois ficar num patamar que oscila para cima e para baixo. Anote os tres valores na instalacao e uma vez por dia (por exemplo `sudo ./instalar.py status | grep -E 'Memoria|Heap|Uptime'`).
+- **Alerta sugerido:** heap pos-GC que so cresce, sem voltar, por 24 h seguidas, em mais de 1 MiB por hora (o mesmo limite do teste de carga); ou RSS que tambem so cresce no mesmo periodo. Guarde as anotacoes e `journalctl -u painel-ramais --since -1d` e avise o time.
+- `indisponivel` em uma linha significa que a fonte nao respondeu (daemon recem-iniciado: espere 30 s; arquivo velho: daemon travado; sem arquivo: pacote anterior a esta versao). O `status` continua funcionando.
+- Reiniciar o painel zera o uptime e o heap; um aumento logo depois de um restart ou de uma queda do AMI e esperado (o painel remonta o estado inteiro).
+
 ## Seguranca (leia antes de instalar em producao)
 
 - **Conta AMI com `write = system,reporting` (decisao do usuario: mantida).** A classe `system` e exigida pelas consultas PJSIP e `ModuleCheck`.
