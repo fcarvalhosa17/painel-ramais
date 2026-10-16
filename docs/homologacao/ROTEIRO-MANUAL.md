@@ -21,8 +21,8 @@ Legenda usada em todo o roteiro: **A, B, C** = os tres ramais; **T** = tronco; *
 Variaveis da versao (troque pelos valores da release que vai testar):
 
 ```
-export TAG=v0.1.2-rc.1
-export VERSAO_RPM=0.1.2-0.1.rc.1    # versao-release do RPM: rc = release 0.1.rc.N; a final = 0.1.2-1
+export TAG=v0.1.2-rc.2
+export VERSAO_RPM=0.1.2-0.1.rc.2    # versao-release do RPM: rc = release 0.1.rc.N; a final = 0.1.2-1
 ```
 
 Ver o painel por dentro (segundo terminal). Cole uma vez; `painel_ver` mostra o que o painel acha agora:
@@ -74,14 +74,14 @@ curl -fLO "$BASE/painel-ramais-${TAG#v}.tar.gz"
 curl -fLO "$BASE/SHA256SUMS"
 ```
 
-  O bundle (`painel-ramais-0.1.2-rc.1.tar.gz`) ja traz o RPM dentro e o `instalar.py` o usa; o RPM avulso (`painel-ramais-${VERSAO_RPM}.x86_64.rpm`) so e preciso para conferir o pacote sozinho (`rpm -qp`) ou instalar sem o instalador. Nesse caso baixe tambem: `gh release download "$TAG" -R fcarvalhosa17/painel-ramais -p 'painel-ramais-*.rpm'` ou `curl -fLO "$BASE/painel-ramais-${VERSAO_RPM}.x86_64.rpm"`.
+  O bundle (`painel-ramais-0.1.2-rc.2.tar.gz`) ja traz o RPM dentro e o `instalar.py` o usa; o RPM avulso (`painel-ramais-${VERSAO_RPM}.x86_64.rpm`) so e preciso para conferir o pacote sozinho (`rpm -qp`) ou instalar sem o instalador. Nesse caso baixe tambem: `gh release download "$TAG" -R fcarvalhosa17/painel-ramais -p 'painel-ramais-*.rpm'` ou `curl -fLO "$BASE/painel-ramais-${VERSAO_RPM}.x86_64.rpm"`.
 - **Resultado esperado:** na pasta atual ficam o tar.gz do bundle (e o RPM, se pedido) e o `SHA256SUMS`, sem erro de rede.
 - **Se for diferente:** `404` = a TAG nao existe ou o arquivo ainda nao foi publicado; confirme `echo $TAG` e a lista de arquivos da release. Sem internet na VM: baixe no seu computador e copie com `scp` (veja o LEIAME-INSTALACAO, passo 1b).
 
 ### Etapa 3. Conferir o SHA256
 
 - **Comando:** `sha256sum -c --ignore-missing SHA256SUMS` (o `SHA256SUMS` lista o RPM e o tar.gz; `--ignore-missing` pula o que voce nao baixou)
-- **Resultado esperado:** uma linha `OK` para cada arquivo baixado, por exemplo `painel-ramais-0.1.2-rc.1.tar.gz: OK` (e `painel-ramais-0.1.2-0.1.rc.1.x86_64.rpm: OK` se baixou o RPM), e nenhuma linha `FAILED`.
+- **Resultado esperado:** uma linha `OK` para cada arquivo baixado, por exemplo `painel-ramais-0.1.2-rc.2.tar.gz: OK` (e `painel-ramais-0.1.2-0.1.rc.2.x86_64.rpm: OK` se baixou o RPM), e nenhuma linha `FAILED`.
 - **Se for diferente:** `FAILED` ou `No such file`: pare, apague o arquivo e baixe de novo. Nao rode o instalador com SHA diferente. Se repetir, anote os dois hashes (`sha256sum arquivo` e a linha do `SHA256SUMS`).
 
 ### Etapa 4. Extrair
@@ -150,6 +150,22 @@ V1-ii teste nao feito: strace nao instalado na VM
 ```
 
 Se o `ps` mostrar outra coisa, escreva o que viu (por exemplo `V1-i tty=pts/0 sid=1234 pid=5678`). O pacote passa pelo filtro de anonimizacao, entao hosts e usuarios podem aparecer trocados por valores ficticios.
+
+**Checagem M1 (memoria do daemon no Rocky 8, systemd 239)**
+
+O daemon grava `/run/painel-ramais/metrics.json` a cada 30 s (o systemd 239 nao exporta `RUNTIME_DIRECTORY`; o daemon usa a pasta fixa). Confira no segundo terminal, depois de instalar ou fazer o upgrade (o `restart` do servico recria a pasta):
+
+- **Comando:** `sudo systemctl restart painel-ramais; sleep 35; sudo ls -l /run/painel-ramais/metrics.json; sudo ./instalar.py status | grep -E 'Memoria|Heap|Uptime'`
+- **Resultado esperado:** o arquivo existe (`-rw-------`, dono `painel-ramais`) e o `status` mostra `Memoria RSS:`, `Heap Go: ... pos-GC` e `Uptime do daemon:` com valores, sem `indisponivel`.
+- **Se for diferente:** `No such file`: o pacote e anterior a esta versao ou a unit nao foi recarregada (`systemctl daemon-reload`, restart de novo). `Permission denied` no `status`: faltou `sudo`.
+
+Registre uma linha no terminal 1 (a do `homologar`), comecando por `M1`; ela vai para o `roteiro.log` como as checagens V1:
+
+```
+M1 metrics.json ok em 35s; RSS=<valor> heap=<valor> uptime=<valor>
+M1 metrics.json ausente apos 35s (ls: No such file or directory)
+M1 status: heap indisponivel (<texto exato>)
+```
 
 **Passo 1: Chamada interna**
 
@@ -255,6 +271,16 @@ Fim do roteiro: deixe o relogio zerar (ou Ctrl-C). O pacote fica em `homologacao
 - **Resultado esperado:** `Upgrade <versao antiga> -> <versao nova>.`, o `== Resumo ==` com a versao nova, `AVISO: usuario '<admin>' ja existe; senha mantida`, dados e grupos preservados, painel de volta em ate 60 s.
 - **Se for diferente:** do rc para a versao final (`0.1.2-0.1.rc.1` para `0.1.2-1`) e entre rcs (`rc.1` para `rc.2`, `rc.2` para `rc.10`) o instalador trata como upgrade. `Versao instalada maior que a do bundle` so deve aparecer ao tentar o contrario (final para rc). Qualquer outra mensagem: anote o texto exato e `rpm -q painel-ramais`.
 
+#### Upgrade da rc.1 para a rc.2 (quando a rc.1 ja esta instalada)
+
+Use o proprio instalador da rc.2. Nunca troque arquivo do painel a mao nem rode `rpm -U` solto: o `instalar.py instalar` confere o ambiente, guarda a versao anterior para o rollback e preserva dados e usuario admin.
+
+- **Antes:** anote a versao instalada: `rpm -q painel-ramais; ./instalar.py status` (esperado `painel-ramais-0.1.2-0.1.rc.1.x86_64` e `Versao instalada: 0.1.2-0.1.rc.1`). Se possivel, crie um checkpoint antes.
+- **Comando:** `export TAG=v0.1.2-rc.2`, repita as etapas 2 a 4 numa pasta nova (baixar, `sha256sum -c --ignore-missing SHA256SUMS`, extrair) e, dentro da pasta extraida da rc.2: `./instalar.py instalar`
+- **Depois:** `rpm -q painel-ramais; ./instalar.py status`.
+- **Resultado esperado:** o instalador imprime `Upgrade 0.1.2-0.1.rc.1 -> 0.1.2-0.1.rc.2.`, o `rpm -q` passa a responder `painel-ramais-0.1.2-0.1.rc.2.x86_64`, o `status` mostra `Versao instalada: 0.1.2-0.1.rc.2`, servico ativo e AMI conectado, e a senha do admin continua a mesma.
+- **Se for diferente:** `Versao instalada maior que a do bundle` indica que o bundle e mais antigo que o instalado (confira `echo $TAG`). Qualquer outra mensagem: anote o texto exato e o `rpm -q`. Para voltar: etapa 12.
+
 ### Etapa 12. Rollback
 
 - **Comando:** `./instalar.py rollback` (responda `s`) e depois `./instalar.py status`
@@ -315,4 +341,4 @@ journalctl -u painel-ramais --since "-15min" --no-pager | tail -40
 
 ## Entrega
 
-Devolva ao time: o `homologacao-*.tar.gz` de cada rodada (so depois de rodar o analisador e olhar as `[SUSPEITA]`), a tabela da etapa 17, as anotacoes dos passos que ficaram diferentes do esperado, as linhas `V1-i` e `V1-ii` (ficam no `roteiro.log` do pacote) e o resultado de `systemd-analyze security painel-ramais` (esta em `pre.txt`; no Rocky 8 o comando pode nao existir e a mensagem de erro e o resultado).
+Devolva ao time: o `homologacao-*.tar.gz` de cada rodada (so depois de rodar o analisador e olhar as `[SUSPEITA]`), a tabela da etapa 17, as anotacoes dos passos que ficaram diferentes do esperado, as linhas `V1-i`, `V1-ii` e `M1` (ficam no `roteiro.log` do pacote) e o resultado de `systemd-analyze security painel-ramais` (esta em `pre.txt`; no Rocky 8 o comando pode nao existir e a mensagem de erro e o resultado).
