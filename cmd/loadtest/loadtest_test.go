@@ -256,3 +256,29 @@ func TestLinregEVeredito(t *testing.T) {
 		t.Fatalf("aquecimento fora da regressao: %+v", h)
 	}
 }
+
+func TestTrackerContaEmConversaSemOutroLado(t *testing.T) {
+	trk := NewTracker()
+	trk.SetPhase("carga-pos")
+	t0 := time.Now()
+	semLado := mkView("1", "registered", "inuse", amisim.CallView{ID: "9.1", Direction: "internal", State: "talking", Peer: amisim.PeerView{Kind: "unknown"}})
+	comLado := mkView("2", "registered", "inuse", amisim.CallView{ID: "9.2", Direction: "inbound", State: "talking", Peer: amisim.PeerView{Kind: "external", Number: "11999"}})
+	tocando := mkView("3", "registered", "inuse", amisim.CallView{ID: "9.3", Direction: "internal", State: "ringing", Peer: amisim.PeerView{Kind: "unknown"}})
+	if on, n, _ := trk.NoPeer(); on || n != 0 {
+		t.Fatalf("desligado por padrao: %v %d", on, n)
+	}
+	trk.CountNoPeerFrom(t0.Add(time.Second))
+	trk.Observe(semLado, t0, true) // durante o aquecimento: nao conta
+	trk.Observe(comLado, t0.Add(2*time.Second), true)
+	trk.Observe(tocando, t0.Add(2*time.Second), true)
+	if _, n, _ := trk.NoPeer(); n != 0 {
+		t.Fatalf("so talking sem outro lado conta: %d", n)
+	}
+	trk.Observe(semLado, t0.Add(2*time.Second), false) // snapshot (measure=false): nao conta
+	trk.Observe(semLado, t0.Add(3*time.Second), true)
+	trk.Observe(semLado, t0.Add(4*time.Second), true) // mesma chamada: uma vez so
+	on, n, s := trk.NoPeer()
+	if !on || n != 1 || len(s) != 1 {
+		t.Fatalf("queria 1 ocorrencia: on=%v n=%d %v", on, n, s)
+	}
+}

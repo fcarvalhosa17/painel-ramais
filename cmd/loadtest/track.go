@@ -68,6 +68,11 @@ type Tracker struct {
 	tainted    map[string]bool
 	grace      time.Time
 	observed   int
+	// "em conversa" sem outro lado: contado depois de noPeerFrom (fim do aquecimento), 1 vez por chamada.
+	noPeerFrom    time.Time
+	noPeerSeen    map[string]bool
+	nNoPeer       int
+	noPeerSamples []string
 }
 
 func NewTracker() *Tracker {
@@ -122,6 +127,7 @@ func (t *Tracker) Observe(v View, recv time.Time, measure bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.observed++
+	t.noteNoPeer(v, recv, measure)
 	if len(v.Calls) == 0 {
 		delete(t.tainted, v.Number)
 	}
@@ -179,6 +185,41 @@ func (t *Tracker) Observe(v View, recv time.Time, measure bool) {
 	if len(t.unexpected) < 20 {
 		t.unexpected = append(t.unexpected, fmt.Sprintf("[fase %s] ramal %s: daemon mostrou reg=%s dev=%s calls=%s; pendentes=%d; verdade esperada=%s", t.phase, v.Number, v.Registration, v.DeviceState, callsStr(v.Calls), len(list), truthsStr(list, b)))
 	}
+}
+
+// CountNoPeerFrom liga a contagem de "em conversa" sem outro lado a partir de from (fim do aquecimento).
+func (t *Tracker) CountNoPeerFrom(from time.Time) {
+	t.mu.Lock()
+	t.noPeerFrom = from
+	t.mu.Unlock()
+}
+
+// noteNoPeer conta chamada "talking" com outro lado "unknown" vista no WS. O daemon nunca deve
+// publicar isso: a protecao de 1 s tambem conta (ela publica exatamente esse estado). Quem chama segura t.mu.
+func (t *Tracker) noteNoPeer(v View, recv time.Time, measure bool) {
+	if !measure || t.noPeerFrom.IsZero() || recv.Before(t.noPeerFrom) || recv.Before(t.grace) {
+		return
+	}
+	for _, c := range v.Calls {
+		if c.State != "talking" || c.Peer.Kind != "unknown" || t.noPeerSeen[c.ID] {
+			continue
+		}
+		if t.noPeerSeen == nil {
+			t.noPeerSeen = map[string]bool{}
+		}
+		t.noPeerSeen[c.ID] = true
+		t.nNoPeer++
+		if len(t.noPeerSamples) < 10 {
+			t.noPeerSamples = append(t.noPeerSamples, fmt.Sprintf("[fase %s] ramal %s: %s", t.phase, v.Number, callsStr([]amisim.CallView{c})))
+		}
+	}
+}
+
+// NoPeer devolve (ligado, ocorrencias, amostras).
+func (t *Tracker) NoPeer() (bool, int, []string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return !t.noPeerFrom.IsZero(), t.nNoPeer, append([]string(nil), t.noPeerSamples...)
 }
 
 // torn: o estado so difere da verdade por combinar registro/dispositivo de um instante com as

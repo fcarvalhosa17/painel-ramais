@@ -123,6 +123,9 @@ type FinalRes struct {
 	Pending       int
 	Tainted       int
 	Torn          int
+	NoPeerOn      bool
+	NoPeer        int
+	NoPeerSamples []string
 	Unexpected    int
 	UnexpSamples  []string
 	Graced        int
@@ -780,6 +783,7 @@ func (x *runner) finish() {
 	}
 	fin.Pending = x.trk.PendingCount()
 	fin.Unexpected, fin.UnexpSamples = x.trk.Unexpected()
+	fin.NoPeerOn, fin.NoPeer, fin.NoPeerSamples = x.trk.NoPeer()
 	fin.Graced = x.trk.Graced()
 	fin.Tainted = x.trk.Tainted()
 	fin.Torn = x.trk.Torn()
@@ -1073,6 +1077,7 @@ func (x *runner) regime() {
 				f.DoneAfterBoot, f.DoneAfterRegime = time.Since(x.bootAt), time.Since(t0)
 				x.phase("carga-pos")
 				post = time.Now()
+				x.trk.CountNoPeerFrom(post.Add(o.warmup))
 			}
 		}
 		if !f.Complete && time.Since(t0) >= o.fillTimeout {

@@ -79,6 +79,7 @@ func criteria(r *Result) []criterion {
 	add("nenhuma perda de estado: snapshot final == verdade", r.Final.Compared > 0 && r.Final.SnapDiffExts == 0, "%d divergentes de %d", r.Final.SnapDiffExts, r.Final.Compared)
 	add("nenhuma perda de estado: estado do cliente WS == verdade", r.Final.Compared > 0 && r.Final.WSDiffExts == 0 && r.Final.Gaps == 0, "%d divergentes, %d lacunas de versao", r.Final.WSDiffExts, r.Final.Gaps)
 	c = append(c, criterion{Name: "nenhum estado fugaz errado visto no WS (nem de um instante, nem de outro)", OK: r.Final.Unexpected == 0, Val: fmt.Sprintf("%d fugazes errados; %d so com dispositivo/chamadas de instantes diferentes (aceitos)", r.Final.Unexpected, r.Final.Torn), Soft: true})
+	add("nenhuma chamada 'em conversa' sem outro lado no WS apos o aquecimento (a protecao de 1 s tambem conta)", r.Final.NoPeerOn && r.Final.NoPeer == 0, "%s", noPeerVal(r.Final))
 	fl := r.Fill
 	if p, ok := r.Lat["carga"]; ok {
 		add("p99 evento->delta DURANTE o preenchimento de nomes < 1 s", p.N > 0 && p.P99 < time.Second, "p99=%s (n=%d) enquanto os nomes eram preenchidos a %d/s", ms(p.P99), p.N, fl.rateCfg)
@@ -385,6 +386,12 @@ func writeReport(path string, o opts, rs []*Result, daemonErr string) error {
 	t.row("chamadas restantes no fim (deve ser 0)", rs, func(r *Result) string { return fmt.Sprint(r.Final.CallsAtEnd) })
 	t.row("lacunas de versao no WS", rs, func(r *Result) string { return fmt.Sprint(r.Final.Gaps) })
 	t.row("estados fugazes so com dispositivo/chamadas de instantes diferentes (aceitos)", rs, func(r *Result) string { return fmt.Sprint(r.Final.Torn) })
+	t.row("chamadas 'em conversa' sem outro lado vistas no WS apos o aquecimento (deve ser 0)", rs, func(r *Result) string {
+		if !r.Final.NoPeerOn {
+			return "nao medido"
+		}
+		return fmt.Sprint(r.Final.NoPeer)
+	})
 	t.row("estados fugazes errados (fora da janela de ressincronizacao)", rs, func(r *Result) string { return fmt.Sprint(r.Final.Unexpected) })
 	t.row("estados inesperados dentro da janela de 3 s apos ressincronizar", rs, func(r *Result) string { return fmt.Sprint(r.Final.Graced) })
 	t.row("estados inesperados herdados de chamadas restauradas por snapshot (ver secao anterior)", rs, func(r *Result) string { return fmt.Sprint(r.Final.Tainted) })
@@ -396,6 +403,9 @@ func writeReport(path string, o opts, rs []*Result, daemonErr string) error {
 		}
 		for _, d := range r.Final.WSDiffs {
 			w("- (%s, WS) ramal %s: %s\n", r.Mode, d.Ext, d.What)
+		}
+		for _, u := range r.Final.NoPeerSamples {
+			w("- (%s) em conversa sem outro lado: %s\n", r.Mode, u)
 		}
 		for _, u := range r.Final.UnexpSamples {
 			w("- (%s) inesperado: %s\n", r.Mode, u)
@@ -539,4 +549,11 @@ func hasHeap(rs []*Result) bool {
 		}
 	}
 	return false
+}
+
+func noPeerVal(f FinalRes) string {
+	if !f.NoPeerOn {
+		return "nao medido: o preenchimento de nomes nao terminou"
+	}
+	return fmt.Sprintf("%d ocorrencias", f.NoPeer)
 }
