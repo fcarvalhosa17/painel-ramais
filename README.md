@@ -480,8 +480,9 @@ O relatório acima fica como **histórico** (daemon 0.1.1, Windows). Dois testes
 os testes passam a ser feitos **na instalação no servidor**, seguindo `docs/homologacao/ROTEIRO-MANUAL.md`:
 
 - run `38804792199` (5 h): media o código **anterior** à correção do vazamento de `hungup` (`docs/nota-isbuilding.md`), então o seu resultado de memória não vale para a versão atual;
-- run `38833482013`: com o código corrigido; cancelado com o job `sip-30min` ainda em andamento. Resultado parcial informado pelo mantenedor (não há relatório completo): inclinação do heap
-  de 16,87 MiB/h (código antigo) para 1,08 MiB/h (corrigido), esse valor puxado pelo degrau da última amostra e perto de 0 sem ela. Não é um critério de aceite cumprido.
+- run `38823676967` (só `sip-30min`, código com a correção do `hungup`, antes da correção da última amostra): inclinação do HeapInuse de 16,87 MiB/h (run `38804792199`, código antigo)
+  para 1,08 MiB/h; esse valor é puxado pelo degrau de ~3 MiB da última amostra (cache do snapshot) e fica perto de 0 (-0,005 MiB/h) sem ela. Não é um critério de aceite cumprido;
+- run `38833482013`: com todas as correções; cancelado por decisão do usuário com o job `sip-30min` ainda em andamento, sem veredito.
 
 `cmd/loadtest` e `cmd/amisim` continuam no repositório como **ferramenta local** (os comandos acima). Para acompanhar a memória em produção, use `./instalar.py status`
 (seção "Acompanhar a memória nos primeiros dias" do `packaging/LEIAME-INSTALACAO.md`).
