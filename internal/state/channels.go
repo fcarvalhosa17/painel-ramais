@@ -23,6 +23,13 @@ type channel struct {
 	bridge              string
 	startedAt           time.Time
 	talkingAt           time.Time // primeira vez que a chamada saiu de "ringing"
+	// Ultimo "com quem fala" resolvido: usado enquanto o outro lado troca de perna (Hangup antes
+	// do nosso, Local channel sendo otimizado) e farEnd nao acha ninguem por alguns eventos.
+	knownOK    bool
+	knownDir   model.Direction
+	knownPeer  model.Peer
+	noPeerAt   time.Time // desde quando esta Up sem nenhum outro lado e sem historico
+	noPeerSeen bool      // ja logou a protecao de 1 s para este canal
 }
 
 func (v *view) applyChannel(ev model.Event) {
@@ -155,6 +162,7 @@ func (v *view) onHangup(uid string) {
 		v.localLeave(c)
 	}
 	delete(v.chans, uid)
+	delete(v.noPeer, uid)
 	if v.building() {
 		v.hungup[uid] = struct{}{}
 	}

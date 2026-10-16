@@ -41,9 +41,11 @@ type view struct {
 	bridges     map[string]map[string]struct{}
 	localHalves map[string]*[2]string
 	isBuilding  bool
-	hints       map[string]string         // cache de nomes (compartilhado com o State)
-	onName      func(number, name string) // chamado quando um nome novo e aprendido ao vivo
-	hungup      map[string]struct{}       // evita ressuscitar canal que caiu durante a sincronizacao
+	hints       map[string]string          // cache de nomes (compartilhado com o State)
+	onName      func(number, name string)  // chamado quando um nome novo e aprendido ao vivo
+	hungup      map[string]struct{}        // evita ressuscitar canal que caiu durante a sincronizacao
+	noPeer      map[string]struct{}        // canais Up sem outro lado, esperando a protecao de 1 s (ver calls.go)
+	onNoPeer    func(uid, linkedID string) // chamado uma vez quando a protecao publica "em conversa" sem outro lado
 }
 
 func newView(p *regexp.Regexp, groups []model.GroupRange) *view {
@@ -52,7 +54,7 @@ func newView(p *regexp.Regexp, groups []model.GroupRange) *view {
 		exts: map[string]*extState{}, trunks: map[string]struct{}{}, dirty: map[string]struct{}{},
 		chans: map[string]*channel{}, byLinked: map[string]map[string]struct{}{},
 		byEndpoint: map[string]map[string]struct{}{}, bridges: map[string]map[string]struct{}{},
-		localHalves: map[string]*[2]string{}, hungup: map[string]struct{}{},
+		localHalves: map[string]*[2]string{}, hungup: map[string]struct{}{}, noPeer: map[string]struct{}{},
 	}
 }
 

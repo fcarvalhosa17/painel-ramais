@@ -628,3 +628,81 @@ func TestCallEventsFollowViewMode(t *testing.T) {
 		t.Fatalf("normal: n1=%v hungup=%d", h.s.cur.chans["n1"], len(h.s.cur.hungup))
 	}
 }
+
+type noPeerLog struct{ uids [][2]string }
+
+func (l *noPeerLog) hook(h *harness) {
+	f := func(uid, linked string) { l.uids = append(l.uids, [2]string{uid, linked}) }
+	h.s.onNoPeer, h.s.cur.onNoPeer = f, f
+}
+
+// Regra: nunca "em conversa" sem outro lado resolvido. Canal Up que nunca teve outro lado
+// aparece "tocando"; so depois de 1 s (e de um Flush) vira "em conversa" com outro lado
+// desconhecido, e isso e logado (Uniqueid e Linkedid). Nao ha evento que reavalie: quem o faz e o Flush.
+func TestUpWithoutPeerRingsThenProtectionAfterOneSecond(t *testing.T) {
+	h := newHarness(t)
+	h.online()
+	var lg noPeerLog
+	lg.hook(h)
+	at := h.step()
+	c := chn(at, "v1", "L1", "PJSIP/2001-v1", "2001", "2001", "Maria", "97")
+	c.Up = true
+	h.feed(c)
+	if got := h.call("2001"); got.State != model.CallRinging || got.AnsweredAt != nil {
+		t.Fatalf("sem outro lado deve tocar: %+v", got)
+	}
+	h.now = h.now.Add(500 * time.Millisecond)
+	h.s.Flush()
+	if got := h.call("2001"); got.State != model.CallRinging || len(lg.uids) != 0 {
+		t.Fatalf("antes de 1 s: %+v log=%v", got, lg.uids)
+	}
+	h.now = h.now.Add(600 * time.Millisecond)
+	h.s.Flush()
+	got := h.call("2001")
+	if got.State != model.CallTalking || got.Peer.Kind != model.PeerUnknown {
+		t.Fatalf("apos 1 s: %+v", got)
+	}
+	h.now = h.now.Add(time.Second)
+	h.s.Flush()
+	if len(lg.uids) != 1 || lg.uids[0] != [2]string{"v1", "L1"} {
+		t.Fatalf("log da protecao: %v", lg.uids)
+	}
+}
+
+// Restauracao por snapshot nao tem evento a esperar: Up sem outro lado e publicado na hora.
+func TestSnapshotUpWithoutPeerIsPublishedAtOnceAndLogged(t *testing.T) {
+	h := newHarness(t)
+	h.online()
+	var lg noPeerLog
+	lg.hook(h)
+	syncWith(h, snapChan(h.now, "s1", "s1", "PJSIP/2001-0001", "2001", "2001", "97", true))
+	lg.hook(h) // a view publicada e a de montagem, criada no SyncStarted
+	if got := h.call("2001"); got.State != model.CallTalking || got.Peer.Kind != model.PeerUnknown {
+		t.Errorf("snapshot: %+v", got)
+	}
+	if len(lg.uids) != 1 || lg.uids[0] != [2]string{"s1", "s1"} {
+		t.Errorf("log da protecao: %v", lg.uids)
+	}
+}
+
+// O outro lado sai antes do nosso (Hangup do tronco, Local channel otimizado): a chamada nao pode
+// virar "internal/desconhecido"; mantem direcao e com quem fala do ultimo estado resolvido.
+func TestFarEndLeavingKeepsLastResolvedPeer(t *testing.T) {
+	h := newHarness(t)
+	h.online()
+	at := h.step()
+	tr := chn(at, "t1", "t1", "PJSIP/operadora-0001", "operadora", "11999990000", "Cliente", "2001")
+	e := chn(at, "e1", "t1", "PJSIP/2001-0002", "2001", "2001", "Maria", "")
+	h.feed(tr, e, up(at, "t1"), model.DialStarted{At: at, SrcUniqueid: "t1", DstUniqueid: "e1"}, up(at, "e1"),
+		model.BridgeEntered{At: at, BridgeID: "b1", Uniqueid: "t1"}, model.BridgeEntered{At: at, BridgeID: "b1", Uniqueid: "e1"})
+	if c := h.call("2001"); c.Direction != model.DirInbound || c.State != model.CallTalking {
+		t.Fatalf("antes: %+v", c)
+	}
+	at = h.step()
+	h.feed(model.BridgeLeft{At: at, BridgeID: "b1", Uniqueid: "t1"}, model.ChannelHungup{At: at, Uniqueid: "t1"})
+	c := h.call("2001")
+	if c.Direction != model.DirInbound || c.State != model.CallTalking {
+		t.Errorf("outro lado saiu: %+v", c)
+	}
+	wantPeer(t, c, model.PeerExternal, "11999990000", "Cliente")
+}

@@ -49,22 +49,83 @@ func (v *view) buildCalls(number string) []model.Call {
 	return calls
 }
 
+// noPeerGrace: tempo que uma chamada Up sem outro lado resolvido aparece como "tocando" antes
+// de ser publicada "em conversa" com o outro lado desconhecido (e logada).
+const noPeerGrace = time.Second
+
 func (v *view) callFor(c *channel) model.Call {
 	peer, viaBridge := v.farEnd(c)
 	state := callState(c, peer, viaBridge)
+	dir, p := v.describe(c, peer)
+	switch {
+	case peer != nil:
+		c.noPeerAt, c.noPeerSeen = time.Time{}, false
+		delete(v.noPeer, c.uid)
+		if p.Kind != model.PeerUnknown {
+			c.knownOK, c.knownDir, c.knownPeer = true, dir, p
+		}
+	case state != model.CallTalking:
+		// tocando/em espera: nada a proteger
+	case c.knownOK:
+		dir, p = c.knownDir, c.knownPeer // o outro lado esta trocando de perna: mantem o ultimo conhecido
+	default:
+		state = v.unresolved(c)
+	}
 	switch {
 	case state == model.CallRinging:
 		c.talkingAt = time.Time{} // answered_at so vale para a conversa atual
 	case c.talkingAt.IsZero():
 		c.talkingAt = v.at
 	}
-	dir, p := v.describe(c, peer)
 	call := model.Call{ID: c.uid, Direction: dir, State: state, Peer: p, StartedAt: model.NewStamp(c.startedAt)}
 	if state != model.CallRinging {
 		t := model.NewStamp(c.talkingAt)
 		call.AnsweredAt = &t
 	}
 	return call
+}
+
+// unresolved decide o estado de um canal Up que nunca teve outro lado: "tocando" por noPeerGrace;
+// depois (ou ja na restauracao por snapshot, onde nao ha evento a esperar) "em conversa" e loga.
+func (v *view) unresolved(c *channel) model.CallState {
+	if c.noPeerAt.IsZero() {
+		c.noPeerAt = v.at
+	}
+	if !c.fromSnap && v.at.Sub(c.noPeerAt) < noPeerGrace {
+		v.noPeer[c.uid] = struct{}{}
+		return model.CallRinging
+	}
+	delete(v.noPeer, c.uid)
+	if !c.noPeerSeen {
+		c.noPeerSeen = true
+		if v.onNoPeer != nil {
+			v.onNoPeer(c.uid, c.linkedID)
+		}
+	}
+	return model.CallTalking
+}
+
+// expireNoPeer reavalia, a cada Flush, os canais esperando a protecao de 1 s (sem evento novo
+// ninguem os recalcularia).
+func (v *view) expireNoPeer(now time.Time) {
+	if len(v.noPeer) == 0 {
+		return
+	}
+	aff := map[string]struct{}{}
+	for uid := range v.noPeer {
+		c := v.chans[uid]
+		if c == nil {
+			delete(v.noPeer, uid)
+			continue
+		}
+		if now.Sub(c.noPeerAt) >= noPeerGrace {
+			v.relatedExts(c, aff)
+		}
+	}
+	if len(aff) > 0 {
+		v.at = now
+		v.recalc(aff)
+	}
 }
 
 func callState(c, peer *channel, viaBridge bool) model.CallState {

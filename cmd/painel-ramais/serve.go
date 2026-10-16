@@ -104,7 +104,7 @@ func newDaemon(cfg *config.Config, hup <-chan os.Signal) (*daemon, error) {
 	}
 	d := &daemon{cfg: cfg, log: log, st: st, hupChan: hup, fatal: make(chan error, 8),
 		events: make(chan model.Event, eventQueueSize), names: make(chan [2]string, 4096), prune: make(chan []string, 1)}
-	d.state = state.New(cfg.Pattern, d.events, state.Options{OnName: d.onName, OnSync: d.onSync})
+	d.state = state.New(cfg.Pattern, d.events, state.Options{OnName: d.onName, OnSync: d.onSync, OnNoPeer: d.onNoPeer})
 	d.hub = api.NewHub(log, nil)
 	d.sup = newSupervisor(ami.Config{Address: cfg.AMI.Address, Username: cfg.AMI.Username, Secret: amiSecret},
 		cfg.Technology, cfg.AMI.NameFillPerSecond, cfg.Pattern, log)
@@ -275,6 +275,11 @@ func housekeep(ctx context.Context, st *store.Store, log *slog.Logger) {
 		case <-t.C:
 		}
 	}
+}
+
+// onNoPeer e chamado pela goroutine do estado quando uma chamada Up ficou 1 s sem outro lado resolvido.
+func (d *daemon) onNoPeer(uniqueid, linkedid string) {
+	d.log.Warn("chamada em conversa sem outro lado resolvido", "uniqueid", uniqueid, "linkedid", linkedid)
 }
 
 // onName e chamado pela goroutine do estado: nunca bloqueia (o cache e so otimizacao).

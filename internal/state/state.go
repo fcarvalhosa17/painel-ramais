@@ -22,6 +22,9 @@ type Options struct {
 	// OnSync recebe os numeros de todos os ramais ao fim de cada sincronizacao completa (o dono
 	// do cache de nomes expurga os que sumiram). Chamado na goroutine do estado: nao pode bloquear.
 	OnSync func(numbers []string)
+	// OnNoPeer e chamado (na goroutine do estado, sem bloquear) quando uma chamada Up segue sem
+	// outro lado resolvido por 1 s e passa a ser publicada "em conversa" com o outro lado desconhecido.
+	OnNoPeer func(uniqueid, linkedid string)
 }
 
 // Stats e a foto agregada publicada a cada lote, lida sem bloquear o estado.
@@ -56,6 +59,7 @@ type State struct {
 	hints         map[string]string
 	onName        func(number, name string)
 	onSync        func(numbers []string)
+	onNoPeer      func(uniqueid, linkedid string)
 	epochBase     int64
 	epochSeq      int
 	epoch         string
@@ -73,7 +77,7 @@ type State struct {
 
 // New cria o estado. pattern ja deve casar o nome inteiro (config envolve em ^(?:...)$).
 func New(pattern *regexp.Regexp, in <-chan model.Event, opt Options) *State {
-	s := &State{pattern: pattern, in: in, hints: map[string]string{}, onName: opt.OnName, onSync: opt.OnSync, out: make(chan model.Output, 64), now: opt.Now, interval: opt.Interval}
+	s := &State{pattern: pattern, in: in, hints: map[string]string{}, onName: opt.OnName, onSync: opt.OnSync, onNoPeer: opt.OnNoPeer, out: make(chan model.Output, 64), now: opt.Now, interval: opt.Interval}
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -217,7 +221,7 @@ func (s *State) onGroups(e model.GroupsLoaded) {
 
 func (s *State) newView(groups []model.GroupRange) *view {
 	v := newView(s.pattern, groups)
-	v.hints, v.onName = s.hints, s.onName
+	v.hints, v.onName, v.onNoPeer = s.hints, s.onName, s.onNoPeer
 	return v
 }
 
@@ -243,6 +247,7 @@ func sortedRanges(in []model.GroupRange) []model.GroupRange {
 // houve mudanca) ou nil. Chamado so pela goroutine dona.
 func (s *State) Flush() model.Output {
 	defer s.publishStats()
+	s.cur.expireNoPeer(s.now())
 	if s.needReset {
 		s.needReset = false
 		s.cur.takeChanges() // o Reset ja carrega tudo; a versao so avanca 1 por epoch
