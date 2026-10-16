@@ -428,7 +428,8 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
       { "name": "manager_custom_include", "status": "ok", "detail": "manager.conf inclui manager_custom.conf e o bloco painel-ramais está presente", "checked_at": "2026-10-13T14:30:00.000Z" },
       { "name": "apache_proxy_conf", "status": "ok", "detail": "/etc/httpd/conf.d/painel-ramais.conf presente", "checked_at": "2026-10-13T14:30:00.000Z" },
       { "name": "issabel_key", "status": "ok", "detail": "chave do Issabel válida: integração ligada", "checked_at": "2026-10-13T14:30:00.000Z" },
-      { "name": "manager_custom_perm", "status": "ok", "detail": "manager_custom.conf sem acesso para outros (modo 0640)", "checked_at": "2026-10-13T14:30:00.000Z" }
+      { "name": "manager_custom_perm", "status": "ok", "detail": "manager_custom.conf sem acesso para outros (modo 0640)", "checked_at": "2026-10-13T14:30:00.000Z" },
+      { "name": "issabel_menu", "status": "ok", "detail": "item painel_ramais presente no menu do Issabel", "checked_at": "2026-10-13T14:30:00.000Z" }
     ]
   },
   "error": null,
@@ -442,7 +443,10 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
 | `name` | `ok` | `fail` | `unknown` |
 |---|---|---|---|
 | `issabel_key` | arquivo ausente (detalhe: "chave do Issabel ausente: integração com o menu desligada") ou presente e válido ("chave do Issabel válida: integração ligada") | permissão, dono, tipo ou conteúdo inválido, ou chave igual ao `auth.secret_file`; detalhe com o problema e a correção (`chown painel-ramais:<grupo do PHP> <arquivo>; chmod 0640 <arquivo>`) | erro de leitura que não seja "não existe" nem regra violada |
+| `issabel_menu` | linha `id = 'painel_ramais'` presente em `/var/www/db/menu.db` | linha ausente; detalhe "item do menu do Issabel ausente; rode ./instalar.py menu" | erro de abertura ou leitura (arquivo ausente, sem permissão, banco travado); detalhe com o erro. Nunca `ok` |
 | `manager_custom_perm` | modo sem nenhum bit de outros (detalhe com o modo) | algum bit de outros; detalhe "manager_custom.conf acessível a outros (modo NNNN): contém a senha AMI. Rode: chmod o-rwx /etc/asterisk/manager_custom.conf" | `stat` falhou (inclui ausente e `EACCES` no diretório); detalhe com o erro. Nunca `ok` |
+
+  `issabel_menu`: o daemon abre o `menu.db` do Issabel só para leitura (`file:/var/www/db/menu.db?mode=ro`, `busy_timeout` de 1 s; nunca cria nem grava) e consulta apenas `SELECT 1 FROM menu WHERE id = 'painel_ramais'`; não lê o `acl.db` (as permissões do item são conferidas pelo `instalar.py menu`). O caminho padrão é a constante `depcheck.DefaultMenuDB`; reavaliado a cada 60 s como os demais itens.
 
   `issabel_key` é a fonte única da chave do verificador de tokens (seção 3.3): a cada verificação (na subida, a cada 60 s e após cada Login AMI) o resultado é entregue ao verificador (chave válida ou nenhuma). O daemon só lê o modo do `manager_custom.conf` (`stat`), nunca o altera. Mudança de estado de qualquer item sai no log.
 - `ami_user` vem do resultado do último Login da conexão única (não abre segunda conexão).
@@ -700,7 +704,7 @@ painel-ramais version
 - `filtrar` lê texto do stdin e escreve no stdout com as **mesmas regras** do `capturar` (`internal/capture`, `Sanitizer.Text`): segredos viram `***` sempre (formatos `Chave: valor`, `chave=valor` e `"chave":"valor"`; chaves `secret`, `passw*`, `pass`, `pwd`, `senha`, `token`, `*key`, `auth*`, `cookie`, `session`, `hmac`, `signature`, `credential`, `private`, `md5`, `challenge`; o valor inteiro: com aspas (duplas ou simples) até a aspa que fecha, sem aspas até o **fim da linha** (escolha de segurança; inclui valor dentro de aspas, URL com `?session=X` e repr de Python); cabeçalhos `Cookie`/`Set-Cookie`/`Authorization` na linha toda; senha de `usuario:senha@host`; `response`/`nonce` de Digest); com `--anonimizar`, números externos, nomes, usuários, hosts, IPv4 e IPv6 viram ficcionais, o mesmo ficcional para o mesmo original durante a execução; `--host NOME` (repetível) troca o hostname/FQDN em qualquer ponto do texto. Não cobre segredo de várias linhas (PEM), segredo em argv/`ps` fora de par chave=valor nem texto livre sem chave (`filtrar --help`). É o único filtro de máscara do pacote de homologação (não há segunda rotina em Python).
 - `actions` imprime a lista fixa de actions AMI do daemon (seção 7.1), uma por linha, ordenada. O `instalar.py homologar` registra `manager show command <Action>` para cada uma.
 - `session purge` apaga as sessões vencidas; `--all` apaga todas (todo mundo faz login de novo) e manda o SIGHUP para o daemon fechar os WebSockets. Imprime a quantidade removida. `--issabel <usuario>` apaga as sessões de token com `subject` igual a `issabel:admin:<usuario>` ou `issabel:user:<usuario>` (sessão de senha e token da CLI nunca casam), imprime `N sessão(ões) removida(s)` e, se `N > 0`, manda o SIGHUP (os WebSockets dessas sessões fecham com `session_expired` `revoked` e 4001). `--all` e `--issabel` juntos, ou `--issabel` com usuário fora da regra (1 a 64 caracteres, sem caractere de controle): erro de uso (código 1).
-- `token` imprime o token no stdout e nada mais. `--ttl` máximo 60 s. Sem `--issabel`, assina com o segredo do daemon e um `--sub` que comece com `issabel:` (sem diferenciar maiúsculas) é erro de uso (código 1) com a mensagem "use --issabel para sub issabel:". Com `--issabel`, assina com a chave do Issabel (lida com a regra de permissão da seção 3.3; falha de leitura sai com 2) e o `--sub` precisa seguir a gramática da seção 3.3 (`issabel:admin:<usuario>` ou `issabel:user:<usuario>`; senão código 1). Uso: testes, homologação do fluxo do menu e a medição local (`cmd/telalocal`).
+- `token` imprime o token no stdout e nada mais. `--ttl` máximo 60 s. Sem `--issabel`, assina com o segredo do daemon e um `--sub` que comece com `issabel:` (sem diferenciar maiúsculas) é erro de uso (código 1) com a mensagem "use --issabel para sub issabel:". Com `--issabel`, assina com a chave do Issabel (lida com a regra de permissão da seção 3.3; falha de leitura sai com 2) e o `--sub` precisa seguir a gramática da seção 3.3 (`issabel:admin:<usuario>` ou `issabel:user:<usuario>`; senão código 1). Uso: testes e homologação do fluxo do menu.
 - Depois de `user ...` ou `group ...` com sucesso, a CLI pega o PID com `systemctl show -p MainPID --value painel-ramais` e manda SIGHUP (mesmo usuário, não precisa de root). Daemon parado: avisa e sai 0. Falha no sinal: avisa `rode: systemctl reload painel-ramais` e sai 0 (o banco já foi gravado).
 - Códigos de saída: 0 sucesso; 1 erro de uso ou validação (mensagem cita a linha do CSV); 2 erro de ambiente (banco, arquivo, permissão); 3 `user add` de usuário que já existe (nada alterado). O 3 existe para o `instalar.py` ser idempotente sem ler o banco. Só no `serve`: 4 = Asterisk abaixo da versão mínima (13); a unit deve ter `RestartPreventExitStatus=4` para não reiniciar em laço.
 - `version` imprime uma linha `painel-ramais <versao> schema <user_version que o binário conhece>` (exemplo: `painel-ramais 0.1.1 schema 2`). O `instalar.py` usa o `schema` para decidir o rollback (seção 15.5).
@@ -896,9 +900,7 @@ Módulo único. Dependências externas: `modernc.org/sqlite`, `gopkg.in/yaml.v3`
 ```
 cmd/painel-ramais/     main: serve e CLI; supervisor da conexão AMI (Adapter); amostrador de histórico; SIGHUP
 cmd/amisim/            simulador de AMI (modos sip e pjsip)
-cmd/loadtest/          teste de carga contra o simulador (`-heap` exige o daemon compilado com `-tags debug`)
-cmd/telalocal/         Issabel falso para desenvolver e medir a tela sem VM: simulador em processo, daemon, proxy no estilo do Apache e `/dev/token`; só desenvolvimento
-internal/api/          HTTP, sessão, rotas da tela e dos grupos, hub WebSocket (projeção, ring buffer, fan-out), /debug
+cmd/loadtest/          teste de carga contra o simulador (`-heap` exige o daemon compilado com `-tags debug`)internal/api/          HTTP, sessão, rotas da tela e dos grupos, hub WebSocket (projeção, ring buffer, fan-out), /debug
 internal/web/          tela embutida no binário (`//go:embed static`); o conteúdo de `static/` é do frontend
 internal/state/        estado em memória, correlação de canais, versão, epoch, lotes de 250 ms
 internal/model/        tipos: Extension, Call, enums, eventos normalizados, Batch, Reset
@@ -910,7 +912,7 @@ internal/history/      amostrador por minuto (gap, retenção); importa model e 
 internal/store/        SQLite: usuários, sessões, grupos, histórico, migrações
 internal/auth/         bcrypt, token HMAC, cache de jti, geração de id de sessão
 internal/config/       leitura e validação do config.yaml
-internal/depcheck/     verificação de dependências (arquivos e resultado de login AMI)
+internal/depcheck/     verificação de dependências (arquivos, resultado de login AMI, chave do Issabel e item do menu no `menu.db`, lido com o driver sqlite do store)
 instalar.py            instalador (raiz do repositório; Python 3.6, stdlib)
 tools/bundle.py        monta dist/painel-ramais-<versao>.tar.gz (modo 0755 e LF garantidos; seção 15.1); tools/check-lf.ps1
 tests/                 testes unitários do instalar.py (unittest)
@@ -938,7 +940,6 @@ internal/amisim -> internal/capture
 internal/capture ->
 cmd/amisim ->
 cmd/loadtest ->
-cmd/telalocal -> internal/amisim, internal/auth
 ```
 
 Regras:
@@ -946,7 +947,7 @@ Regras:
 - Folhas (`model`, `store`, `auth`, `config`, `depcheck`, `ami`) não importam nenhum pacote interno. `store` devolve os próprios tipos de linha; o `cmd` converte para `model` (por exemplo `store.Range` para `model.GroupRange`).
 - A interface `Adapter` (duas implementações: `sip` e `pjsip`) é declarada em `cmd/painel-ramais`, onde é consumida: `Snapshot(ctx, *ami.Client) error` emite os eventos da sincronização; `Translate(ami.Message) []model.Event` traduz um evento ao vivo; `EndpointFromChannel(string) (string, bool)`.
 - Detecção de tecnologia (`CoreSettings` e `ModuleCheck`) fica em `ami` e devolve texto (`"sip"`, `"pjsip"`); o `cmd` escolhe o adaptador.
-- `cmd/telalocal` (só desenvolvimento) importa `internal/amisim` (simulador em processo) e `internal/auth` (assina o token do Issabel falso); fala com o daemon só por processo e HTTP, como cliente. `internal/web` é folha: só embute os arquivos; o conteúdo de `static/` é do frontend e as rotas que o servem são de `internal/api` (opção `Static`).
+- `internal/web` é folha: só embute os arquivos; o conteúdo de `static/` é do frontend e as rotas que o servem são de `internal/api` (opção `Static`).
 - `cmd/amisim` e `cmd/loadtest` não importam nada de `internal/`. O simulador tem framing AMI próprio de propósito: se dividisse o código do cliente, um bug de framing seria espelhado e o teste não pegaria. O teste de carga decodifica o JSON pelos tipos dele, como cliente de caixa preta deste contrato.
 - `ami/calls` é uma adição ao desenho pedido. O bundle é `tools/bundle.py` (Python, `tarfile`, executado por `build.ps1 bundle`), e não um `cmd/bundle` em Go: o build roda no Windows, sem bit de execução, e o `tar` do Windows não garante o modo 0755 no cabeçalho, então o script grava `TarInfo.mode` explícito. `ami/calls` evita duplicar a tradução de onze eventos de chamada nos dois adaptadores, e não cria ciclo.
 - Se o `cmd/painel-ramais` passar de 800 linhas, o supervisor sai para `internal/collector` (entre `cmd` e `ami/*`), sem mudar a direção.

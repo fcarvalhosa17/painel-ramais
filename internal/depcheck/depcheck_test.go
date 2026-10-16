@@ -1,6 +1,7 @@
 package depcheck
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -23,9 +24,18 @@ func fakeMode(t *testing.T, mode fs.FileMode) {
 	t.Cleanup(func() { statFile = old })
 }
 
+// fakeMenu faz o menuItemExists devolver o resultado dado (o menu.db real so existe no Issabel).
+func fakeMenu(t *testing.T, found bool, err error) {
+	t.Helper()
+	old := menuItemExists
+	menuItemExists = func(context.Context, string) (bool, error) { return found, err }
+	t.Cleanup(func() { menuItemExists = old })
+}
+
 func setup(t *testing.T, manager, custom string) *Checker {
 	t.Helper()
 	fakeMode(t, 0o640)
+	fakeMenu(t, true, nil)
 	d := t.TempDir()
 	c := &Checker{
 		ManagerConf: filepath.Join(d, "manager.conf"), ManagerCustomConf: filepath.Join(d, "manager_custom.conf"),
@@ -57,7 +67,7 @@ func TestAllOK(t *testing.T) {
 			t.Errorf("%+v", it)
 		}
 	}
-	if !c.OK() || len(c.Results()) != 5 {
+	if !c.OK() || len(c.Results()) != 6 {
 		t.Error("OK()/Results()")
 	}
 }

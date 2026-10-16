@@ -1,11 +1,12 @@
 // Package depcheck verifica a cada 60 s as dependencias da integracao com o
-// Issabel: login AMI, include e permissao de manager_custom.conf, conf do Apache
-// e chave do menu do Issabel. Somente leitura; nao importa pacote interno.
+// Issabel: login AMI, include e permissao de manager_custom.conf, conf do Apache,
+// chave do menu do Issabel e item do menu no menu.db. Somente leitura; nao importa pacote interno.
 package depcheck
 
 import (
 	"bufio"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -14,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	_ "modernc.org/sqlite" // driver "sqlite" (o mesmo do store), para ler o menu.db do Issabel
 )
 
 const (
@@ -24,6 +27,9 @@ const (
 	DefaultManagerConf       = "/etc/asterisk/manager.conf"
 	DefaultManagerCustomConf = "/etc/asterisk/manager_custom.conf"
 	DefaultApacheConf        = "/etc/httpd/conf.d/painel-ramais.conf"
+	DefaultMenuDB            = "/var/www/db/menu.db"
+
+	menuItemID = "painel_ramais" // menuid do item no menu do Issabel (ADR-004)
 
 	beginMarker = "; BEGIN painel-ramais"
 	endMarker   = "; END painel-ramais"
@@ -52,6 +58,7 @@ type LoginResult struct {
 // Checker roda as verificacoes. Campos vazios usam os caminhos padrao.
 type Checker struct {
 	ManagerConf, ManagerCustomConf, ApacheConf string
+	MenuDB                                     string // padrao DefaultMenuDB
 	Login                                      func() LoginResult
 	Now                                        func() time.Time
 	Log                                        func(msg string, args ...any)
@@ -75,7 +82,7 @@ func (c *Checker) Check() []Item {
 		now = c.Now
 	}
 	t := now()
-	items := []Item{c.checkLogin(t), c.checkInclude(t), c.checkApache(t), c.checkIssabelKey(t), c.checkManagerPerm(t)}
+	items := []Item{c.checkLogin(t), c.checkInclude(t), c.checkApache(t), c.checkIssabelKey(t), c.checkManagerPerm(t), c.checkIssabelMenu(t)}
 	c.mu.Lock()
 	prev := c.last
 	c.last = items
@@ -267,6 +274,48 @@ func (c *Checker) checkManagerPerm(t time.Time) Item {
 		return it
 	}
 	it.Status, it.Detail = StatusOK, fmt.Sprintf("%s sem acesso para outros (modo %04o)", filepath.Base(p), mode)
+	return it
+}
+
+// menuItemExists e trocavel nos testes (o menu.db real so existe no Issabel).
+var menuItemExists = queryMenuItem
+
+// queryMenuItem abre o menu.db em modo somente leitura (mode=ro, nunca cria o arquivo) com
+// busy_timeout de 1 s e pergunta so se a linha do painel existe. Nao toca em acl.db.
+func queryMenuItem(ctx context.Context, path string) (bool, error) {
+	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path)+"?mode=ro&_pragma=busy_timeout(1000)")
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	var one int
+	switch err := db.QueryRowContext(ctx, "SELECT 1 FROM menu WHERE id = ?", menuItemID).Scan(&one); {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, sql.ErrNoRows):
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
+// checkIssabelMenu confere que o item do painel esta registrado no menu do Issabel. Ausente e
+// fail (o instalar.py menu registra); falha de abertura ou leitura e unknown, nunca ok.
+func (c *Checker) checkIssabelMenu(t time.Time) Item {
+	it := Item{Name: "issabel_menu", CheckedAt: t}
+	p := pick(c.MenuDB, DefaultMenuDB)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	found, err := menuItemExists(ctx, p)
+	switch {
+	case err != nil:
+		it.Status, it.Detail = StatusUnknown, fmt.Sprintf("sem leitura de %s (%v); nao da para conferir o item do menu do Issabel", p, err)
+	case !found:
+		it.Status, it.Detail = StatusFail, "item do menu do Issabel ausente; rode ./instalar.py menu"
+	default:
+		it.Status, it.Detail = StatusOK, "item "+menuItemID+" presente no menu do Issabel"
+	}
 	return it
 }
 

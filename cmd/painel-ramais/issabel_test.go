@@ -134,7 +134,7 @@ func TestIssabelKeyReachesVerifierThroughDepcheck(t *testing.T) {
 	for _, dep := range h.Data.Deps {
 		names[dep.Name] = true
 	}
-	if !names["issabel_key"] || !names["manager_custom_perm"] {
+	if !names["issabel_key"] || !names["manager_custom_perm"] || !names["issabel_menu"] {
 		t.Errorf("deps no health: %v", h.Data.Deps)
 	}
 }
