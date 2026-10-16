@@ -180,6 +180,7 @@ body.pagina-aviso { background-image: radial-gradient(120% 80% at 0% 0%, #12202b
 .bloco-mapa, .bloco-ranking, .bloco-grafico { flex: none; }
 .mapa-caixa { position: relative; min-height: 12rem; background: rgba(0, 0, 0, 0.18); border: 1px solid var(--borda); border-radius: 2px; }
 .mapa { display: block; width: 100%; }
+.mapa-vazio { padding: var(--e-4); text-align: center; font-size: 0.9375rem; }
 .mapa.clicavel { cursor: pointer; }
 
 .dica {

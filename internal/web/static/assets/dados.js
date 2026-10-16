@@ -52,6 +52,19 @@ export class Dados {
         this.itens.splice(posicaoDeInsercao(this.itens, ramal.number), 0, item);
       }
     }
+    // Ramal apagado no PBX (contrato 5.2/7.4): sai da lista sem epoch novo; número que não temos é ignorado.
+    for (const numero of msg.removed || []) {
+      const item = this.porNumero.get(numero);
+      if (!item) continue;
+      this.porNumero.delete(numero);
+      const i = posicaoDeInsercao(this.itens, numero);
+      if (this.itens[i] === item) this.itens.splice(i, 1);
+      else {
+        // ponytail: só acontece se a ordem local divergir; busca linear de garantia.
+        const j = this.itens.indexOf(item);
+        if (j >= 0) this.itens.splice(j, 1);
+      }
+    }
     // A conexão com o AMI muda o estado exibido de todos (C9 regra 1).
     if (amiMudou) for (const it of this.itens) it.estado = estadoDaTela(it.ramal, this.amiConectado);
     this.version = msg.to_version;

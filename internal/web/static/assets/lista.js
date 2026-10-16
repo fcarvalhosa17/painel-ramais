@@ -55,9 +55,11 @@ export class Lista {
     const altura = this.caixa.clientHeight;
     this.colunas = colunasPara(largura);
     this.larguraCard = (largura - VAO * (this.colunas - 1)) / this.colunas;
+    // Altura primeiro, rolagem depois: se a lista encolheu (ramal removido, filtro), o navegador
+    // limita o scrollTop à altura nova e a janela não cai além do fim (lista em branco).
+    this.espaco.style.height = Math.ceil(this.itens.length / this.colunas) * (ALTURA_CARD + VAO) + "px";
     const j = janela(this.itens.length, this.colunas, this.caixa.scrollTop, altura);
-    this.espaco.style.height = j.alturaTotal + "px";
-    const precisa = j.fim - j.inicio;
+    const precisa = Math.max(0, j.fim - j.inicio);
     while (this.pool.length < precisa) this.pool.push(criarCard(this.caixa));
     const agora = Date.now();
     this.visiveis = [];

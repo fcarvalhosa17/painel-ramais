@@ -234,7 +234,16 @@ function quadro() {
     lista.desvioMs = dados.desvioMs;
     lista.render();
     $("contagem-lista").textContent = formatarNumero(filtrados.length) + " de " + formatarNumero(dados.itens.length) + " ramais";
-    $("lista-vazia").hidden = filtrados.length > 0 || dados.itens.length === 0;
+    // Vazio por filtro, ou servidor sem ramal nenhum (estado pronto, não "carregando"); a frase muda sozinha
+    // quando o primeiro ramal entra por delta ou o último sai.
+    // Antes do primeiro snapshot (epoch nulo) não há o que afirmar: nada de "Nenhum ramal cadastrado".
+    const carregou = dados.epoch !== null;
+    const vazio = $("lista-vazia");
+    vazio.hidden = !carregou || filtrados.length > 0;
+    vazio.textContent = dados.itens.length > 0 ? "Nenhum ramal com esses filtros."
+      : dados.amiConectado ? "Nenhum ramal cadastrado." : "Aguardando a conexão com o Asterisk.";
+    $("mapa-vazio").hidden = !carregou || dados.itens.length > 0;
+    if (dados.itens.length === 0) $("mapa-vazio").textContent = vazio.textContent;
   }
   sujo.dados = sujo.filtro = sujo.delta = false;
   // Publica no gancho no quadro seguinte: o anterior já foi pintado.
@@ -364,6 +373,10 @@ function renderRanking() {
 let chaveOpcoes = "";
 function renderOpcoesGrupo() {
   const nomes = grupos.map((g) => g.nome);
+  // Grupo selecionado que ficou sem ramal (removed) some de `grupos`: o filtro volta para "Todos".
+  // Fica antes do retorno antecipado e roda antes do filtrar() do quadro, então lista, select,
+  // legenda, mapa e histórico já saem com "Todos" neste mesmo quadro (o mapa desenha depois, pelo timer).
+  if (filtros.grupo && !nomes.includes(filtros.grupo)) selecionarGrupo("", false);
   const chave = nomes.join("\n");
   if (chave === chaveOpcoes) return;
   chaveOpcoes = chave;
@@ -376,11 +389,11 @@ function renderOpcoesGrupo() {
     o.textContent = nome;
     sel.append(o);
   }
-  if (filtros.grupo && !nomes.includes(filtros.grupo)) selecionarGrupo("");
-  else sel.value = filtros.grupo;
+  sel.value = filtros.grupo;
 }
 
-function selecionarGrupo(nome) {
+// rolar = false quando a troca é automática (grupo sumiu): não arrasta a tela no celular.
+function selecionarGrupo(nome, rolar = true) {
   if (filtros.grupo === nome) return;
   filtros.grupo = nome;
   $("filtro-grupo").value = nome;
@@ -389,7 +402,7 @@ function selecionarGrupo(nome) {
   sujo.dados = true; // legenda e ranking marcam o grupo
   agendar();
   carregarHistorico(true);
-  if (matchMedia("(max-width: 1023px)").matches) {
+  if (rolar && matchMedia("(max-width: 1023px)").matches) {
     $("lista").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
 }
@@ -431,6 +444,10 @@ function desenharMapaAgora() {
   // Janela baixa (área do Issabel, ~700 px): mapa menor para o ranking e o histórico subirem.
   const alvo = Math.max(180, Math.round(window.innerHeight * (window.innerHeight < 800 ? 0.36 : 0.45)));
   layoutMapa = calcularLayout(grupos, largura - 8, alvo - 10);
+  // Grupo que ficou sem ramal (removed) sai do mapa: some também o destaque e a dica dele.
+  const dica = $("mapa-dica");
+  if (sobreMapa && !grupos.some((g) => g.nome === sobreMapa)) sobreMapa = null;
+  if (!dica.hidden && !grupos.some((g) => g.nome === dica.dataset.grupo)) { dica.hidden = true; delete dica.dataset.grupo; }
   const altura = layoutMapa.altura + 10;
   const dpr = window.devicePixelRatio || 1;
   if (mapa.width !== Math.round(largura * dpr) || mapa.height !== Math.round(altura * dpr)) {
