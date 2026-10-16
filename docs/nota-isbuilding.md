@@ -14,7 +14,7 @@
 | `channels.go`, `view.building()` | unico leitor do campo |
 | `channels.go`, `onHangup` (canal desconhecido) | se `building()`, grava o Uniqueid em `hungup`; fora da montagem, ignora |
 | `channels.go`, `onHangup` (canal conhecido, apos remover) | se `building()`, grava o Uniqueid em `hungup`; fora da montagem, nao grava |
-| `channels.go`, upsert de canal (leitura de `hungup`) | recusa criar canal cujo Uniqueid esta em `hungup` (nao ressuscita) |
+| `channels.go`, `onChannelCreated` (leitura de `hungup`, linha 100) | recusa criar canal cujo Uniqueid esta em `hungup` (nao ressuscita) |
 
 ## O bug que existia
 
