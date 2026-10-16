@@ -415,6 +415,173 @@ def c_perm_manager_custom():
     return (OK, "Permissao de manager_custom.conf", "modo %o" % (modo & 0o777))
 
 
+# ---------------------------------------------------------------- item do menu do Issabel (PLANO secao 8c)
+
+MENU_ID = "painel_ramais"
+MENUMERGE = "/usr/bin/issabel-menumerge"
+MENUREMOVE = "/usr/bin/issabel-menuremove"
+MENU_DB = "/var/www/db/menu.db"
+ACL_DB = "/var/www/db/acl.db"
+MENU_XML = "/usr/share/painel-ramais/issabel/menu.xml"
+MENU_PHP = "/var/www/html/modules/painel_ramais/index.php"
+ISSABEL_KEY = "/etc/painel-ramais-issabel.key"
+GRUPO_DA_CHAVE = "asterisk"  # httpd/php-fpm do Issabel rodam como asterisk (leitura da VM, 2026-10-16); igual ao %post
+MENU_ESPERADO = ("pbxconfig", "module", 10)
+MENU_GRUPOS = (1, 2)  # administrator e Operator
+
+
+def _consulta_ro(caminho, sql, params=()):
+    """Leitura do menu.db/acl.db do Issabel: sempre mode=ro, nunca grava."""
+    c = sqlite3.connect("file:%s?mode=ro" % caminho, uri=True, timeout=1)
+    try:
+        return c.execute(sql, params).fetchall()
+    finally:
+        c.close()
+
+
+def menu_faltas():
+    faltas = []
+    if not os.access(MENUMERGE, os.X_OK):
+        faltas.append(MENUMERGE + " (executavel)")
+    for p in (MENU_DB, ACL_DB, MENU_XML, MENU_PHP):
+        if not os.access(p, os.R_OK):
+            faltas.append(p)
+    return faltas
+
+
+def menu_item():
+    """(IdParent, Type, order_no) do nosso item, ou None se ausente. Levanta sqlite3.Error/OSError se nao leu."""
+    rows = _consulta_ro(MENU_DB, "SELECT IdParent, Type, order_no FROM menu WHERE id = ?", (MENU_ID,))
+    return tuple(rows[0]) if rows else None
+
+
+def menu_grupos():
+    rows = _consulta_ro(ACL_DB, "SELECT p.id_group FROM acl_group_permission p "
+                        "JOIN acl_resource r ON r.id = p.id_resource JOIN acl_action a ON a.id = p.id_action "
+                        "WHERE r.name = ? AND a.name = 'access'", (MENU_ID,))
+    return sorted(set(int(r[0]) for r in rows))
+
+
+def c_menu_item():
+    try:
+        item = menu_item()
+    except (sqlite3.Error, OSError) as e:
+        return (AVISO, "Menu do Issabel: item " + MENU_ID, "nao consegui ler %s (%s)" % (MENU_DB, e))
+    if item is None:
+        return (AVISO, "Menu do Issabel: item %s ausente" % MENU_ID, "Rode: ./instalar.py menu")
+    if (item[0], item[1], int(item[2] or 0)) != MENU_ESPERADO:
+        return (AVISO, "Menu do Issabel: item %s diferente do esperado" % MENU_ID,
+                "lido pai=%s tipo=%s ordem=%s; esperado pai=%s tipo=%s ordem=%s. Rode: ./instalar.py menu --recriar"
+                % (item + MENU_ESPERADO))
+    return (OK, "Menu do Issabel: item %s" % MENU_ID, "pai=%s tipo=%s ordem=%s" % item)
+
+
+def c_menu_permissoes():
+    try:
+        grupos = menu_grupos()
+    except (sqlite3.Error, OSError) as e:
+        return (AVISO, "Menu do Issabel: permissoes de " + MENU_ID, "nao consegui ler %s (%s)" % (ACL_DB, e))
+    faltam = [g for g in MENU_GRUPOS if g not in grupos]
+    if faltam:
+        return (AVISO, "Menu do Issabel: grupo(s) %s sem acesso ao item" % ", ".join(str(g) for g in faltam),
+                "Rode: ./instalar.py menu --recriar (apaga permissoes que o administrador tenha dado a outros grupos)")
+    extra = [g for g in grupos if g not in MENU_GRUPOS]
+    return (OK, "Menu do Issabel: permissoes de " + MENU_ID,
+            "grupos %s%s" % (", ".join(str(g) for g in grupos), (" (a mais: %s)" % extra) if extra else ""))
+
+
+def c_menu_chave():
+    try:
+        st = os.stat(ISSABEL_KEY)
+    except OSError:
+        return (AVISO, "Chave do Issabel ausente", "%s nao existe: integracao com o menu desligada. Reinstale o pacote (o %%post gera a chave)." % ISSABEL_KEY)
+    try:
+        import grp
+        import pwd
+        dono = pwd.getpwuid(st.st_uid).pw_name
+        grupo = grp.getgrgid(st.st_gid).gr_name
+    except (ImportError, KeyError):
+        dono = grupo = "?"
+    modo = st.st_mode & 0o777
+    if dono == SVC_USER and grupo == GRUPO_DA_CHAVE and modo == 0o640:
+        return (OK, "Chave do Issabel", "%s:%s %04o" % (dono, grupo, modo))
+    return (AVISO, "Chave do Issabel com dono/modo inesperado (%s:%s %04o)" % (dono, grupo, modo),
+            "Rode: chown %s:%s %s; chmod 0640 %s" % (SVC_USER, GRUPO_DA_CHAVE, ISSABEL_KEY, ISSABEL_KEY))
+
+
+def c_menu_informativo():
+    """Para o verificar: so informa (o item e registrado pela instalacao). Item sumido com o pacote instalado e AVISO."""
+    res = []
+    tem_merge = os.access(MENUMERGE, os.X_OK)
+    res.append((OK if tem_merge else AVISO, "issabel-menumerge" + ("" if tem_merge else " ausente"),
+                MENUMERGE if tem_merge else "Sem ele o item do menu nao e registrado"))
+    try:
+        fop = _consulta_ro(MENU_DB, "SELECT order_no FROM menu WHERE id = 'fop2'")
+        res.append((OK, "Menu do Issabel: fop2 (Operator Panel)", ("order_no %s" % fop[0][0]) if fop else "ausente"))
+        if versao_instalada() and menu_item() is None:
+            res.append((AVISO, "Menu do Issabel: item %s sumiu" % MENU_ID, "Rode: ./instalar.py menu"))
+    except (sqlite3.Error, OSError):
+        res.append((OK, "Menu do Issabel", "menu.db nao lido (sem Issabel neste servidor?)"))
+    return res
+
+
+def menu_checagens():
+    """Passos 1 a 3 e 5 do PLANO 8c. Se o item nao existe, registra com o issabel-menumerge e le de novo."""
+    faltas = menu_faltas()
+    if faltas:
+        return [(ERRO, "Menu do Issabel: pre-requisito(s) ausente(s)", ", ".join(faltas))]
+    try:
+        ausente = menu_item() is None
+    except (sqlite3.Error, OSError):
+        ausente = False  # c_menu_item reporta a leitura que falhou
+    if ausente:
+        rc, out = run([MENUMERGE, MENU_XML])
+        if rc != 0:
+            return [(ERRO, "issabel-menumerge falhou (rc=%d)" % rc, out.strip())]
+    return [c_menu_item(), c_menu_permissoes(), c_menu_chave()]
+
+
+def retirar_item_do_menu_orfao():
+    """Rollback para versao sem modulo PHP: o item do menu ficaria apontando para um modulo que nao existe."""
+    if os.path.exists(MENU_PHP):
+        return
+    try:
+        if menu_item() is None:
+            return
+    except (sqlite3.Error, OSError):
+        return
+    if not os.access(MENUREMOVE, os.X_OK):
+        dizer("AVISO: item %s no menu do Issabel sem o modulo; %s ausente: remova o item pelo Issabel." % (MENU_ID, MENUREMOVE))
+        return
+    rc, out = run([MENUREMOVE, MENU_ID])
+    if rc == 0:
+        dizer("Item %s removido do menu do Issabel (a versao anterior nao tem o modulo)." % MENU_ID)
+    else:
+        dizer("AVISO: issabel-menuremove falhou (rc=%d): %s" % (rc, out.strip()))
+
+
+def cmd_menu(args):
+    exigir_root()
+    dizer("== Item do menu do Issabel ==")
+    if args.recriar:
+        faltas = menu_faltas() + ([] if os.access(MENUREMOVE, os.X_OK) else [MENUREMOVE + " (executavel)"])
+        if faltas:
+            raise Falha("Pre-requisito(s) ausente(s): " + ", ".join(faltas))
+        confirmar("Recriar o item %s: remove o item e registra de novo; APAGA as permissoes que o administrador tenha dado "
+                  "a outros grupos alem de administrator e Operator." % MENU_ID, args)
+        if not os.access(MENUREMOVE, os.X_OK):
+            raise Falha(MENUREMOVE + " nao encontrado.")
+        rc, out = run([MENUREMOVE, MENU_ID])
+        if rc != 0:
+            raise Falha("issabel-menuremove falhou (rc=%d): %s" % (rc, out.strip()))
+        rc, out = run([MENUMERGE, MENU_XML])
+        if rc != 0:
+            raise Falha("issabel-menumerge falhou (rc=%d): %s" % (rc, out.strip()))
+    res = menu_checagens()
+    imprimir_relatorio(res)
+    return EXIT_VERIFICAR if any(r[0] == ERRO for r in res) else EXIT_OK
+
+
 def c_httpd():
     if run(["systemctl", "is-active", "httpd"])[0] != 0:
         return [(ERRO, "httpd", "Apache parado. Inicie: systemctl start httpd")]
@@ -507,6 +674,7 @@ def executar_checagens(rpm_bundle=None):
     r.extend(c_httpd())
     r.extend([c_selinux(), c_porta(), c_disco(), c_painel(rpm_bundle)])
     r.extend(c_informativo())
+    r.extend(c_menu_informativo())
     return r
 
 
@@ -901,6 +1069,9 @@ def cmd_instalar(args):
         if not ok:
             raise Falha("Teste do Apache falhou: %s\nDiagnostico: httpd -t ; cat /etc/httpd/conf.d/painel-ramais.conf ; "
                         "tail /var/log/httpd/error_log" % motivo)
+        passo = "menu do Issabel"
+        dizer("Item do menu do Issabel:")
+        imprimir_relatorio(menu_checagens())
     except Falha as e:
         if e.codigo == EXIT_FALHA:
             dizer("Falhou no passo: %s (nada foi desfeito)." % passo)
@@ -983,6 +1154,8 @@ def cmd_status(args):
         linhas = ["Memoria RSS:     indisponivel", "Heap Go:         indisponivel", "Uptime do daemon: indisponivel"]
     for linha in linhas:
         dizer(linha)
+    for nivel, tit, det in (c_menu_item(), c_menu_permissoes(), c_menu_chave()):
+        dizer("Menu:             %s %s%s" % (nivel, tit, (" - " + det) if det else ""))
     try:
         h = ler_health(ler_porta())
     except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
@@ -1065,6 +1238,7 @@ def cmd_rollback(args):
     rc, out = run(["rpm", "-U", "--oldpackage", rpms[-1]], timeout=300)
     if rc != 0:
         raise Falha("rpm falhou (rc=%d):\n%s" % (rc, out.strip()))
+    retirar_item_do_menu_orfao()
     if precisa_restaurar:
         # tudo como o dono do banco: um symlink plantado em /var/lib/painel-ramais so alcanca o que o dono ja alcanca
         stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -1676,9 +1850,10 @@ class _Parser(argparse.ArgumentParser):
 
 def montar_parser():
     p = _Parser(prog="instalar.py", description="Instalador do Painel de Ramais")
-    p.add_argument("comando", choices=["verificar", "instalar", "status", "rollback", "remover", "homologar"])
+    p.add_argument("comando", choices=["verificar", "instalar", "status", "rollback", "remover", "homologar", "menu"])
     p.add_argument("--respostas", metavar="ARQ.ini", help="respostas nao interativas (senha por ARQUIVO 0600)")
     p.add_argument("--sim", action="store_true", help="aceita as confirmacoes")
+    p.add_argument("--recriar", action="store_true", help="(menu) remove e registra de novo o item do menu")
     p.add_argument("--purge", action="store_true", help="(remover) apaga tambem dados e configuracao")
     p.add_argument("--duracao", type=float, default=DURACAO_HOMOLOGAR_MIN, metavar="MIN",
                    help="(homologar) duracao em minutos (padrao %d)" % DURACAO_HOMOLOGAR_MIN)
@@ -1691,7 +1866,7 @@ def main(argv=None):
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     args = montar_parser().parse_args(argv)
     cmds = {"verificar": cmd_verificar, "instalar": cmd_instalar, "status": cmd_status,
-            "rollback": cmd_rollback, "remover": cmd_remover, "homologar": cmd_homologar}
+            "rollback": cmd_rollback, "remover": cmd_remover, "homologar": cmd_homologar, "menu": cmd_menu}
     CMD_ATUAL[0] = args.comando
     log("=== instalar.py %s ===" % args.comando)
     try:
