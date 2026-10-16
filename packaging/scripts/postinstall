@@ -9,6 +9,8 @@ MANAGER_CUSTOM=/etc/asterisk/manager_custom.conf
 MANAGER_CONF=/etc/asterisk/manager.conf
 HTTPD_CONF=/etc/httpd/conf.d/painel-ramais.conf
 HTTPD_TMPL=/usr/share/painel-ramais/httpd.conf.tmpl
+ISSABEL_KEY=/etc/painel-ramais-issabel.key
+MENU_XML=/usr/share/painel-ramais/issabel/menu.xml
 SVC=painel-ramais
 DEFAULT_PORT=8790
 BEGIN_MARK='; BEGIN painel-ramais'
@@ -169,6 +171,43 @@ if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce)" = "Enforcing" ]; t
       warn "setsebool -P httpd_can_network_connect 1 falhou"
     fi
   fi
+fi
+
+# --- chave do Issabel (assina o token do modulo PHP): so se nao existir; conteudo existente nunca e tocado ---
+if [ ! -s "$ISSABEL_KEY" ]; then
+  KEYTMP=$(mktemp /etc/.painel-ramais-issabel.key.XXXXXX 2>/dev/null)
+  if [ -z "$KEYTMP" ]; then
+    warn "mktemp em /etc falhou; chave do Issabel nao gerada"
+  else
+    ( umask 077; head -c 32 /dev/urandom | base64 -w0 > "$KEYTMP" )
+    # chave igual ao segredo do daemon (probabilidade nula, mas barato): gera de novo
+    if cmp -s "$KEYTMP" "$CONF_DIR/secret"; then
+      ( umask 077; head -c 32 /dev/urandom | base64 -w0 > "$KEYTMP" )
+    fi
+    if mv -f "$KEYTMP" "$ISSABEL_KEY"; then log "chave do Issabel gerada em $ISSABEL_KEY"; else rm -f "$KEYTMP"; warn "nao consegui gravar $ISSABEL_KEY"; fi
+  fi
+fi
+if [ -f "$ISSABEL_KEY" ]; then
+  if getent group asterisk >/dev/null 2>&1; then
+    chown painel-ramais:asterisk "$ISSABEL_KEY"
+    chmod 0640 "$ISSABEL_KEY"
+  else
+    chown painel-ramais:painel-ramais "$ISSABEL_KEY"
+    chmod 0600 "$ISSABEL_KEY"
+    warn "grupo asterisk ausente: chave do Issabel 0600; integracao com o menu desligada"
+  fi
+  command -v restorecon >/dev/null 2>&1 && restorecon "$ISSABEL_KEY" 2>/dev/null
+fi
+
+# --- item do menu do Issabel: so registra o NOSSO item (menu.xml); o menumerge nunca altera as permissoes de item que ja existe ---
+if [ -x /usr/bin/issabel-menumerge ] && [ -f "$MENU_XML" ]; then
+  if /usr/bin/issabel-menumerge "$MENU_XML" >/dev/null 2>&1; then
+    log "item painel_ramais registrado no menu do Issabel"
+  else
+    warn "issabel-menumerge falhou; rode ./instalar.py menu"
+  fi
+else
+  warn "issabel-menumerge ausente; item do menu nao registrado (rode ./instalar.py menu depois)"
 fi
 
 # --- systemd ---

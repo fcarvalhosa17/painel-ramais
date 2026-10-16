@@ -43,6 +43,12 @@ if [ -f /etc/httpd/conf.d/painel-ramais.conf ]; then
   fi
 fi
 
+# Item do menu do Issabel: so o nosso (o deleteMenu sobe ao pai apenas se o item for filho unico; pbxconfig tem varios).
+if [ -x /usr/bin/issabel-menuremove ]; then
+  /usr/bin/issabel-menuremove painel_ramais >/dev/null 2>&1 || warn "issabel-menuremove painel_ramais falhou; remova o item pelo Issabel"
+fi
+rm -f /etc/painel-ramais-issabel.key
+
 rm -rf /etc/systemd/system/painel-ramais.socket.d
 if [ -n "$HAVE_SYSTEMD" ]; then
   systemctl daemon-reload

@@ -2,7 +2,7 @@
 # Uso: powershell -File tools\check-lf.ps1
 $root = Split-Path -Parent $PSScriptRoot
 $skipDirs = '\.git|\.tools|dist|node_modules|vendor'
-$exts  = '.sh', '.service', '.conf', '.yaml', '.yml', '.example', '.py', '.ini', '.csv', '.tmpl', '.socket'
+$exts  = '.sh', '.service', '.conf', '.yaml', '.yml', '.example', '.py', '.ini', '.csv', '.tmpl', '.socket', '.php', '.xml'
 $names = 'Makefile', 'postinstall', 'preinstall', 'preremove', 'postremove', 'postupgrade'
 
 $files = Get-ChildItem -LiteralPath $root -Recurse -File -Force | Where-Object {

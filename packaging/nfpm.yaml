@@ -60,6 +60,28 @@ contents:
       owner: root
       group: root
 
+  # Integracao com o menu do Issabel (item novo "painel_ramais"; nao altera nenhum outro item).
+  - src: packaging/issabel/menu.xml
+    dst: /usr/share/painel-ramais/issabel/menu.xml
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+
+  - src: packaging/issabel/painel_ramais/index.php
+    dst: /var/www/html/modules/painel_ramais/index.php
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+
+  - dst: /var/www/html/modules/painel_ramais
+    type: dir
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
   # O usuario painel-ramais e criado no %pre, antes do payload: os donos abaixo ja existem.
   - dst: /etc/painel-ramais
     type: dir
