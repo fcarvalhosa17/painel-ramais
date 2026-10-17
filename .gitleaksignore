@@ -11,3 +11,4 @@ internal/auth/token_test.go:generic-api-key:21
 internal/auth/token_test.go:generic-api-key:27
 internal/api/tela_test.go:generic-api-key:16
 docs/CONTRATOS.md:generic-api-key:223
+docs/CONTRATOS.md:generic-api-key:229
