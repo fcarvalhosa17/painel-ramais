@@ -26,7 +26,26 @@ Se alguma linha falhar, não instale: baixe de novo. Instalação a partir do `.
 
 ## 1. Instalação em campo (recomendado)
 
-No computador de desenvolvimento: `.\build.ps1 all` gera `dist/painel-ramais-<versao>.tar.gz`. No servidor (como root):
+Três caminhos, todos como root no servidor e todos terminando no `instalar.py` do pacote da Release.
+
+**1. `git clone` (servidor com internet).** O `instalar.py` da raiz do clone, rodado fora de um pacote (sem o RPM ao lado), age como inicializador: escolhe a versão, baixa a Release do GitHub, confere o SHA256, extrai em `/root/painel-ramais-<versao>/` e roda o `instalar.py` de lá, com os mesmos argumentos, exceto `--pre`/`--versao`.
+
+```sh
+command -v git >/dev/null || dnf install -y git
+git clone https://github.com/fcarvalhosa17/painel-ramais.git && cd painel-ramais
+./instalar.py instalar                        # última Release ESTÁVEL
+./instalar.py instalar --pre                  # última pre-release (NÃO homologada, só laboratório)
+./instalar.py instalar --versao v0.1.2-rc.4   # uma tag específica
+```
+
+- Sem `--pre` nem `--versao` vale a última Release estável. Se só existem pre-releases, o comando falha e sugere `--pre`.
+- `--pre` e `--versao` são do inicializador (não vão para o `instalar.py` do pacote) e só valem para `instalar` rodado do clone.
+- Atualizar: `git pull && ./instalar.py instalar` (baixa a versão mais nova e faz o upgrade).
+- `verificar`, `status` e os demais subcomandos rodam direto do clone, sem baixar nada; se o código do clone for de uma versão diferente da instalada, avisam.
+- Se `/root/painel-ramais-<versao>/` já existe com o mesmo tar.gz, é reaproveitada; com conteúdo diferente, o comando recusa e não sobrescreve.
+- Sem acesso ao GitHub, o comando falha mostrando o passo a passo do caminho 3.
+
+**2. Download do tar.gz** (servidor com internet, sem git): comandos em "Download e verificação" acima. No servidor:
 
 ```sh
 tar xzf painel-ramais-<versao>.tar.gz && cd painel-ramais-<versao>
@@ -35,7 +54,11 @@ tar xzf painel-ramais-<versao>.tar.gz && cd painel-ramais-<versao>
 ./instalar.py status
 ```
 
-Não precisa de internet nem de `pip`. Funciona sem o pacote `python3` do Rocky 8 mínimo (usa `/usr/libexec/platform-python`).
+**3. Offline por scp** (servidor sem internet): no computador com internet baixe `painel-ramais-<versao>.tar.gz` e `SHA256SUMS` (comandos em "Download e verificação"), confira com `sha256sum -c SHA256SUMS --ignore-missing`, copie com `scp painel-ramais-<versao>.tar.gz SHA256SUMS root@<servidor>:/root/` e, no servidor, rode `cd /root && tar xzf painel-ramais-<versao>.tar.gz && cd painel-ramais-<versao> && ./instalar.py instalar`.
+
+**Sobre a verificação.** O `SHA256SUMS` vem da mesma Release e do mesmo lugar que o tar.gz. Ele protege contra download corrompido ou incompleto; **não protege contra uma Release adulterada** (quem altera o tar.gz altera também o `SHA256SUMS`). A confiança está na conta do GitHub, no HTTPS com certificado verificado e em quem publica.
+
+O pacote (caminhos 2 e 3) não precisa de internet nem de `pip`. Funciona sem o pacote `python3` do Rocky 8 mínimo (usa `/usr/libexec/platform-python`).
 Passo a passo de campo, opções (`--tecnologia`, `--grupos`), arquivo de respostas (`--respostas`) e laço ssh para vários servidores: `packaging/LEIAME-INSTALACAO.md`
 (vai dentro do bundle). Códigos de saída: 0 sucesso; 1 verificação com ERRO; 2 falha na operação; 3 uso inválido; 4 cancelado.
 

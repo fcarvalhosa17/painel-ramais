@@ -1,13 +1,37 @@
 # Painel de Ramais - instalacao em campo
 
-O instalador e offline: nada e baixado da internet durante a instalacao (o download do pacote e o passo 1). Requisitos: Rocky Linux 8 com Issabel 5 (unico alvo suportado),
+O instalador do pacote e offline: nada e baixado da internet durante a instalacao (o download do pacote e o passo 1). Requisitos: Rocky Linux 8 com Issabel 5 (unico alvo suportado),
 acesso root. O Python 3 nao precisa estar instalado (no Rocky 8 minimo o instalador usa o platform-python).
 
 ## Passo a passo (um servidor)
 
-1. Obtenha o pacote. Em qualquer caso, confira o SHA256 ANTES de rodar o instalador.
+1. Obtenha o pacote. Tres caminhos: (a) git clone, (b) download do tar.gz, (c) offline por scp.
 
-   **(a) PBX com internet** (baixar direto no servidor, como root):
+   **(a) PBX com internet, via git clone** (como root; o instalar.py baixa e confere o pacote sozinho):
+
+       command -v git >/dev/null || dnf install -y git
+       git clone https://github.com/fcarvalhosa17/painel-ramais.git && cd painel-ramais
+       ./instalar.py instalar            # ultima Release ESTAVEL
+       ./instalar.py instalar --pre      # ultima pre-release (NAO homologada, so laboratorio)
+       ./instalar.py instalar --versao v0.1.2-rc.4    # uma tag especifica
+
+   Rodado de um clone (pasta sem o RPM ao lado), o `instalar.py` age como inicializador: escolhe a versao, baixa
+   `painel-ramais-<versao>.tar.gz` e `SHA256SUMS` da Release, confere o SHA256 ANTES de extrair, extrai em `/root/painel-ramais-<versao>/`
+   e roda o `instalar.py` de la com os mesmos argumentos (`--respostas`, `--sim` etc. continuam valendo). Por isso, neste caminho, pule os
+   passos 2 e 3 abaixo: o `instalar` ja verifica o ambiente e instala. Detalhes:
+
+   - Sem `--pre` nem `--versao` vale a ultima Release estavel. Se so existem pre-releases, o comando falha e sugere `--pre`.
+   - `--pre` e `--versao` sao so do inicializador (nao seguem para o instalar.py do pacote) e so valem rodando do clone.
+   - Atualizar: `git pull && ./instalar.py instalar`.
+   - `verificar`, `status` e os demais subcomandos rodam direto do clone, sem baixar nada. Se o codigo do clone for de uma versao
+     diferente da instalada, avisam (o comando segue o codigo do clone).
+   - `/root/painel-ramais-<versao>/` ja existente com o mesmo tar.gz e reaproveitada; com conteudo diferente o comando recusa e nao sobrescreve.
+   - Sem acesso ao GitHub o comando falha mostrando o caminho offline (c).
+   - Limite desta confianca: o `SHA256SUMS` vem da mesma Release e do mesmo lugar que o tar.gz. Ele protege contra download corrompido ou
+     incompleto, NAO contra uma Release adulterada (quem altera o tar.gz altera tambem o `SHA256SUMS`). A confianca esta na conta do
+     GitHub, no HTTPS com certificado verificado e em quem publica a Release.
+
+   **(b) PBX com internet, sem git** (baixar o tar.gz direto no servidor, como root; confira o SHA256 ANTES de rodar o instalador):
 
        VERSAO=0.1.1   # troque pela versao desejada
        BASE=https://github.com/fcarvalhosa17/painel-ramais/releases/download/v${VERSAO}
@@ -15,7 +39,7 @@ acesso root. O Python 3 nao precisa estar instalado (no Rocky 8 minimo o instala
        curl -fLO ${BASE}/SHA256SUMS
        sha256sum -c SHA256SUMS --ignore-missing    # deve mostrar: painel-ramais-${VERSAO}.tar.gz: OK
 
-   **(b) PBX sem internet** (baixar no computador e copiar com scp):
+   **(c) PBX sem internet** (baixar no computador e copiar com scp; confira o SHA256 antes de rodar o instalador):
 
        # no computador, com VERSAO e BASE definidos como acima
        curl -fLO ${BASE}/painel-ramais-${VERSAO}.tar.gz

@@ -5,6 +5,8 @@
 # Papel: orquestrar e validar. NUNCA edita manager_custom.conf, Apache ou SELinux (isso e o %post do RPM)
 # e nunca grava no SQLite (usa a CLI do daemon).
 # Uso: ./instalar.py {verificar|instalar|status|rollback|remover|homologar} [--respostas arq.ini] [--sim] [--purge] [--duracao MIN] [--saida DIR]
+# Fora de um pacote (clone do repositorio, sem o RPM ao lado) o 'instalar' age como inicializador: baixa a Release do GitHub,
+# confere o SHA256, extrai em /root/painel-ramais-<versao>/ e roda o instalar.py de la. Opcoes dele: --pre e --versao vX.Y.Z[-rc.N].
 
 import argparse
 import configparser
@@ -30,7 +32,9 @@ import tarfile
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+import zlib
 
 LOG_DIR = "/var/log/painel-ramais"
 LOG_FILE = LOG_DIR + "/instalacao.log"
@@ -55,6 +59,19 @@ MIN_ASTERISK = 13
 MIN_DISK_ERRO = 512 * 1024 * 1024
 MIN_DISK_AVISO = 2 * 1024 * 1024 * 1024
 HEALTH_TIMEOUT = 60
+
+# Inicializador (instalar.py fora de um pacote)
+REPO = "fcarvalhosa17/painel-ramais"
+DESTINO_BASE = "/root"  # a pasta do pacote vira /root/painel-ramais-<versao>/ (mesma particao do temporario)
+TAG_RE = r"v[0-9]+\.[0-9]+\.[0-9]+(?:-rc\.[0-9]+)?"  # com fullmatch; [0-9] porque \d aceita digitos unicode
+HOSTS_API = ("api.github.com",)
+# github.com redireciona o download para o CDN de assets; qualquer outro host e recusado (o certificado e sempre verificado)
+HOSTS_DOWNLOAD = ("github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com")
+TIMEOUT_REDE = 30  # s por operacao de socket
+PRAZO_DOWNLOAD = 900  # s no total, por arquivo
+MAX_API, MAX_SUMS, MAX_TARGZ, MAX_EXTRAIDO = 5 << 20, 64 << 10, 200 << 20, 600 << 20
+MAX_MEMBROS = 1000
+MARCADOR_SHA =".sha256-targz"  # dentro da pasta extraida: SHA256 do tar.gz de origem (reaproveitamento)
 
 # Codigos de saida (CONTRATOS 15.3)
 EXIT_OK, EXIT_VERIFICAR, EXIT_FALHA, EXIT_USO, EXIT_CANCELADO = 0, 1, 2, 3, 4
@@ -199,10 +216,20 @@ def socket_ativo():
     return run(["systemctl", "is-active", SOCKET])[0] == 0
 
 
-def achar_rpm():
+def rpms_ao_lado():
     aqui = os.path.dirname(os.path.abspath(__file__))
-    rpms = sorted(glob.glob(os.path.join(aqui, PKG + "-*.rpm")))
+    return sorted(glob.glob(os.path.join(aqui, PKG + "-*.rpm")))
+
+
+def fora_de_pacote():
+    """Mesma deteccao do achar_rpm: sem o RPM ao lado do instalar.py a pasta e um clone, nao um pacote."""
+    return not rpms_ao_lado()
+
+
+def achar_rpm():
+    rpms = rpms_ao_lado()
     if not rpms:
+        # Rede de seguranca: o main() manda 'instalar' fora de pacote para o inicializador antes de chegar aqui.
         raise Falha("RPM %s-*.rpm nao encontrado ao lado do instalar.py.\n"
                     "Se voce rodou a partir de um clone do repositorio: esta pasta e o codigo-fonte; baixe o pacote da Release "
                     "e rode o instalar.py de dentro dele:\n"
@@ -1851,6 +1878,321 @@ def cmd_homologar(args):
     return EXIT_OK
 
 
+# ---------------------------------------------------------------- inicializador (instalar.py fora de um pacote)
+
+class SemRede(Exception):
+    """GitHub inacessivel (DNS, timeout, conexao, certificado). Vira a mensagem com o caminho offline."""
+
+
+def tag_valida(tag):
+    return isinstance(tag, str) and re.fullmatch(TAG_RE, tag) is not None  # fullmatch: '$' aceitaria um '\n' final
+
+
+def msg_offline(tag, detalhe):
+    t, v = (tag, tag[1:]) if tag else ("vX.Y.Z", "X.Y.Z")
+    base = "https://github.com/%s/releases/download/%s" % (REPO, t)
+    txt = ("Sem acesso ao GitHub (%s). Nada foi instalado.\n"
+           "Caminho offline:\n"
+           "  1) No computador com internet:\n"
+           "       curl -fLO %s/painel-ramais-%s.tar.gz\n"
+           "       curl -fLO %s/SHA256SUMS\n"
+           "       sha256sum -c SHA256SUMS --ignore-missing\n"
+           "  2) Copie para o servidor:\n"
+           "       scp painel-ramais-%s.tar.gz SHA256SUMS root@<servidor>:/root/\n"
+           "  3) No servidor, como root:\n"
+           "       cd /root && sha256sum -c SHA256SUMS --ignore-missing\n"
+           "       tar xzf painel-ramais-%s.tar.gz && cd painel-ramais-%s && ./instalar.py instalar"
+           % (detalhe, base, v, base, v, v, v))
+    if not tag:
+        txt += ("\n  (troque vX.Y.Z / X.Y.Z pela versao desejada; lista em https://github.com/%s/releases)" % REPO)
+    return txt
+
+
+def _estouro_do_prazo(signum, frame):
+    raise SemRede("download passou de %d s" % PRAZO_DOWNLOAD)
+
+
+def checar_url(url, hosts):
+    """So HTTPS, host exato da lista (netloc exato recusa porta e usuario:senha na URL)."""
+    p = urllib.parse.urlsplit(url)
+    if p.scheme != "https" or p.netloc.lower() not in hosts:
+        raise Falha("Endereco recusado (so HTTPS em %s): %s" % (", ".join(hosts), url))
+
+
+class _RedirecionamentoSeguro(urllib.request.HTTPRedirectHandler):
+    def __init__(self, hosts):
+        urllib.request.HTTPRedirectHandler.__init__(self)
+        self.hosts = hosts
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        checar_url(newurl, self.hosts)  # cada salto e validado, nao so o host final
+        return urllib.request.HTTPRedirectHandler.redirect_request(self, req, fp, code, msg, headers, newurl)
+
+
+def _falha_http(e, url):
+    limite = e.headers.get("X-RateLimit-Remaining") if e.headers else None
+    if e.code == 429 or (e.code == 403 and limite == "0"):
+        return Falha("O GitHub recusou por limite de requisicoes (sem token, o limite e baixo por IP). Tente mais tarde "
+                     "ou informe a versao com --versao vX.Y.Z[-rc.N], que nao usa a API.")
+    if e.code == 404:
+        return Falha("Nao encontrado no GitHub (HTTP 404): %s\nConfira a versao e se a Release tem o tar.gz e o SHA256SUMS." % url)
+    return Falha("O GitHub respondeu HTTP %d para %s" % (e.code, url))
+
+
+def baixar_para(url, hosts, limite, saida):
+    """GET com certificado verificado, timeout, limite de bytes e prazo total; grava em 'saida' (objeto de arquivo)."""
+    checar_url(url, hosts)
+    # contexto explicito: certificado e hostname verificados, sem depender do padrao do urllib
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl.create_default_context()),
+                                         _RedirecionamentoSeguro(hosts))
+    req = urllib.request.Request(url, headers={"User-Agent": "painel-ramais-instalar"})
+    fim = time.monotonic() + PRAZO_DOWNLOAD
+    alarme = hasattr(signal, "SIGALRM")  # prazo total tambem na conexao/DNS, onde o laco de leitura nao chega
+    antigo = signal.signal(signal.SIGALRM, _estouro_do_prazo) if alarme else None
+    if alarme:
+        signal.alarm(PRAZO_DOWNLOAD)
+    try:
+        r = opener.open(req, timeout=TIMEOUT_REDE)
+        try:
+            checar_url(r.geturl(), hosts)
+            tam = r.headers.get("Content-Length", "")
+            if tam.isdigit() and int(tam) > limite:
+                raise Falha("%s e maior que o limite de %d MiB. Recusado." % (url, limite >> 20))
+            total = 0
+            while True:
+                bloco = r.read(65536)
+                if not bloco:
+                    return
+                total += len(bloco)
+                if total > limite:
+                    raise Falha("%s passou do limite de %d MiB. Recusado." % (url, limite >> 20))
+                if time.monotonic() > fim:
+                    raise SemRede("download passou de %d s" % PRAZO_DOWNLOAD)
+                try:
+                    saida.write(bloco)
+                except OSError as e:  # disco cheio etc. nao e falta de rede
+                    raise Falha("Erro gravando o download: %s" % e)
+        finally:
+            r.close()
+    except urllib.error.HTTPError as e:
+        raise _falha_http(e, url)
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ssl.CertificateError) as e:  # CertificateError e ValueError no 3.6
+        raise SemRede(str(getattr(e, "reason", None) or e))
+    finally:
+        if alarme:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, antigo)
+
+
+def listar_releases():
+    buf = io.BytesIO()
+    baixar_para("https://api.github.com/repos/%s/releases?per_page=100" % REPO, HOSTS_API, MAX_API, buf)
+    try:
+        dados = json.loads(buf.getvalue().decode("utf-8"))
+    except ValueError:
+        raise Falha("Resposta inesperada da API de Releases do GitHub.")
+    if not isinstance(dados, list):
+        raise Falha("Resposta inesperada da API de Releases do GitHub.")
+    return dados
+
+
+def escolher_tag(args):
+    """--versao: aquela tag (sem API). --pre: ultima pre-release. Sem flag: ultima Release estavel. Drafts ignorados."""
+    if args.versao:
+        if not tag_valida(args.versao):
+            raise Uso("--versao invalida: %r. Formato: vX.Y.Z ou vX.Y.Z-rc.N (com o 'v')." % args.versao)
+        return args.versao
+    for r in listar_releases():
+        if not isinstance(r, dict) or r.get("draft") or bool(r.get("prerelease")) != bool(args.pre):
+            continue
+        if tag_valida(r.get("tag_name")):
+            return r["tag_name"]
+    if args.pre:
+        raise Falha("Nenhuma pre-release publicada em https://github.com/%s/releases. Use --versao vX.Y.Z-rc.N." % REPO)
+    raise Falha("Ainda nao ha Release estavel publicada (so pre-releases). Para instalar a ultima pre-release "
+                "(NAO homologada, uso de laboratorio) rode: ./instalar.py instalar --pre\n"
+                "Ou escolha uma: ./instalar.py instalar --versao vX.Y.Z-rc.N")
+
+
+def hash_no_sums(texto, nome):
+    """SHA256 do 'nome' no SHA256SUMS ('<hash>  <nome>' ou '<hash> *<nome>'); None se nao consta ou o hash nao e hex de 64."""
+    achados = []
+    for ln in texto.splitlines():
+        partes = ln.split(None, 1)
+        if len(partes) == 2 and partes[1].strip().lstrip("*") == nome:
+            achados.append(partes[0].lower())
+    if len(achados) != 1:  # ausente ou repetido (ambiguo): recusa
+        return None
+    return achados[0] if re.fullmatch(r"[0-9a-f]{64}", achados[0]) else None
+
+
+def destino_ja_igual(dest, esperado):
+    """True se dest existe com o marcador do mesmo SHA256; False se nao existe; Falha se existe diferente (nunca sobrescreve)."""
+    try:
+        st = os.lstat(dest)
+    except FileNotFoundError:
+        return False
+    except OSError as e:
+        raise Falha("Nao consegui examinar %s: %s" % (dest, e))
+    if stat.S_ISDIR(st.st_mode):
+        try:
+            with open(os.path.join(dest, MARCADOR_SHA)) as f:
+                if f.read().strip() == esperado:
+                    return True
+        except (OSError, IOError):
+            pass
+    raise Falha("%s ja existe com conteudo diferente do pacote baixado (ou nao foi extraido por este instalador). "
+                "Nao vou sobrescrever. Renomeie ou apague essa pasta e rode de novo, ou rode o instalar.py de dentro dela."
+                % dest)
+
+
+def checar_membro(m, pasta):
+    partes = m.name.split("/")
+    if m.name.startswith("/") or ".." in partes or "\0" in m.name or partes[0] != pasta:
+        raise Falha("Pacote recusado: membro com caminho inseguro ou fora de %s/: %r" % (pasta, m.name))
+    if m.issym() or m.islnk():
+        raise Falha("Pacote recusado: link %r (o pacote oficial nao tem links)." % m.name)
+    if not (m.isreg() or m.isdir()):
+        raise Falha("Pacote recusado: tipo especial (dispositivo/fifo) em %r." % m.name)
+    if m.mode & 0o7000:
+        raise Falha("Pacote recusado: setuid/setgid/sticky em %r." % m.name)
+
+
+def extrair_seguro(arq, destino, pasta):
+    """Python 3.6 nao tem tarfile filter=: valida cada membro antes de extrair qualquer coisa e zera dono/grupo (somos root)."""
+    try:
+        with tarfile.open(arq, "r:gz") as tar:
+            membros = []
+            for m in tar:  # iteracao lenta: aborta sem ler o arquivo todo se houver membros demais
+                membros.append(m)
+                if len(membros) > MAX_MEMBROS:
+                    raise Falha("Pacote recusado: mais de %d membros." % MAX_MEMBROS)
+                checar_membro(m, pasta)
+            if sum(m.size for m in membros) > MAX_EXTRAIDO:
+                raise Falha("Pacote recusado: conteudo extraido passa de %d MiB." % (MAX_EXTRAIDO >> 20))
+            for m in membros:
+                m.uid = m.gid = 0
+                m.uname = m.gname = ""
+                m.mode &= ~0o022  # sem escrita para grupo/outros
+            tar.extractall(destino, members=membros)
+    except (tarfile.TarError, EOFError, OSError, zlib.error) as e:
+        raise Falha("Nao consegui extrair o tar.gz (%s). Nada foi instalado." % e)
+
+
+def baixar_pacote(tag):
+    """Baixa SHA256SUMS e o tar.gz da Release, confere o SHA256 ANTES de extrair e devolve /root/painel-ramais-<versao>."""
+    pasta = "painel-ramais-" + tag[1:]
+    nome = pasta + ".tar.gz"
+    base = "https://github.com/%s/releases/download/%s/" % (REPO, tag)  # URL montada aqui, da tag ja validada
+    dest = os.path.join(DESTINO_BASE, pasta)
+    buf = io.BytesIO()
+    baixar_para(base + "SHA256SUMS", HOSTS_DOWNLOAD, MAX_SUMS, buf)
+    esperado = hash_no_sums(buf.getvalue().decode("utf-8", "replace"), nome)
+    if not esperado:
+        raise Falha("%s nao consta (ou tem hash invalido) no SHA256SUMS da Release %s. Nada foi instalado." % (nome, tag))
+    if destino_ja_igual(dest, esperado):
+        dizer("Reaproveitando %s: o tar.gz tem o mesmo SHA256 da extracao anterior, mas o conteudo da pasta NAO foi reverificado." % dest)
+        return dest
+    tmp = tempfile.mkdtemp(prefix=".painel-ramais-", dir=DESTINO_BASE)  # root 0700, mesma particao do destino
+    try:
+        arq = os.path.join(tmp, nome)
+        dizer("Baixando %s ..." % nome)
+        with open(arq, "wb") as f:
+            baixar_para(base + nome, HOSTS_DOWNLOAD, MAX_TARGZ, f)
+        if sha256_arquivo(arq) != esperado:
+            raise Falha("SHA-256 do %s nao confere com o SHA256SUMS: download corrompido. Nada foi extraido nem instalado." % nome)
+        dizer("SHA256 conferido: %s" % esperado)
+        ext = os.path.join(tmp, "extraido")
+        os.mkdir(ext, 0o700)
+        extrair_seguro(arq, ext, pasta)
+        if not os.path.isfile(os.path.join(ext, pasta, "instalar.py")):
+            raise Falha("O pacote nao traz %s/instalar.py. Recusado." % pasta)
+        with open(os.path.join(ext, pasta, MARCADOR_SHA), "w") as f:
+            f.write(esperado + "\n")
+        try:
+            os.rename(os.path.join(ext, pasta), dest)
+        except OSError as e:
+            raise Falha("Nao consegui criar %s: %s" % (dest, e))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    dizer("Pacote extraido em " + dest)
+    return dest
+
+
+def sem_flags_do_inicializador(argv):
+    """--pre e --versao sao so do inicializador: o instalar.py do pacote nao os conhece, nao podem ser repassados."""
+    out, pular = [], False
+    for a in argv:
+        if pular:
+            pular = False
+        elif a == "--pre" or a.startswith("--versao="):
+            continue
+        elif a == "--versao":
+            pular = True
+        else:
+            out.append(a)
+    return out
+
+
+def inicializar(args, argv):
+    """'instalar' fora de um pacote: escolhe a versao, baixa, confere o SHA256, extrai e passa o comando ao instalar.py do pacote."""
+    exigir_root()  # antes de baixar qualquer coisa para /root
+    if args.pre and args.versao:
+        raise Uso("Use --pre OU --versao, nao os dois.")
+    dizer("== Esta pasta nao e um pacote (sem %s-*.rpm ao lado): baixando a Release do GitHub ==" % PKG)
+    tag = args.versao if args.versao and tag_valida(args.versao) else None
+    try:
+        tag = escolher_tag(args)
+        dizer("Versao escolhida: %s (%s)" % (tag, "informada" if args.versao else "ultima pre-release" if args.pre else "ultima estavel"))
+        pasta = baixar_pacote(tag)
+    except SemRede as e:
+        raise Falha(msg_offline(tag, e))
+    if not glob.glob(os.path.join(pasta, PKG + "-*.rpm")):  # mesmo criterio de fora_de_pacote: evita laco de execv
+        raise Falha("Pacote sem RPM em %s: nao vou executa-lo (apague a pasta e rode de novo)." % pasta)
+    if not sys.executable:
+        raise Falha("Nao sei qual interpretador Python esta rodando; rode: python3 %s/instalar.py instalar" % pasta)
+    cmd = [sys.executable, os.path.join(pasta, "instalar.py")] + sem_flags_do_inicializador(argv)
+    dizer("Executando o instalar.py do pacote: " + " ".join(cmd))
+    sys.stdout.flush()
+    sys.stderr.flush()
+    try:
+        os.execv(cmd[0], cmd)  # sem shell; o codigo de saida do pacote e o deste processo
+    except OSError as e:
+        raise Falha("Nao consegui executar o instalar.py do pacote: %s" % e)
+
+
+def tag_do_clone():
+    """Versao do clone por 'git describe' (precisa de git e das tags); None se nao der."""
+    pasta = os.path.dirname(os.path.abspath(__file__))
+    try:
+        p = subprocess.run(["git", "-C", pasta, "describe", "--tags", "--always"], stdout=subprocess.PIPE,
+                           stderr=subprocess.DEVNULL, universal_newlines=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return p.stdout.strip() if p.returncode == 0 and p.stdout.strip() else None
+
+
+def tag_da_instalada():
+    """'0.1.2-0.1.rc.4' (VERSION-RELEASE do RPM) vira 'v0.1.2-rc.4'; '0.1.2-1' vira 'v0.1.2'; None se fora do padrao."""
+    v = versao_instalada()
+    m = re.fullmatch(r"([0-9]+\.[0-9]+\.[0-9]+)-(?:1|0\.1\.(rc\.[0-9]+))", v or "")
+    return ("v" + m.group(1) + (("-" + m.group(2)) if m.group(2) else "")) if m else None
+
+
+def avisar_versao_do_clone():
+    """status/verificar/etc. rodando do clone: avisa se o codigo do clone nao e o da versao instalada."""
+    instalada = versao_instalada()
+    if not instalada:
+        return
+    clone, tag = tag_do_clone(), tag_da_instalada()
+    if not clone or not tag:
+        dizer("AVISO: nao deu para comparar a versao deste clone com a instalada (%s): git ausente, clone sem tags ou versao "
+              "instalada fora do padrao. O comando segue o codigo desta pasta." % instalada)
+    elif clone != tag:
+        dizer("AVISO: este clone esta em '%s' e a versao instalada e %s (%s). O comando segue o codigo do clone, nao o instalado. "
+              "Para atualizar: git pull && ./instalar.py instalar" % (clone, tag, instalada))
+
+
 # ---------------------------------------------------------------- main
 
 class _Parser(argparse.ArgumentParser):
@@ -1861,7 +2203,7 @@ class _Parser(argparse.ArgumentParser):
 
 
 def montar_parser():
-    p = _Parser(prog="instalar.py", description="Instalador do Painel de Ramais")
+    p = _Parser(prog="instalar.py", description="Instalador do Painel de Ramais", allow_abbrev=False)  # --pre/--versao: o repasse ao pacote filtra por nome exato
     p.add_argument("comando", choices=["verificar", "instalar", "status", "rollback", "remover", "homologar", "menu"])
     p.add_argument("--respostas", metavar="ARQ.ini", help="respostas nao interativas (senha por ARQUIVO 0600)")
     p.add_argument("--tecnologia", choices=list(TECNOLOGIAS), metavar="auto|sip|pjsip",
@@ -1873,6 +2215,9 @@ def montar_parser():
     p.add_argument("--duracao", type=float, default=DURACAO_HOMOLOGAR_MIN, metavar="MIN",
                    help="(homologar) duracao em minutos (padrao %d)" % DURACAO_HOMOLOGAR_MIN)
     p.add_argument("--saida", metavar="DIR", help="(homologar) pasta do .tar.gz (padrao: pasta atual)")
+    p.add_argument("--pre", action="store_true",
+                   help="(instalar, fora de pacote) usa a ultima pre-release em vez da ultima Release estavel")
+    p.add_argument("--versao", metavar="TAG", help="(instalar, fora de pacote) usa esta tag, no formato vX.Y.Z ou vX.Y.Z-rc.N")
     return p
 
 
@@ -1885,6 +2230,15 @@ def main(argv=None):
     CMD_ATUAL[0] = args.comando
     log("=== instalar.py %s ===" % args.comando)
     try:
+        if args.comando != "instalar" and (args.pre or args.versao):
+            raise Uso("--pre e --versao so valem para 'instalar' rodado de um clone (fora de um pacote).")
+        if args.comando == "instalar" and fora_de_pacote():
+            return inicializar(args, list(sys.argv[1:] if argv is None else argv))  # nao volta: execv ou Falha
+        if args.pre or args.versao:
+            raise Uso("--pre e --versao so valem fora de um pacote: este instalar.py ja e o do pacote (tem o RPM ao lado).")
+        if args.comando != "instalar":
+            if fora_de_pacote():
+                avisar_versao_do_clone()
         if args.comando == "verificar":
             return cmds["verificar"](args)
         if args.comando != "instalar" and (args.respostas or args.tecnologia or args.grupos):
