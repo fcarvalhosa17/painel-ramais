@@ -89,7 +89,7 @@ type Hub struct {
 	exts       map[string]*entry
 	order      []string
 	orderDirty bool
-	groups     []model.GroupRange
+	groups     []model.Group // catalogo completo (inclui grupo sem faixa e sem ramal)
 	ring       []ringItem
 	clients    map[*client]struct{}
 	snap       *snapEntry
@@ -191,6 +191,9 @@ func (h *Hub) applyBatch(b model.Batch) {
 		h.put(x)
 		raws = append(raws, h.exts[x.Number].raw)
 		nums = append(nums, x.Number)
+	}
+	if b.Groups != nil { // catalogo mudou (grupo criado/renomeado/editado/apagado): mesmo epoch, vai no delta
+		h.groups = b.Groups
 	}
 	for _, n := range b.Removed { // ramal apagado no PBX: sai da projecao (e do snapshot) sem epoch novo
 		if _, ok := h.exts[n]; ok {
@@ -309,7 +312,9 @@ func (h *Hub) buildSnapshot(now time.Time) *snapEntry {
 		}
 		b.Write(h.exts[n].raw)
 	}
-	b.WriteString(`]},"error":null,"meta":{"count":` + strconv.Itoa(len(order)) + `}}`)
+	b.WriteString(`],"groups":`)
+	b.Write(catalogJSON(h.groups))
+	b.WriteString(`},"error":null,"meta":{"count":` + strconv.Itoa(len(order)) + `}}`)
 	return &snapEntry{version: h.version, at: now, raw: b.Bytes()}
 }
 
@@ -348,9 +353,11 @@ func (h *Hub) buildGroups() []byte {
 		}
 		return g
 	}
-	for _, r := range h.groups {
-		g := get(r.Name)
-		g.Ranges = append(g.Ranges, rangeJSON{r.Start, r.End})
+	for _, cg := range h.groups {
+		g := get(cg.Name)
+		for _, r := range cg.Ranges {
+			g.Ranges = append(g.Ranges, rangeJSON{r.Start, r.End})
+		}
 	}
 	for _, n := range h.sortedOrder() {
 		g := get(h.exts[n].ext.Group)

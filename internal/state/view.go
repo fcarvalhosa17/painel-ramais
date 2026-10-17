@@ -17,6 +17,7 @@ type extState struct {
 	latency *int
 	device  model.DeviceState
 	group   string
+	manual  bool // o grupo vem de atribuicao manual (vence a faixa)
 	calls   []model.Call
 	// gone: o ramal sumiu do PBX (releitura) mas ainda tem chamada; sai do estado no Hangup.
 	gone bool
@@ -27,6 +28,7 @@ type extState struct {
 type view struct {
 	pattern  *regexp.Regexp
 	groups   []model.GroupRange
+	manual   map[string]string // vinculo manual numero -> grupo; compartilhado com o State, so leitura
 	tech     model.Technology
 	asterisk string
 	at       time.Time // hora do evento em processamento
@@ -56,9 +58,9 @@ type view struct {
 	onPrune     func()                     // chamado quando um ramal gone sai no Hangup (expurgo do cache de nomes)
 }
 
-func newView(p *regexp.Regexp, groups []model.GroupRange) *view {
+func newView(p *regexp.Regexp, groups []model.GroupRange, manual map[string]string) *view {
 	return &view{
-		pattern: p, groups: groups,
+		pattern: p, groups: groups, manual: manual,
 		exts: map[string]*extState{}, trunks: map[string]struct{}{}, dirty: map[string]struct{}{},
 		removed: map[string]struct{}{}, tomb: map[string]struct{}{},
 		chans: map[string]*channel{}, byLinked: map[string]map[string]struct{}{},
@@ -160,7 +162,8 @@ func (v *view) ensureExt(name string) (e *extState, created bool) {
 	if _, dead := v.tomb[name]; dead {
 		return nil, false
 	}
-	e = &extState{number: name, name: v.hints[name], reg: model.RegUnknown, device: model.DevUnknown, group: groupFor(v.groups, name)}
+	grp, man := v.resolveGroup(name)
+	e = &extState{number: name, name: v.hints[name], reg: model.RegUnknown, device: model.DevUnknown, group: grp, manual: man}
 	v.exts[name] = e
 	delete(v.removed, name) // saiu e voltou na mesma janela: o lote leva o estado inteiro, sem removed
 	v.markDirty(name)
@@ -257,11 +260,24 @@ func (v *view) markUnknown() {
 	v.changes = 0
 }
 
-func (v *view) setGroups(g []model.GroupRange) {
-	v.groups = g
+// setGroups troca faixas e vinculos manuais; so os ramais cujo grupo ou group_manual mudou ficam
+// sujos (viram delta). Nao mexe no epoch.
+func (v *view) setGroups(g []model.GroupRange, manual map[string]string) {
+	v.groups, v.manual = g, manual
 	for _, x := range v.exts {
-		x.group = groupFor(g, x.number)
+		if grp, man := v.resolveGroup(x.number); grp != x.group || man != x.manual {
+			x.group, x.manual = grp, man
+			v.markDirty(x.number)
+		}
 	}
+}
+
+// resolveGroup aplica a precedencia: vinculo manual (inclusive "Sem grupo" manual) > faixa > "Sem grupo".
+func (v *view) resolveGroup(number string) (group string, manual bool) {
+	if g, ok := v.manual[number]; ok {
+		return g, true
+	}
+	return groupFor(v.groups, number), false
 }
 
 // groupFor acha o grupo por busca binaria. Ramal nao numerico, com zero a
@@ -287,7 +303,7 @@ func (x *extState) model(tech model.Technology) model.Extension {
 		calls = []model.Call{}
 	}
 	return model.Extension{
-		Number: x.number, Name: model.StrPtr(x.name), Technology: tech, Group: x.group,
+		Number: x.number, Name: model.StrPtr(x.name), Technology: tech, Group: x.group, GroupManual: x.manual,
 		Registration: x.reg, IP: model.StrPtr(x.ip), UserAgent: model.StrPtr(x.ua), LatencyMs: x.latency,
 		DeviceState: x.device, Calls: calls,
 	}
@@ -314,10 +330,10 @@ func (v *view) dirtyExtensions() []model.Extension {
 	return out
 }
 
-func (v *view) counts(groups []model.GroupRange) (model.Counts, map[string]model.Counts) {
+func (v *view) counts(catalog []model.Group) (model.Counts, map[string]model.Counts) {
 	var total model.Counts
 	by := map[string]model.Counts{model.NoGroup: {}}
-	for _, g := range groups {
+	for _, g := range catalog {
 		by[g.Name] = model.Counts{}
 	}
 	for _, x := range v.exts {

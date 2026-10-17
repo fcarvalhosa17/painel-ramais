@@ -59,7 +59,10 @@ type State struct {
 
 	// A partir daqui, so a goroutine de Run (ou o teste) toca nos campos.
 	cur, building *view
-	groups        []model.GroupRange
+	groups        []model.GroupRange // faixas de todos os grupos, ordenadas por inicio (busca binaria)
+	catalog       []model.Group      // catalogo completo, inclui grupo sem faixa e sem ramal
+	manual        map[string]string  // vinculo manual: numero -> grupo ("Sem grupo" incluso); nunca mutado, so trocado
+	groupsChanged bool               // o catalogo mudou desde o ultimo lote: o proximo Batch o leva
 	hints         map[string]string
 	onName        func(number, name string)
 	onSync        func(numbers []string)
@@ -90,7 +93,7 @@ func New(pattern *regexp.Regexp, in <-chan model.Event, opt Options) *State {
 		s.interval = 250 * time.Millisecond
 	}
 	s.epochBase = s.now().UnixMilli()
-	s.cur = s.newView(nil)
+	s.cur = s.newView()
 	s.bumpEpoch()
 	s.needReset = true // Reset inicial: o hub nasce com a projecao do estado
 	s.publishStats()
@@ -147,7 +150,7 @@ func (s *State) Apply(ev model.Event) {
 	case model.AMIDisconnected:
 		s.onDisconnected(e)
 	case model.SyncStarted:
-		s.building = s.newView(s.groups)
+		s.building = s.newView()
 		s.building.isBuilding = true
 		s.building.tech = e.Technology
 		s.building.asterisk = e.AsteriskVersion
@@ -234,17 +237,47 @@ func (s *State) onInventoryListed(e model.InventoryListed) {
 	}
 }
 
+// onGroups troca catalogo e vinculos manuais SEM mudar o epoch: cada ramal cujo grupo (ou
+// group_manual) mudou fica sujo e vai no proximo delta; o catalogo vai junto se mudou.
 func (s *State) onGroups(e model.GroupsLoaded) {
-	s.groups = sortedRanges(e.Ranges)
-	s.cur.setGroups(s.groups)
-	if s.building != nil {
-		s.building.setGroups(s.groups)
+	// Copia propria, nunca nil: Batch.Groups == nil significa "catalogo nao mudou", entao um catalogo
+	// que ficou vazio (ultimo grupo apagado) precisa sair como [] e nao como nil.
+	catalog := append([]model.Group{}, e.Groups...)
+	if !sameCatalog(s.catalog, catalog) {
+		s.groupsChanged = true
 	}
-	s.bumpEpoch()
+	var flat []model.GroupRange
+	for _, g := range catalog {
+		for _, r := range g.Ranges {
+			flat = append(flat, model.GroupRange{Start: r.Start, End: r.End, Name: g.Name})
+		}
+	}
+	s.catalog, s.groups, s.manual = catalog, sortedRanges(flat), e.Manual
+	s.cur.setGroups(s.groups, s.manual)
+	if s.building != nil {
+		s.building.setGroups(s.groups, s.manual)
+	}
 }
 
-func (s *State) newView(groups []model.GroupRange) *view {
-	v := newView(s.pattern, groups)
+func sameCatalog(a, b []model.Group) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name || len(a[i].Ranges) != len(b[i].Ranges) {
+			return false
+		}
+		for j := range a[i].Ranges {
+			if a[i].Ranges[j] != b[i].Ranges[j] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (s *State) newView() *view {
+	v := newView(s.pattern, s.groups, s.manual)
 	v.hints, v.onName, v.onNoPeer = s.hints, s.onName, s.onNoPeer
 	v.onPrune = func() {
 		if s.onSync != nil {
@@ -279,21 +312,29 @@ func (s *State) Flush() model.Output {
 	s.cur.expireNoPeer(s.now())
 	if s.needReset {
 		s.needReset = false
+		// o Reset ja leva o catalogo
+		s.groupsChanged = false
 		s.cur.takeChanges() // o Reset ja carrega tudo; a versao so avanca 1 por epoch
 		s.cur.takeRemoved()
 		s.version++
 		s.cur.dirty = map[string]struct{}{}
 		return model.Reset{
 			Epoch: s.epoch, Version: s.version, AMIConnected: s.connected,
-			Technology: s.cur.tech, Extensions: s.cur.allExtensions(), Groups: append([]model.GroupRange(nil), s.groups...),
+			Technology: s.cur.tech, Extensions: s.cur.allExtensions(), Groups: append([]model.Group{}, s.catalog...),
 		}
 	}
 	n := s.cur.takeChanges()
-	if n == 0 || len(s.cur.dirty) == 0 && len(s.cur.removed) == 0 {
+	if !s.groupsChanged && (n == 0 || len(s.cur.dirty) == 0 && len(s.cur.removed) == 0) {
 		return nil
+	}
+	if n == 0 {
+		n = 1 // so o catalogo mudou: a versao avanca mesmo assim, senao quem reconecta nao recebe o replay
 	}
 	b := model.Batch{Epoch: s.epoch, FromVersion: s.version, AMIConnected: s.connected,
 		Extensions: s.cur.dirtyExtensions(), Removed: s.cur.takeRemoved()}
+	if s.groupsChanged {
+		b.Groups, s.groupsChanged = append([]model.Group{}, s.catalog...), false
+	}
 	s.version += n
 	b.ToVersion = s.version
 	return b
@@ -312,7 +353,7 @@ func (s *State) publishStats() {
 		AsteriskVersion: s.cur.asterisk, ConnectedSince: s.connectedAt, LastDisconnect: s.lastDown,
 		Trunks: len(s.cur.trunks), EventsPerSec: float64(total) / 60, LagMs: s.lagMs,
 	}
-	st.Total, st.ByGroup = s.cur.counts(s.groups)
+	st.Total, st.ByGroup = s.cur.counts(s.catalog)
 	st.ActiveCalls = s.cur.activeCalls()
 	s.stats.Store(st)
 }

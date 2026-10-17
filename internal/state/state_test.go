@@ -328,10 +328,12 @@ func TestBatchCoalescesAndVersions(t *testing.T) {
 func TestGroupsAndUnknownEndpoints(t *testing.T) {
 	h := newHarness(t)
 	h.online()
-	h.feed(model.GroupsLoaded{At: h.step(), Ranges: []model.GroupRange{{Start: 2000, End: 2001, Name: "Suporte"}, {Start: 1, End: 10, Name: "Baixos"}}})
-	r, ok := h.s.Flush().(model.Reset)
-	if !ok || len(r.Groups) != 2 {
-		t.Fatalf("GroupsLoaded gera Reset com os grupos: %+v", r)
+	epoch := h.s.epoch
+	h.feed(model.GroupsLoaded{At: h.step(), Groups: []model.Group{
+		{Name: "Suporte", Ranges: []model.Range{{Start: 2000, End: 2001}}}, {Name: "Baixos", Ranges: []model.Range{{Start: 1, End: 10}}}}})
+	r, ok := h.s.Flush().(model.Batch)
+	if !ok || len(r.Groups) != 2 || r.Epoch != epoch || len(r.Extensions) != 1 || r.ToVersion <= r.FromVersion {
+		t.Fatalf("GroupsLoaded gera Batch com o catalogo, no mesmo epoch: %+v", r)
 	}
 	if h.ext("2001").Group != "Suporte" || h.ext("2002").Group != model.NoGroup {
 		t.Errorf("grupos: %s, %s", h.ext("2001").Group, h.ext("2002").Group)

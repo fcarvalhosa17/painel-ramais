@@ -152,7 +152,7 @@ func ext(n, group string, reg model.Registration) model.Extension {
 
 func (e *env) reset(epoch string, version uint64, exts ...model.Extension) {
 	e.in <- model.Reset{Epoch: epoch, Version: version, AMIConnected: true, Technology: model.TechPJSIP, Extensions: exts,
-		Groups: []model.GroupRange{{Start: 2000, End: 2999, Name: "Suporte"}}}
+		Groups: []model.Group{{Name: "Suporte", Ranges: []model.Range{{Start: 2000, End: 2999}}}}}
 	e.waitVersion(epoch, version)
 }
 

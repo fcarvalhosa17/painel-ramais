@@ -145,6 +145,7 @@ type Extension struct {
 	Name         *string      `json:"name"`
 	Technology   Technology   `json:"technology"`
 	Group        string       `json:"group"`
+	GroupManual  bool         `json:"group_manual"` // true: o grupo vem de atribuicao manual (vence a faixa)
 	Registration Registration `json:"registration"`
 	IP           *string      `json:"ip"`
 	UserAgent    *string      `json:"user_agent"`
@@ -165,6 +166,14 @@ func StrPtr(s string) *string {
 type GroupRange struct {
 	Start, End int64
 	Name       string
+}
+
+// Range e uma faixa numerica sem nome; Group e um grupo do catalogo (pode ter zero faixas).
+type Range struct{ Start, End int64 }
+
+type Group struct {
+	Name   string
+	Ranges []Range
 }
 
 // Counts agrega ramais por estado de registro; InCall conta ramais com pelo

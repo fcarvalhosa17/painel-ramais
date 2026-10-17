@@ -48,9 +48,13 @@ type (
 		At    time.Time
 		Names map[string]string
 	}
+	// GroupsLoaded entrega o catalogo COMPLETO de grupos (inclui grupo sem ramal e sem faixa) e os
+	// vinculos manuais ramal -> grupo (NoGroup = "Sem grupo" manual; ausente = sem vinculo manual).
+	// Quem envia nao pode alterar Manual depois de enviar. Nao muda o epoch.
 	GroupsLoaded struct {
 		At     time.Time
-		Ranges []GroupRange
+		Groups []Group
+		Manual map[string]string
 	}
 	// InventoryListed e a lista COMPLETA de endpoints/peers do PBX numa releitura (recarga do
 	// Asterisk ou ciclo periodico). Vem ANTES dos EndpointSeen/RegistrationChanged da mesma
@@ -187,6 +191,8 @@ type Batch struct {
 	AMIConnected bool
 	Extensions   []Extension
 	Removed      []string
+	// Groups e o catalogo completo, so quando ele mudou neste lote (nil = nao mudou).
+	Groups []Group
 }
 
 // Reset e o estado inteiro, emitido a cada epoch novo. Groups acompanha o
@@ -197,7 +203,7 @@ type Reset struct {
 	AMIConnected bool
 	Technology   Technology
 	Extensions   []Extension
-	Groups       []GroupRange
+	Groups       []Group
 }
 
 func (Batch) isOutput() {}

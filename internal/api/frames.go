@@ -64,8 +64,31 @@ func deltaFrame(b model.Batch, raws [][]byte, now time.Time) []byte {
 		}
 		buf.Write(quote(n))
 	}
-	buf.WriteString(`]}`)
+	buf.WriteByte(']')
+	if b.Groups != nil { // so quando o catalogo mudou; o epoch nao muda
+		buf.WriteString(`,"groups":`)
+		buf.Write(catalogJSON(b.Groups))
+	}
+	buf.WriteByte('}')
 	return buf.Bytes()
+}
+
+type catalogGroup struct {
+	Name   string      `json:"name"`
+	Ranges []rangeJSON `json:"ranges"`
+}
+
+// catalogJSON serializa o catalogo de grupos ({"name","ranges":[{"start","end"}]}); nil vira [].
+func catalogJSON(groups []model.Group) []byte {
+	out := make([]catalogGroup, len(groups))
+	for i, g := range groups {
+		rs := make([]rangeJSON, len(g.Ranges))
+		for j, r := range g.Ranges {
+			rs[j] = rangeJSON{r.Start, r.End}
+		}
+		out[i] = catalogGroup{g.Name, rs}
+	}
+	return mustJSON(out)
 }
 
 func reloadFrame(reason, epoch string) []byte {
