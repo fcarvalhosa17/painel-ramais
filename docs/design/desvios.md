@@ -8,11 +8,14 @@ script de dados de exemplo).
 
 ## Resumo
 
-- **Desvios aceitos pelo usuário em 2026-10-16:** os 14 da tabela abaixo (acessibilidade D2, D3, D4, D16 e ajustes de
-  dado real D6 a D15). Nenhum muda cor, fonte, raio, espaçamento ou tamanho de bloco do design.
+- **Desvios aceitos pelo usuário em 2026-10-16:** D2 a D16 da tabela abaixo (acessibilidade D2, D3, D4, D16 e
+  ajustes de dado real D6 a D15) e, por decisão do Fabio, D17 e D18. Nenhum muda cor, fonte, raio, espaçamento ou
+  tamanho de bloco do design.
 - **Desfeitos por decisão do usuário (2026-10-16):** o antigo D1 (dado ausente agora usa "—", como em decorate() do
-  design, inclusive nos indicadores sem leitura) e o antigo D5 (sem linha "Todos os grupos"; a tela abre no primeiro
-  grupo da ordenação ativa, como no design).
+  design, inclusive nos indicadores sem leitura).
+- **D5 revertido por decisão do Fabio (2026-10-16): volta a linha fixa "Todos os ramais"** e a tela abre nela (D17,
+  D18 abaixo). Substitui a regra da rc.5 "abre no primeiro grupo da ordenação e volta a ele se o grupo aberto for
+  excluído". Motivo: ver todos os ramais do servidor, inclusive os sem grupo, sem escolher grupo.
 - **Layout: sem desvio.** A tela segue o empilhamento do próprio design (3 colunas, depois 2 + 1, depois 1).
 
 ## Layout das colunas (o mesmo do design)
@@ -43,17 +46,19 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 | D2 | Busca: o design tira o contorno do campo (`outline: none`) e não mostra foco; a tela desenha o anel de foco (2 px #7fb2ff, offset 2 px, o mesmo do design) no rótulo inteiro | Acessibilidade: foco visível | D155 | app.css:269-271 |
 | D3 | Só em tela de toque (`pointer: coarse`): botões, chips e campos com 44 px de altura mínima; checkbox 22 px | Acessibilidade: alvo de toque | D47-D53, D97-D99, D160-D163 | app.css:458-461 |
 | D4 | `prefers-reduced-motion: reduce` desliga pr-pulse e pr-ring (e a entrada da barra de seleção) | Acessibilidade | D16-D19 | app.css:448-450 |
-| D6 | "Mostrando N de M": N = todos os ramais do resultado (a rolagem virtual mostra todos, sem limite de 96 ou 30 cards); M = total antes dos chips de estado (grupo ou busca) | Rolagem virtual (item 3) e "mostre o total real" | D207, D404 | app.js:461 |
-| D7 | Contagem do chip "Todos": durante a busca mostra o total da busca (o design mostra o total do grupo selecionado mesmo buscando) | Coerência com os chips de estado, que contam a busca | D160, D394 | app.js:453 |
+| D6 | "Mostrando N de M": N = todos os ramais do resultado (a rolagem virtual mostra todos, sem limite de 96 ou 30 cards); M = total antes dos chips de estado (grupo ou busca) | Rolagem virtual (item 3) e "mostre o total real" | D207, D404 | app.js:465 |
+| D7 | Contagem do chip "Todos": durante a busca mostra o total da busca (o design mostra o total do grupo selecionado mesmo buscando) | Coerência com os chips de estado, que contam a busca | D160, D394 | app.js:457 |
 | D8 | Cronômetro acima de 1 h no formato h:mm:ss (o design faz mm:ss com minutos acima de 59) | Dado real: chamadas longas | D287 | estado.js:76 |
 | D9 | Ramal com mais de uma chamada: a linha ganha " +N" depois do outro lado | Dado real (o design só tem uma chamada por ramal) | D416-D417 | estado.js:60 |
-| D10 | Cabeçalho central: "faixa ..." só aparece se o grupo tiver faixa; várias faixas separadas por vírgula; "Sem grupo" sem faixa | Dado real (o design calcula uma faixa contínua por grupo) | D384, D150 | app.js:458 |
+| D10 | Cabeçalho central: "faixa ..." só aparece se o grupo tiver faixa; várias faixas separadas por vírgula; "Sem grupo" sem faixa | Dado real (o design calcula uma faixa contínua por grupo) | D384, D150 | app.js:462 |
 | D11 | Histórico: rótulos do eixo com a hora real do início da janela e a cada 6 h, terminando em "agora" (o design fixa 00h 06h 12h 18h); escala de não registrados pelo máximo do período x 1,4 (o design usa a média sintética x 1,4) | Dado real do /api/history | D138, D455-D466 | grafico.js:39, grafico.js:57 |
-| D12 | Detalhe, linha "Grupo": grupo do próprio ramal mais a origem "(pela faixa)", "(escolhido à mão)" ou "(nenhuma faixa)" (o design mostra o grupo selecionado na coluna) | Busca em todos os grupos abre ramal de outro grupo; a origem é a gestão de grupos (item 3) | D227 | edicao.js:208 |
-| D13 | "Atualizado há N s" passa a "N min" a partir de 60 s; o IP do servidor é o endereço com que o navegador abriu a tela (`location.hostname`, pode ser um nome) | O snapshot não traz IP do servidor | D44 | app.js:290-298 |
+| D12 | Detalhe, linha "Grupo": grupo do próprio ramal mais a origem "(pela faixa)", "(escolhido à mão)" ou "(nenhuma faixa)" (o design mostra o grupo selecionado na coluna) | Busca em todos os grupos abre ramal de outro grupo; a origem é a gestão de grupos (item 3) | D227 | edicao.js:207 |
+| D13 | "Atualizado há N s" passa a "N min" a partir de 60 s; o IP do servidor é o endereço com que o navegador abriu a tela (`location.hostname`, pode ser um nome) | O snapshot não traz IP do servidor | D44 | app.js:289-298 |
 | D14 | Ordem "Mais problemas": empate desempata pelo nome | Ordem estável com dado real (muitos grupos com 0%) | D365-D366 | app.js:360 |
 | D15 | Busca ignora maiúsculas e acentos (o design só ignora maiúsculas) | Regra de busca já existente (C9) | D388 | estado.js:113 |
-| D16 | Linhas de "Chamadas ativas" ganham `aria-label` com ramal, nome, direção e tempo (invisível) | Acessibilidade | D242 | app.js:550 |
+| D16 | Linhas de "Chamadas ativas" ganham `aria-label` com ramal, nome, direção e tempo (invisível) | Acessibilidade | D242 | app.js:592 |
+| D17 | Linha fixa **"Todos os ramais"** no topo da coluna Grupos, sempre primeira, fora da ordenação Nome / Mais problemas. É o mesmo componente dos itens de grupo (nome, total, barra empilhada, % registrados, "N com problema", mesmas cores, fontes, raio e espaçamento; sem estilo novo), calculado sobre todos os ramais, inclusive os sem grupo. A tela abre com ela selecionada e volta para ela se o grupo aberto some (excluído, renomeado). Com ela: título central "Todos os ramais" e "N ramais" sem faixa; "ÚLTIMAS 24 H" e "Chamadas ativas" com o subtítulo "Todos os ramais"; histórico do total da instalação (`/api/history` sem `group`); "Selecionar todos os resultados (N)" aparece para administrador mesmo sem busca nem chip (N = todos os ramais do resultado). Não é grupo: fica fora do catálogo, da gestão de grupos, dos seletores de destino e da contagem "em N grupos". O nome "Todos os ramais" é reservado na criação e renomeação pela tela (estado.js:207-208); **dívida:** o daemon (internal/api/groups.go) e o import CSV ainda aceitam esse nome. A coluna central passa a ter `aria-label="Ramais"` (era "Ramais do grupo"), sem efeito visual. O design não tem essa linha (abre no primeiro grupo) | Decisão do Fabio (2026-10-16), reverte o antigo D5 | D102-D121, D128, D149-D150, D239, D331, D384 | app.js:21, app.js:247, app.js:342, app.js:364-366, app.js:401, app.js:463-464, app.js:555; edicao.js:302-304; estado.js:207-208; index.html:133, 155, 158, 221 |
+| D18 | "Chamadas ativas" lista **todas** as chamadas do escopo (grupo ou todos os ramais), mais longas primeiro, com rolagem virtual na mesma caixa de 470 px (só as linhas da janela visível existem no DOM, dois espaçadores ocupam o lugar das outras). O design mostra as 14 mais longas. Linha, cores e vão iguais ao design. A caixa ganha `overflow-anchor: none` (valor novo, sem efeito visual): com os espaçadores no fluxo, a ancoragem de rolagem do Chrome/Firefox faria a lista pular até o fim | Servidor inteiro com centenas de chamadas: rolar até qualquer uma sem desenhar todas | D240, D435 | app.js:500-600, app.css:374 |
 
 ## Itens 3 e 4 (permitidos, registrados)
 
@@ -122,7 +127,7 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 | coluna | flex 1 1 280px, max-width 100%, gap 14 (D93) | app.css:207 | ok |
 | bloco | #121820, borda #1f2833, raio 10, padding 14, gap 10 (D94) | app.css:214 | ok |
 | título | Barlow 600, 17 px, .04em, #f2f5f8 "GRUPOS" (D96) | app.css:218 | ok |
-| ordenar | gap 2, 12 px; botões 30 px, 0 8, raio 5, 600; Nome / Mais problemas; padrão "Mais problemas" (D97-D100, D331) | app.css:222-225, app.js:142 | ok |
+| ordenar | gap 2, 12 px; botões 30 px, 0 8, raio 5, 600; Nome / Mais problemas; padrão "Mais problemas" (D97-D100, D331) | app.css:222-225, app.js:141 | ok ("Todos os ramais" fora da ordenação: D17) |
 | lista | gap 6, max-height 520, padding-right 2, pr-scroll (D102) | app.css:227 | ok |
 | item | gap 7, padding 10 12, raio 8, borda #1f2833/#3d6aa8, fundo #0f151c/#18263a (D104, D371-D372) | app.css:228-233 | ok |
 | nome / total | 14 px 600 #f2f5f8 / Barlow 600 16 px #c7d0da (D106-D107) | app.css:235-236 | ok |
@@ -166,7 +171,7 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 | Fechar detalhe | 36 x 36, #253040, raio 7, #151c25; ícone 14, path "M6 6l12 12M18 6L6 18" (D220-D221) | app.css:115-118, index.html:29 | ok |
 | selo | 3 9, raio 999, rgba(0,0,0,.3), 11 px 600 .04em; ponto 7 px (D223) | app.css:357-361 | ok |
 | dados | grid auto 1fr, gap 6 12, 13 px; dt #8b95a3; dd #dbe2ea; mono em Chamada, IP, Latência (D224-D229) | app.css:362-364 | ok (Grupo: D12) |
-| aparelho / latência | user_agent; inalcançável "sem resposta"; não registrado traço (D424) | edicao.js:185-212 | ok |
+| aparelho / latência | user_agent; inalcançável "sem resposta"; não registrado traço (D424) | edicao.js:184-211 | ok |
 
 ### Chamadas ativas
 
@@ -175,6 +180,6 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 | coluna | flex 1 1 300px (D212) | app.css:212 | ok |
 | cabeça | "CHAMADAS ATIVAS"; total Barlow 700 20 px #ff8a8d (D235-D237) | app.css:372 | ok |
 | subtítulo | "grupo · mais longas primeiro", 12 px #8b95a3, margin-top -6 (D239) | app.css:373 | ok |
-| lista | gap 4, max-height 470, pr-scroll; 14 mais longas (D240, D435) | app.css:374, app.js:22 | ok |
+| lista | gap 4, max-height 470, pr-scroll; 14 mais longas (D240, D435) | app.css:374, app.js:561-594 | ok (todas, com rolagem virtual: D18) |
 | linha | grid 22px 1fr auto, gap 8, padding 8 10, raio 7, #1f2833, #0f151c (D242) | app.css:375-378 | ok |
-| seta / textos / tempo | mono 15 #ff8a8d (espera #b9a6f5); 13 px #f2f5f8 com número 600; 12 px mono #8b95a3 "Entrada/Saída/Interna/Em espera · outro"; tempo mono 13 #c7d0da, #ffb27a acima de 20 min (D243-D248, D440-D442) | app.css:380-387, app.js:23 | ok (D8, D16) |
+| seta / textos / tempo | mono 15 #ff8a8d (espera #b9a6f5); 13 px #f2f5f8 com número 600; 12 px mono #8b95a3 "Entrada/Saída/Interna/Em espera · outro"; tempo mono 13 #c7d0da, #ffb27a acima de 20 min (D243-D248, D440-D442) | app.css:380-387, app.js:22 | ok (D8, D16) |

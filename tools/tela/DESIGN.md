@@ -33,7 +33,9 @@ estado do ramal; azul (#7fb2ff foco, #3d6aa8 seleção, #2a3a52 pressionado) só
 - Cabeçalho, seis indicadores, três colunas em flex com quebra (Grupos 280, central 560, Chamadas ativas 300; cabem a
   partir de 1.208 px de largura útil, abaixo disso o próprio flex reorganiza).
 - Grupos: lista com barra empilhada por estado, % registrados e "N com problema", ordem Nome ou Mais problemas, com
-  "Todos os grupos" no topo; clicar filtra a coluna central, o histórico e as chamadas ativas.
+  "Todos os ramais" fixo no topo, fora da ordenação (não é grupo; a tela abre nele e volta a ele se o grupo aberto
+  some); clicar filtra a coluna central, o histórico e as chamadas ativas (desvios.md D17).
+- Chamadas ativas: todas as do escopo, mais longas primeiro, com rolagem virtual (desvios.md D18).
 - Central: busca por número, nome ou IP em todos os grupos; chips de estado (ligados por padrão); Compacto (72 px,
   grade 108) e Cartões (116 px, grade 220), os dois com rolagem virtual; seleção múltipla só para administrador.
 - Direita: detalhe do ramal clicado (também o lugar de mover de grupo, para administrador) e chamadas ativas.
