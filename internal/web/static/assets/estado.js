@@ -204,6 +204,8 @@ export function erroNomeGrupo(nome, catalogo, atual = null) {
   if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(n)) return "O nome tem caractere invisível ou de controle.";
   const chave = normalizar(n);
   if (chave === normalizar(SEM_GRUPO)) return "\"Sem grupo\" é reservado. Escolha outro nome.";
+  // "Todos os ramais" é o escopo de todos os ramais na tela, não grupo. ponytail: só a tela recusa; o daemon ainda aceita (dívida).
+  if (chave === normalizar("Todos os ramais")) return "\"Todos os ramais\" é reservado. Escolha outro nome.";
   const igual = (catalogo || []).find((g) => g.name !== atual && normalizar(g.name) === chave);
   return igual ? "Já existe o grupo " + igual.name + "." : "";
 }

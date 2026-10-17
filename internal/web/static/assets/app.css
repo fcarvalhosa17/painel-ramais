@@ -371,7 +371,7 @@ input[type="checkbox"] { min-height: auto; width: 14px; height: 14px; margin: 0;
 /* ---------- chamadas ativas ---------- */
 .chamadas-n { font-family: var(--fonte-display); font-weight: 700; font-size: 20px; color: var(--conversa-fg); }
 .chamadas-sub { font-size: 12px; color: var(--texto-fraco); margin-top: -6px; }
-.chamadas { display: flex; flex-direction: column; gap: 4px; max-height: 470px; overflow-y: auto; }
+.chamadas { display: flex; flex-direction: column; gap: 4px; max-height: 470px; overflow-y: auto; overflow-anchor: none; }
 .chamada {
   text-align: left; display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 8px; padding: 8px 10px;
   border-radius: 7px; border: 1px solid var(--borda); background: var(--item); color: var(--texto); cursor: pointer; flex: none;

@@ -7,7 +7,7 @@ import {
 } from "./estado.js";
 import { Dados, atrasoReconexao } from "./dados.js";
 import { api, CanalAoVivo } from "./conexao.js";
-import { Lista } from "./lista.js";
+import { Lista, janela } from "./lista.js";
 import { desenharHistorico, rotulosEixo } from "./grafico.js";
 import { iniciarGrupos } from "./grupos.js";
 import { iniciarEdicao } from "./edicao.js";
@@ -18,8 +18,7 @@ const TOKEN = /^#t=([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/;
 const SESSAO_ENCERRADA = "Sessão encerrada. Abra de novo pelo menu PBX do Issabel.";
 const MIN = 60e3;
 const DIA = 24 * 3600e3;
-const TODOS = "Todos os grupos";
-const MAX_CHAMADAS = 14; // como o design: as 14 mais longas
+const TODOS = "Todos os ramais"; // escopo "" (filtros.grupo vazio): não é grupo, nunca entra no catálogo
 const CHAMADA_LONGA_MS = 20 * MIN; // tempo em laranja acima de 20 min
 const TRACO = String.fromCharCode(0x2014); // sem leitura: "—" como no design (decorate), nunca 0
 const CHAVE_MODO = "painel-ramais.modo";
@@ -243,10 +242,9 @@ function quadro() {
     grupos = agregarGrupos(dados.itens);
     porNome = new Map(grupos.map((g) => [g.nome, g]));
     nomesGrupos = [...new Set([...dados.grupos.map((g) => g.name), ...grupos.map((g) => g.nome)])];
-    // Como no design, a tela abre no primeiro grupo da ordenação ativa; o mesmo vale quando o grupo
-    // selecionado some (excluído, renomeado ou fora do catálogo). Sem nenhum grupo, fica "" (todos os ramais).
-    // Roda antes do filtro deste quadro, então lista, chips e histórico já saem com o grupo novo.
-    if (!nomesGrupos.includes(filtros.grupo)) selecionarGrupo(gruposOrdenados()[0]?.nome ?? "", false);
+    // A tela abre em "Todos os ramais" (filtros.grupo ""); se o grupo selecionado some (excluído, renomeado
+    // ou fora do catálogo), volta para ele. Roda antes do filtro deste quadro: lista, chips e histórico já saem certos.
+    if (filtros.grupo && !nomesGrupos.includes(filtros.grupo)) selecionarGrupo("", false);
     totais = {};
     for (const e of ESTADOS) totais[e.chave] = 0;
     for (const g of grupos) for (const e of ESTADOS) totais[e.chave] += g.porEstado[e.chave];
@@ -324,7 +322,7 @@ function renderIndicadores() {
 }
 
 // ---------- coluna Grupos: barra empilhada, % registrados e "N com problema" ----------
-const linhasGrupo = new Map(); // nome ("" = Todos) -> nós da linha
+const linhasGrupo = new Map(); // nome ("" = Todos os ramais) -> nós da linha
 let chaveOrdemGrupos = "";
 
 function criarLinhaGrupo(nome) {
@@ -355,7 +353,7 @@ function estatGrupo(nome, g) {
   return { nome, n, p, ruins, problema: n ? ruins / n : 0, reg: n - (p.nao_registrado || 0) - (p.desconhecido || 0) };
 }
 
-// Grupos na ordenação ativa (Nome ou Mais problemas). Sem linha "Todos os grupos", como no design.
+// Grupos na ordenação ativa (Nome ou Mais problemas). "Todos os ramais" fica fora: não é grupo.
 function gruposOrdenados() {
   const linhas = nomesGrupos.map((nome) => estatGrupo(nome, porNome.get(nome)));
   if (ordemGrupos === "nome") linhas.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
@@ -364,7 +362,8 @@ function gruposOrdenados() {
 }
 
 function renderGrupos() {
-  const linhas = gruposOrdenados();
+  // "Todos os ramais" (chave "") sempre primeiro, fora da ordenação; soma todos os ramais, inclusive os sem grupo.
+  const linhas = [estatGrupo("", { total: dados.itens.length, porEstado: totais }), ...gruposOrdenados()];
   const vivos = new Set();
   for (const e of linhas) {
     let ui = linhasGrupo.get(e.nome);
@@ -401,6 +400,7 @@ function selecionarGrupo(nome, rolar = true) {
   filtros.grupo = nome;
   $("hist-grupo").textContent = nome || TODOS;
   lista.irAoTopo();
+  $("chamadas").scrollTop = 0;
   sujo.dados = true; // grupos, chamadas ativas e centro marcam o grupo
   agendar();
   carregarHistorico(true);
@@ -443,8 +443,6 @@ function aplicarFiltroEstados() {
   agendar();
 }
 
-const filtroAtivo = () => !!(normalizar(filtros.busca) || filtros.desligados.size || filtros.grupo);
-
 function renderCentro() {
   // Com busca, o design procura em todos os grupos e ignora o grupo selecionado.
   const fonte = filtrar(dados.itens, { busca: filtros.busca, grupo: normalizar(filtros.busca) ? "" : filtros.grupo, estados: null });
@@ -472,7 +470,7 @@ function renderCentro() {
   vazio.hidden = dados.epoch === null || filtrados.length > 0;
   vazio.textContent = dados.itens.length > 0 ? "Nenhum ramal com esses filtros."
     : dados.amiConectado ? "Nenhum ramal cadastrado." : "Aguardando a conexão com o Asterisk.";
-  edicao.aoFiltrar(filtrados, filtroAtivo());
+  edicao.aoFiltrar(filtrados);
 }
 
 let timerBusca = null;
@@ -499,8 +497,27 @@ for (const b of document.querySelectorAll(".seg[data-modo]")) {
 }
 try { if (localStorage.getItem(CHAVE_MODO) === "cartoes") aplicarModo("cartoes"); } catch { /* idem */ }
 
-// ---------- chamadas ativas do grupo selecionado, mais longas primeiro ----------
+// ---------- chamadas ativas do escopo selecionado (grupo ou todos os ramais), mais longas primeiro ----------
+// Rolagem virtual como a da lista central: só as linhas da janela visível existem no DOM; dois espaçadores
+// ocupam o lugar das linhas de fora, então a barra de rolagem mede todas as chamadas. (Padding na caixa não
+// serve: com box-sizing border-box ele aumentaria a caixa em vez de rolar.)
 const poolChamadas = [];
+let ativosChamadas = [];
+let alturaChamada = 52; // estimativa até medir a primeira linha desenhada
+let chamadasPendente = false;
+const [chamadasAntes, chamadasDepois] = [0, 1].map(() => {
+  const d = document.createElement("div");
+  d.setAttribute("aria-hidden", "true");
+  d.style.flex = "none"; // não encolhe dentro da caixa de altura máxima, como as linhas
+  d.hidden = true;
+  $("chamadas").append(d);
+  return d;
+});
+// Espaço de n linhas: o vão do flex já separa o espaçador da linha vizinha, por isso desconta um vão.
+function espacoChamadas(el, n, passo, vao) {
+  el.hidden = n === 0;
+  el.style.height = Math.max(0, n * passo - vao) + "px";
+}
 function criarLinhaChamada() {
   const b = document.createElement("button");
   b.type = "button";
@@ -521,7 +538,7 @@ function criarLinhaChamada() {
   const tempo = document.createElement("span");
   tempo.className = "chamada-tempo";
   b.append(seta, meio, tempo);
-  $("chamadas").append(b);
+  chamadasDepois.before(b);
   return { b, seta, num, nome, l2, tempo };
 }
 
@@ -536,7 +553,26 @@ function renderChamadas() {
   ativos.sort((a, b) => b.ms - a.ms);
   $("chamadas-n").textContent = formatarNumero(ativos.length);
   $("chamadas-sub").textContent = (filtros.grupo || TODOS) + " · mais longas primeiro";
-  const mostrar = ativos.slice(0, MAX_CHAMADAS);
+  ativosChamadas = ativos;
+  pintarChamadas();
+  $("chamadas-vazio").hidden = ativos.length > 0;
+}
+
+function pintarChamadas() {
+  const caixa = $("chamadas");
+  const ativos = ativosChamadas;
+  // Altura real (fracionária) da linha e vão do CSS: um erro aqui se acumula a cada linha acima da janela.
+  if (poolChamadas[0] && !poolChamadas[0].b.hidden) alturaChamada = poolChamadas[0].b.getBoundingClientRect().height || alturaChamada;
+  const css = getComputedStyle(caixa);
+  const vao = parseFloat(css.rowGap) || 0;
+  const passo = alturaChamada + vao;
+  const alturaVisivel = parseFloat(css.maxHeight) || caixa.clientHeight;
+  // Rolagem limitada ao fim da lista nova: se ela encolheu, a janela não cai além do fim (lista em branco).
+  const topo = Math.min(caixa.scrollTop, Math.max(0, ativos.length * passo - alturaVisivel));
+  const j = janela(ativos.length, 1, topo, alturaVisivel, passo);
+  const mostrar = ativos.slice(j.inicio, j.fim);
+  espacoChamadas(chamadasAntes, j.inicio, passo, vao);
+  espacoChamadas(chamadasDepois, ativos.length - j.fim, passo, vao);
   while (poolChamadas.length < mostrar.length) poolChamadas.push(criarLinhaChamada());
   poolChamadas.forEach((ui, k) => {
     const a = mostrar[k];
@@ -555,8 +591,13 @@ function renderChamadas() {
     ui.tempo.classList.toggle("longa", a.ms > CHAMADA_LONGA_MS);
     ui.b.setAttribute("aria-label", "Ramal " + r.number + ", " + (r.name || "sem nome") + ", " + ui.l2.textContent + ", " + ui.tempo.textContent);
   });
-  $("chamadas-vazio").hidden = ativos.length > 0;
 }
+
+$("chamadas").addEventListener("scroll", () => {
+  if (chamadasPendente) return;
+  chamadasPendente = true;
+  requestAnimationFrame(() => { chamadasPendente = false; pintarChamadas(); });
+}, { passive: true });
 
 $("chamadas").addEventListener("click", (e) => {
   const b = e.target.closest(".chamada");

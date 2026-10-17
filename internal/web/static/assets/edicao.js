@@ -26,7 +26,6 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
   const selecao = lista.selecao;
   let admin = false;
   let resultados = [];
-  let filtroAtivo = false;
   let ancora = null;
 
   const catalogo = () => dados.grupos.filter((g) => g.name !== SEM_GRUPO);
@@ -300,7 +299,8 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
   }
 
   function renderBotaoResultados() {
-    const mostrar = admin && filtroAtivo && resultados.length > 0;
+    // Vale em qualquer escopo, inclusive "Todos os ramais" sem busca (aí são todos os ramais do servidor).
+    const mostrar = admin && resultados.length > 0;
     bs.resultados.hidden = !mostrar;
     if (!mostrar) return;
     let faltam = 0;
@@ -460,9 +460,8 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
       if (detalheAberto()) renderRamal(false);
     },
     // Resultado completo de filtrar() sobre todos os dados (não só os cards desenhados).
-    aoFiltrar(filtrados, ativo) {
+    aoFiltrar(filtrados) {
       resultados = filtrados;
-      filtroAtivo = ativo;
       renderBotaoResultados();
     },
   };
