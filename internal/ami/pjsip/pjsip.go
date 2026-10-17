@@ -33,13 +33,14 @@ type Adapter struct {
 	emit     func(model.Event)
 	mu       sync.Mutex
 	contacts map[string]map[string]contact // endpoint -> URI -> contato
+	lastUA   map[string]string             // endpoint|ip -> ultimo user agent conhecido (o ContactStatus do Asterisk 18 nao traz UserAgent)
 	names    []string                      // endpoints da ultima leitura (base do Enrich e do Reread)
 	fresh    map[string]struct{}           // entraram na ultima leitura: o Enrich busca o nome deles antes
 }
 
 // New cria o adaptador. emit recebe os eventos do Snapshot.
 func New(emit func(model.Event)) *Adapter {
-	return &Adapter{emit: emit, contacts: map[string]map[string]contact{}}
+	return &Adapter{emit: emit, contacts: map[string]map[string]contact{}, lastUA: map[string]string{}}
 }
 
 // EndpointFromChannel: "PJSIP/2001-0000002a" -> "2001".
@@ -155,6 +156,7 @@ func (a *Adapter) load(eps, cts []ami.Message, keepLatency bool) (names []string
 	defer a.mu.Unlock()
 	old := a.contacts
 	a.contacts = map[string]map[string]contact{}
+	a.lastUA = map[string]string{} // a leitura traz o user agent de verdade: recomeca a memoria dele
 	for _, it := range cts {
 		a.addLocked(it)
 	}
@@ -248,7 +250,11 @@ func (a *Adapter) contactStatus(m ami.Message) []model.Event {
 	if strings.EqualFold(m.Get("ContactStatus"), "Removed") {
 		delete(a.contacts[name], m.Get("URI"))
 	} else {
-		a.setLocked(name, m.Get("URI"), parseContact(m, m.Get("ContactStatus"), m.Get("ViaAddress")))
+		c := parseContact(m, m.Get("ContactStatus"), m.Get("ViaAddress"))
+		if c.ua == "" { // evento sem UserAgent nao apaga o que o snapshot (ou um evento anterior) ja trouxe
+			c.ua = a.lastUA[name+"|"+c.ip]
+		}
+		a.setLocked(name, m.Get("URI"), c)
 	}
 	return []model.Event{a.aggregateLocked(name, m.At)}
 }
@@ -266,6 +272,9 @@ func (a *Adapter) addLocked(it ami.Message) {
 }
 
 func (a *Adapter) setLocked(name, uri string, c contact) {
+	if c.ua != "" {
+		a.lastUA[name+"|"+c.ip] = c.ua
+	}
 	if a.contacts[name] == nil {
 		a.contacts[name] = map[string]contact{}
 	}
