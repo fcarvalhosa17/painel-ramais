@@ -17,7 +17,7 @@ Valem para todos os agentes. Reabrir só com o usuário.
 | D1 | Ramal = endpoint (PJSIP) ou peer (SIP) cujo nome casa **inteiro** com `extension_pattern` (padrão `^[0-9]+$`). O resto é tronco. Troncos não aparecem no snapshot; servem para resolver "com quem fala". | seção 7, seção 11 |
 | D2 | Um grupo por ramal. A importação rejeita o arquivo inteiro se houver sobreposição de faixas (no arquivo ou com o que já existe). `--replace` troca todos os grupos numa transação só. | seções 8, 9, 10 |
 | D3 | A CLI recusa rodar com euid 0. Uso: `sudo -u painel-ramais painel-ramais ...`. Motivo: root criaria o banco e os arquivos WAL com dono root e o daemon pararia de escrever. | seção 8 |
-| D4 | Mudança de grupo (e de usuário) chega ao daemon por SIGHUP. A CLI manda o sinal sozinha; o daemon relê os grupos, gera epoch novo e revalida as sessões dos WebSockets abertos. | seção 8, ADR-001 |
+| D4 | Mudança de grupo (e de usuário) chega ao daemon por SIGHUP. A CLI manda o sinal sozinha; o daemon relê os grupos (catálogo e atribuições manuais), publica a mudança por delta, **sem epoch novo**, e revalida as sessões dos WebSockets abertos. | seção 8, ADR-001, ADR-005 |
 | D5 | `/debug` e `/api/health` ficam fora do proxy do Apache (`ProxyPass "!"`) e o daemon recusa nessas rotas qualquer requisição com `X-Forwarded-For` ou `X-Forwarded-Host` (o mod_proxy sempre adiciona esses cabeçalhos). Duas barreiras independentes. | seção 1, ADR-003 |
 | D6 | REST usa o envelope `{success, data, error, meta}`. WebSocket usa mensagens tipadas por `type`, sem envelope. | seções 1 a 5 |
 | D7 | Histórico por minuto. Minuto sem AMI (ou sem daemon) sai como `gap: true` com contagens `null`, nunca como queda de registros. | seções 4.3, 10 |
@@ -36,13 +36,16 @@ O daemon escuta só em loopback. O Apache publica o prefixo `/painel-ramais/` e 
 | GET | `/acesso` | não | navegador via Apache | HTML de aviso, sem script (seção 1.3) |
 | GET | `/emergencia` | não | navegador via Apache | `301` para `/painel-ramais/emergencia/` |
 | GET | `/emergencia/` (exato) | não | navegador via Apache | a mesma `index.html` da tela, cabeçalhos de emergência (seção 1.3) |
-| GET | `/assets/<arquivo>` | não | navegador via Apache | arquivo de `assets/`; só `.js`, `.css`, `.svg` (seção 1.3) |
+| GET | `/assets/<arquivo>` | não | navegador via Apache | arquivo de `assets/`; só `.js`, `.css`, `.svg`; e `assets/fonts/<arquivo>` só `.woff2` e três `.txt` por nome exato (seção 1.3) |
 | POST | `/api/login` | não | navegador via Apache | envelope; só aceita o usuário `emergencia` (seção 3.1) |
 | POST | `/api/logout` | não exige (idempotente) | navegador via Apache | envelope |
 | POST | `/api/token` | não | navegador via Apache | envelope |
 | GET | `/api/session` | sim | navegador via Apache | envelope (seção 3.4) |
 | GET | `/api/snapshot` | sim | navegador via Apache | envelope, gzip |
 | GET | `/api/groups` | sim | navegador via Apache | envelope, gzip |
+| POST | `/api/groups/create` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
+| POST | `/api/groups/update` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
+| POST | `/api/groups/assign` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
 | POST | `/api/groups/import` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
 | POST | `/api/groups/delete` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
 | GET | `/api/history` | sim | navegador via Apache | envelope, gzip |
@@ -53,7 +56,7 @@ O daemon escuta só em loopback. O Apache publica o prefixo `/painel-ramais/` e 
 Regras:
 - **Sessão**: toda rota `/api/*` e `/ws` exige cookie de sessão válido, exceto `login`, `logout`, `token` e `health`; `/debug` também exige sessão (além de ser só localhost). Sem sessão: `401 unauthorized`. Detalhes no ADR-002.
 - **Só localhost** (`/api/health`, `/debug`): requisição com `X-Forwarded-For` ou `X-Forwarded-Host` recebe `404` (não revela que a rota existe). O teste é `curl http://127.0.0.1:<porta>/api/health` no próprio servidor.
-- **POST** com `Sec-Fetch-Site: cross-site` recebe `403 forbidden` antes de qualquer processamento. **POST** exige `Content-Type: application/json` (senão `415`) e corpo de no máximo 4 KiB (senão `413`); exceção: `/api/groups/import` e `/api/groups/delete` aceitam até 1 MiB. JSON com campo desconhecido é `400`. O daemon nunca responde cabeçalhos CORS. Toda resposta leva `X-Content-Type-Options: nosniff`. O `http.Server` tem `ReadTimeout` de 15 s (o handler do `/ws` limpa o prazo da conexão).
+- **POST** só é aceito com `Sec-Fetch-Site` ausente, `same-origin` ou `none`; qualquer outro valor (`cross-site`, `same-site`, desconhecido) recebe `403 forbidden` antes de qualquer processamento. **POST** exige `Content-Type: application/json` (senão `415`) e corpo de no máximo 4 KiB (senão `413`); exceção: `/api/groups/import`, `create`, `update` e `delete` aceitam até 1 MiB, e `/api/groups/assign` até 2 MiB. JSON com campo desconhecido é `400`. O daemon nunca responde cabeçalhos CORS. Toda resposta leva `X-Content-Type-Options: nosniff`. O `http.Server` tem `ReadTimeout` de 15 s (o handler do `/ws` limpa o prazo da conexão).
 - **gzip**: respostas `/api/*` saem com gzip quando o cliente manda `Accept-Encoding: gzip` (stdlib `compress/gzip`).
 - Qualquer outra rota: `404 not_found` no envelope. Caminho com segmento `..` (inclusive `%2e%2e`): `404` no envelope, sem redirecionar. As rotas da tela (`/`, `/acesso`, `/emergencia`, `/emergencia/`, `/assets/*`) aceitam GET e HEAD; outro método dá `405`. Sem a tela embutida (`Options.Static` nulo, só em teste), elas dão `404`.
 - **Papel**: a sessão é de administrador se, e só se, `kind = token` e o `subject` começa com `issabel:admin:`. O papel é derivado do `subject` gravado; nenhuma coluna nova no banco. As rotas marcadas "administrador" respondem `403 forbidden` a qualquer outra sessão (a checagem vem antes de ler o corpo).
@@ -80,14 +83,15 @@ Erro:
 | HTTP | `code` | Quando |
 |---|---|---|
 | 400 | `bad_request` | JSON inválido, campo desconhecido, parâmetro fora de faixa |
-| 400 | `invalid_csv` | só em `/api/groups/import`: CSV inválido ou com faixas sobrepostas; `message` é o texto do erro do parser (até 20 linhas `linha N: ...`) |
+| 400 | `invalid_csv` | só em `/api/groups/import`: CSV inválido ou com faixas sobrepostas; `message` é o texto do erro do parser (até 20 linhas `linha N: ...`); também mais de 5.000 linhas de dados por importação ou mais de 1.000 faixas de um mesmo grupo no arquivo (M2, vale para a API e para `painel-ramais group import`). Nada é gravado |
 | 401 | `unauthorized` | sem sessão ou sessão expirada |
 | 401 | `invalid_credentials` | login com usuário ou senha errados (mesma mensagem para os dois casos) |
 | 401 | `invalid_token` | token com assinatura errada, expirado, já usado ou malformado (mesma mensagem para todos) |
-| 403 | `forbidden` | sessão sem papel de administrador numa rota de administrador: "Apenas administradores do Issabel podem alterar grupos"; ou POST com `Sec-Fetch-Site: cross-site` (qualquer rota POST, antes de ler o corpo) |
-| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy; `/api/groups/delete` de grupo que não existe ("Grupo inexistente") |
+| 403 | `forbidden` | sessão sem papel de administrador numa rota de administrador: "Apenas administradores do Issabel podem alterar grupos"; ou sessão `issabel:admin:<usuario>` cujo usuário não está mais no grupo `administrator` do `/var/www/db/acl.db` (conferido somente leitura a cada escrita de grupo; acl.db ilegível também dá 403, falha fechada; a sessão e a visualização continuam; M1); ou POST com `Sec-Fetch-Site` diferente de ausente, `same-origin` e `none` (por exemplo `cross-site` ou `same-site`; qualquer rota POST, antes de ler o corpo) |
+| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy; `/api/groups/update`, `/assign` (com `group` nomeado) ou `/delete` de grupo que não existe ("Grupo inexistente") |
 | 405 | `method_not_allowed` | método errado |
-| 413 | `payload_too_large` | corpo acima de 4 KiB (1 MiB em `/api/groups/import` e `/api/groups/delete`) |
+| 409 | `conflict` | só nas rotas de edição de grupo (`create`, `update`): nome de grupo que já existe (sem diferenciar maiúsculas; `message` = `grupo ja existe: "<nome>"`) ou faixa que cruza faixa de **outro** grupo (`message` lista até 20 conflitos `A-B sobrepoe C-D do grupo "X"`, mais `... e mais N`). Nada é gravado |
+| 413 | `payload_too_large` | corpo acima de 4 KiB (1 MiB em `/api/groups/import`, `create`, `update` e `delete`; 2 MiB em `/api/groups/assign`) |
 | 415 | `unsupported_media_type` | POST sem `application/json` |
 | 429 | `too_many_attempts` | 5 logins errados do mesmo IP do cliente em 5 min, ou 20 do mesmo usuário em 5 min (seção 3.1), ou 4 comparações bcrypt já em andamento (a tentativa recusada por saturação não conta contra o usuário) |
 | 500 | `internal` | falha inesperada (detalhe só no log) |
@@ -95,7 +99,7 @@ Erro:
 
 ### 1.3 Tela, aviso e cabeçalhos (ADR-004)
 
-O prefixo do navegador é fixo: `/painel-ramais/` (o mesmo `Path` do cookie). A tela (HTML, CSS e JavaScript de `internal/web/static/`) vai embutida no binário (`//go:embed`, pacote `internal/web`); arquivo começando com `.` ou `_` não entra no embed. `Content-Type` definido pelo daemon pela extensão, sem depender do `/etc/mime.types`: `.js` `text/javascript; charset=utf-8`, `.css` `text/css; charset=utf-8`, `.svg` `image/svg+xml`, `.html` `text/html; charset=utf-8`. `/assets/` aceita um nível só (`/assets/x.js`); `/assets/`, subpasta, nome começando com `.`, extensão fora das três e arquivo inexistente dão `404 not_found` (envelope).
+O prefixo do navegador é fixo: `/painel-ramais/` (o mesmo `Path` do cookie). A tela (HTML, CSS e JavaScript de `internal/web/static/`) vai embutida no binário (`//go:embed`, pacote `internal/web`); arquivo começando com `.` ou `_` não entra no embed. `Content-Type` definido pelo daemon pela extensão, sem depender do `/etc/mime.types`: `.js` `text/javascript; charset=utf-8`, `.css` `text/css; charset=utf-8`, `.svg` `image/svg+xml`, `.html` `text/html; charset=utf-8`. `/assets/` aceita um nível só (`/assets/x.js`), mais a pasta `/assets/fonts/` (também um nível só), onde valem apenas `.woff2` (`font/woff2`) e três `.txt` por nome exato (`OFL-IBMPlex.txt`, `OFL-BarlowSemiCondensed.txt`, `ORIGEM.txt`; `text/plain; charset=utf-8`); `/assets/`, outra subpasta, nome começando com `.`, extensão fora da lista e arquivo inexistente dão `404 not_found` (envelope). A CSP da tela já tem `font-src 'self'` (sem `data:` e sem terceiros).
 
 `GET /` decide pelo `Sec-Fetch-Dest`:
 
@@ -114,7 +118,7 @@ Cabeçalhos (além de `X-Content-Type-Options: nosniff` e `X-Request-Id`, que sa
 | tela (`/`) | `Content-Type: text/html; charset=utf-8`; `Cache-Control: no-store`; `Referrer-Policy: no-referrer`; `Vary: Sec-Fetch-Dest`; `X-Frame-Options: SAMEORIGIN`; `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'` |
 | emergência (`/emergencia/`) | igual à tela, trocando `frame-ancestors 'self'` por `frame-ancestors 'none'` e `X-Frame-Options: DENY`; sem `Vary` (não olha o `Sec-Fetch-Dest`) |
 | aviso (`/acesso`) | `Content-Type: text/html; charset=utf-8`; `Cache-Control: no-store`; `Referrer-Policy: no-referrer`; `X-Frame-Options: SAMEORIGIN`; `Content-Security-Policy: default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'` |
-| assets | `Content-Type` da extensão; `Cache-Control: no-cache`; `ETag` (SHA-256 truncado do conteúdo; `If-None-Match` igual dá `304`); os `.svg` levam também `Content-Security-Policy: default-src 'none'` |
+| assets | `Content-Type` da extensão; `Cache-Control: no-cache` (fontes em `assets/fonts/`: `public, max-age=604800`, com o mesmo `ETag`); `ETag` (SHA-256 truncado do conteúdo; `If-None-Match` igual dá `304`); os `.svg` levam também `Content-Security-Policy: default-src 'none'` |
 
 Consequências para a tela: nada inline (nem `<script>`, nem `<style>`, nem `style="..."` no HTML, nem `on*=`), nada externo (CDN, Google Fonts), nenhum `eval`/`new Function`. Estilo dinâmico pelo CSSOM é permitido. Texto vindo do Asterisk entra só por `textContent`/`createTextNode` ou canvas.
 
@@ -132,6 +136,7 @@ Fluxo de entrada da tela (frontend, daemon e módulo PHP): o módulo do Issabel 
   "name": "Maria Souza",
   "technology": "pjsip",
   "group": "Suporte",
+  "group_manual": false,
   "registration": "registered",
   "ip": "192.0.2.23",
   "user_agent": "Yealink SIP-T46U 108.86.0.20",
@@ -155,11 +160,12 @@ Fluxo de entrada da tela (frontend, daemon e módulo PHP): o módulo do Issabel 
 | `number` | string | chave do ramal: nome do endpoint/peer, que no Issabel é o número. Igual em SIP e PJSIP (`SIP/2001` e `PJSIP/2001` viram `"2001"`) |
 | `name` | string ou null | callerid configurado no endpoint/peer |
 | `technology` | `"sip"` ou `"pjsip"` | tecnologia ativa da instalação |
-| `group` | string | nome do grupo; `"Sem grupo"` quando nenhuma faixa casa |
+| `group` | string | nome do grupo. Precedência: atribuição manual > faixa > `"Sem grupo"`. `"Sem grupo"` quando nenhuma faixa casa, ou quando o ramal foi fixado em "Sem grupo" à mão |
+| `group_manual` | booleano | `true` quando o grupo vem de atribuição manual (inclusive "Sem grupo" manual), que vence a faixa; `false` quando vem da faixa ou do padrão. Aditivo: cliente antigo ignora |
 | `registration` | enum | `registered`, `unregistered`, `unreachable`, `unknown`. `unknown` só quando o AMI está fora ou ainda não terminou o snapshot. **Nunca** `unregistered` por falta de AMI |
 | `ip` | string ou null | IP do contato (PJSIP: via/contact; SIP: IP do peer) |
-| `user_agent` | string ou null | quando a versão do Asterisk informa |
-| `latency_ms` | inteiro ou null | latência do qualify; null sem qualify |
+| `user_agent` | string ou null | `null` quando desconhecido. No PJSIP vem do snapshot (`PJSIPShowContacts`/`ContactList`) e é **mantido**: o `ContactStatus` do Asterisk 18 não traz `UserAgent`, e um evento sem o campo não apaga o valor já conhecido daquele endpoint e IP; evento com valor novo o atualiza; cada releitura do inventário o refaz |
+| `latency_ms` | inteiro ou null | latência do qualify em ms (`RoundtripUsec` arredondado); `null` sem qualify ou com `RoundtripUsec` 0/ausente |
 | `device_state` | enum | `unknown`, `not_inuse`, `inuse`, `busy`, `invalid`, `unavailable`, `ringing`, `ringinuse`, `onhold` (estados do Asterisk em minúsculas) |
 | `calls` | array | chamadas ativas; vazio depois do Hangup e sempre vazio quando o AMI está fora |
 
@@ -306,6 +312,7 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
         "name": "Maria Souza",
         "technology": "pjsip",
         "group": "Suporte",
+        "group_manual": false,
         "registration": "registered",
         "ip": "192.0.2.23",
         "user_agent": "Yealink SIP-T46U 108.86.0.20",
@@ -327,6 +334,7 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
         "name": "João Lima",
         "technology": "pjsip",
         "group": "Suporte",
+        "group_manual": false,
         "registration": "unreachable",
         "ip": "192.0.2.24",
         "user_agent": null,
@@ -334,6 +342,10 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
         "device_state": "unavailable",
         "calls": []
       }
+    ],
+    "groups": [
+      { "name": "Suporte", "ranges": [ { "start": 2000, "end": 2099 } ] },
+      { "name": "Vendas", "ranges": [] }
     ]
   },
   "error": null,
@@ -346,16 +358,17 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
 - `technology`: `null` só antes da primeira detecção.
 - `extensions` ordenado por `number` (ordem de string). Antes da primeira conexão AMI vem vazio. Servidor **sem ramais** (nenhum endpoint/peer de ramal configurado) também vem `[]`, mas com `ami_connected: true`, `technology` preenchido e `meta.count: 0`: é um estado válido, não erro nem `degraded` (seção 7.4); o primeiro ramal criado chega por delta.
 - `server_time` serve para a tela calcular a diferença de relógio e mostrar a duração certa.
+- `groups`: o catálogo **completo**, ordenado por nome sem diferenciar maiúsculas, incluindo grupos sem ramal e sem faixa (`"ranges": []`). Não inclui `"Sem grupo"` (é implícito). Aditivo: cliente antigo ignora. O delta (seção 5.2) traz o catálogo inteiro de novo, só quando ele muda.
 
 ### 4.2 GET /api/groups
 
-Grupos e ramais conhecidos agora, na mesma visão do snapshot (lida da projeção do estado, não do banco). `"Sem grupo"` vem por último quando tiver ramal.
+Grupos do catálogo (inclui grupo sem ramal e sem faixa) e os ramais conhecidos agora, na mesma visão do snapshot (lida da projeção do estado, montada a partir do catálogo, não do banco). `"Sem grupo"` vem por último quando tiver ramal. `extensions` de cada grupo traz os ramais cujo `group` é ele (faixa ou atribuição manual); `ranges` traz só as faixas do grupo.
 
 ```json
 {
   "success": true,
   "data": [
-    { "name": "Suporte", "ranges": [ { "start": 2000, "end": 2099 }, { "start": 2150, "end": 2150 } ], "extensions": ["2001", "2002", "2150"] },
+    { "name": "Suporte", "ranges": [ { "start": 2000, "end": 2099 } ], "extensions": ["2001", "2002", "2150"] },
     { "name": "Sem grupo", "ranges": [], "extensions": ["1500"] }
   ],
   "error": null,
@@ -380,6 +393,7 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
   "success": true,
   "data": {
     "group": "Suporte",
+    "group_manual": false,
     "step_s": 60,
     "points": [
       { "t": "2026-10-13T13:00:00.000Z", "registered": 180, "unregistered": 15, "unreachable": 2, "in_call": 40, "gap": false },
@@ -456,9 +470,9 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
 
 HTML puro gerado no servidor, com `<meta http-equiv="refresh" content="2">`, sem JavaScript e sem envelope. Mostra: contagens por estado, chamadas ativas (ramal, direção, estado, outro lado, duração) e os últimos 20 lotes de delta do ring buffer. Não é contrato para a fase 2.
 
-### 4.6 POST /api/groups/import e POST /api/groups/delete (só administrador)
+### 4.6 POST /api/groups/create, update, assign, import e delete (só administrador)
 
-Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes de ler o corpo. As duas rotas aceitam corpo de até 1 MiB (`413 payload_too_large` acima disso); o resto da API segue com 4 KiB. Teto de 20.000 linhas no CSV pela tela (a quebra de linha final não conta como linha; 20.001 ou mais dão `400 invalid_csv`; a CLI não tem esse teto). Mesma validação e mesma transação da CLI `group import|del` (`store.ParseGroupsCSV`, `ImportGroups`, `DeleteGroup`); depois de gravar, o daemon relê os grupos pelo mesmo caminho do SIGHUP (`loadGroups`): epoch novo, as telas abertas recebem `reload`. Se a recarga falhar, a resposta é `500 internal` (os grupos já estão gravados; repetir é seguro).
+Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes de ler o corpo. Todas são `POST` com `Content-Type: application/json`, corpo estrito (campo desconhecido: `400 bad_request`) de até 1 MiB (`413 payload_too_large` acima disso; `assign` aceita até 2 MiB, ver abaixo); o resto da API segue com 4 KiB. Teto de 20.000 linhas no CSV pela tela (a quebra de linha final não conta como linha; 20.001 ou mais dão `400 invalid_csv`; a CLI não tem esse teto). Cada escrita é **uma transação só** no SQLite, junto com a linha de auditoria (`group_audit`: `subject` da sessão, ação, detalhe JSON curto, `at`); falhou, nada foi gravado. Depois de gravar, o daemon relê o catálogo e as atribuições pelo mesmo caminho do SIGHUP (`loadGroups`) e o estado publica a diferença **por delta, sem epoch novo** (seções 5.2 e ADR-005): as telas abertas recebem os ramais afetados em `extensions` (com `group` e `group_manual` novos) e o catálogo em `groups`. Se a recarga falhar, a resposta é `500 internal` (os dados já estão gravados; repetir é seguro). Cada escrita gera log Info com `request_id`, `sub` (quem) e o resumo (`grupo criado`, `grupo alterado`, `ramais atribuidos a grupo`, `grupos importados`, `grupo removido`).
 
 `POST /api/groups/import`:
 
@@ -476,7 +490,31 @@ Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes 
 
 `name` de 1 a 64 caracteres (senão `400 bad_request`). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}` e log Info `grupo removido`. Inexistente: `404 not_found`, "Grupo inexistente".
 
-Leitura: `GET /api/groups` (seção 4.2), sem mudança. Ele lê a projeção do estado, não o banco: logo depois do import pode ficar defasado por até ~250 ms (um lote), até o estado publicar o epoch novo; a tela usa o `reload` do WebSocket para saber quando reler.
+`POST /api/groups/create`:
+
+```json
+{ "name": "Suporte", "ranges": [ { "start": 2000, "end": 2099 }, { "start": 2150, "end": 2150 } ] }
+```
+
+`name` obrigatório; `ranges` opcional (grupo sem faixa é válido; até 1000 faixas, cada uma com `start` e `end`, `0 <= start <= end`, até 18 dígitos). O nome tem as pontas aparadas e segue a regra única de nome de grupo (seção 9: 1 a 64 caracteres, sem controle/formatação invisível, diferente de `Sem grupo`, sem diferenciar maiúsculas). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}`. Erros: `400 bad_request` (nome inválido ou reservado, faixa inválida, faixas da própria requisição que se cruzam, faixa sem `start` ou `end`); `409 conflict` (nome já existe, sem diferenciar maiúsculas, ou faixa que cruza faixa de outro grupo; a mensagem lista os conflitos).
+
+`POST /api/groups/update`:
+
+```json
+{ "name": "Suporte", "new_name": "Atendimento", "ranges": [ { "start": 2000, "end": 2199 } ] }
+```
+
+`name` é o grupo atual (sem diferenciar maiúsculas); `new_name` e `ranges` são opcionais, mas pelo menos um é obrigatório (senão `400 bad_request`, "informe new_name ou ranges"). `ranges` **substitui todas** as faixas do grupo (`[]` deixa o grupo sem faixa): na mesma transação apaga as faixas do grupo e insere as novas (o trigger de sobreposição só enxerga as faixas dos outros grupos; o trigger de imutabilidade proíbe `UPDATE`, por isso apagar e inserir). Renomear leva o histórico junto na mesma transação (`history.group_name`); se o nome novo já tinha histórico no mesmo minuto (grupo apagado antes com esse nome), os minutos com dado dos dois lados são somados e nenhum minuto é perdido. Mesmo nome (ou mesmas faixas) é aceito e não grava nada. Sucesso: `200` com `{"data":{"name":"<nome final>"}}`. Erros: `400 bad_request` (mesmas regras do `create`), `404 not_found` (grupo inexistente), `409 conflict` (nome novo já existe em outro grupo ou faixa cruza outro grupo). Auditoria: `rename` e/ou `ranges`.
+
+`POST /api/groups/assign`:
+
+```json
+{ "numbers": ["2001", "2002", "2150"], "group": "Suporte" }
+```
+
+Atribuição manual em massa, **atômica** (tudo ou nada, uma transação). `group`: nome de um grupo existente (sem diferenciar maiúsculas); `"Sem grupo"` (fixa o ramal em "Sem grupo" à mão, e isso também vence a faixa); ou `null` (remove a atribuição manual: o ramal volta para a faixa que casar, ou "Sem grupo"). O campo `group` é obrigatório (ausente: `400`). `numbers`: de 1 a 20.000 textos, cada um de 1 a 64 caracteres sem controle/formatação invisível (Cc, Cf, Zl, Zp), sem repetição (repetido: `400 bad_request`). O vínculo é pelo **número do ramal como texto**, não exige que o ramal exista agora e sobrevive a ramal apagado e recriado. Corpo até 2 MiB (`maxAssignBodyBytes`): 20.000 números de 64 caracteres ocupam cerca de 1,34 MB; 10.000 ramais de 4 a 6 dígitos, cerca de 90 KB. Sucesso: `200` com `{"success":true,"data":{"changed":N},"error":null,"meta":null}`; `changed` conta só os ramais cuja atribuição mudou de fato (repetir o mesmo pedido dá `0`, sem escrita nem auditoria nem recarga). Erros: `400 bad_request` (número inválido ou repetido, lista vazia ou acima de 20.000, `group` com nome fora de 1 a 64 caracteres); `404 not_found` (grupo nomeado inexistente: nada é aplicado). Auditoria: `assign` (grupo, pedidos, alterados e até 20 números de amostra).
+
+Leitura: `GET /api/groups` (seção 4.2). Ele lê a projeção do estado, não o banco: logo depois de uma escrita pode ficar defasado por até ~250 ms (um lote), até o estado publicar o delta; a tela usa o `groups` e os ramais do delta do WebSocket para atualizar sem reler.
 
 ---
 
@@ -496,7 +534,7 @@ Mensagens JSON em frames de texto, uma mensagem por frame, tipadas por `type`. F
 
 ### 5.2 delta (servidor para cliente)
 
-Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes na janela aparece uma vez, com o estado final completo (substituição inteira por `number`, não patch de campo). `removed` é a lista (ordenada, sempre presente, `[]` quando vazia) dos números que **saíram** do estado neste lote; nunca repete um número de `extensions`. O exemplo acima traz as duas coisas só para ilustrar o formato.
+Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes na janela aparece uma vez, com o estado final completo (substituição inteira por `number`, não patch de campo). `removed` é a lista (ordenada, sempre presente, `[]` quando vazia) dos números que **saíram** do estado neste lote; nunca repete um número de `extensions`. O exemplo acima traz as duas coisas (e `groups`) só para ilustrar o formato.
 
 ```json
 {
@@ -507,12 +545,17 @@ Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes 
   "ami_connected": true,
   "server_time": "2026-10-13T14:30:00.373Z",
   "removed": ["2999"],
+  "groups": [
+    { "name": "Suporte", "ranges": [ { "start": 2000, "end": 2099 } ] },
+    { "name": "Vendas", "ranges": [] }
+  ],
   "extensions": [
     {
       "number": "2002",
       "name": "João Lima",
       "technology": "pjsip",
       "group": "Suporte",
+      "group_manual": false,
       "registration": "registered",
       "ip": "192.0.2.24",
       "user_agent": "Grandstream GXP1625 1.0.11.23",
@@ -539,7 +582,9 @@ Regra de aplicação no cliente (com `v` = versão local):
 - `from_version > v`: lacuna; o cliente busca o snapshot e reconecta.
 - `epoch` diferente do local: o mesmo que lacuna.
 
-Ramal criado ou apagado no Issabel **não** muda o epoch: o novo chega em `extensions` (não registrado, com o grupo calculado pelas faixas) e o apagado em `removed` (seção 7.4). Apagado com chamada ativa continua em `extensions` até o `Hangup` da última chamada e só então vai para `removed`. O epoch novo continua só para queda do AMI, ressincronização e recarga de grupos.
+Ramal criado ou apagado no Issabel **não** muda o epoch: o novo chega em `extensions` (não registrado, com o grupo calculado pelas faixas) e o apagado em `removed` (seção 7.4). Apagado com chamada ativa continua em `extensions` até o `Hangup` da última chamada e só então vai para `removed`. O epoch novo continua só para queda do AMI e ressincronização.
+
+**Mudança de grupo não muda o epoch** (ADR-005). Criar, renomear, editar faixas, apagar grupo, atribuir ramais (tela, CLI/SIGHUP ou importação de CSV) chega assim: cada ramal cujo `group` ou `group_manual` mudou vem em `extensions` com o estado completo (versão avança, como em qualquer delta), e, **só quando o catálogo mudou**, o lote traz `"groups"`: o catálogo **completo** (`[{"name","ranges":[{"start","end"}]}]`, inclui grupo sem ramal e sem faixa, sem `Sem grupo`), que o cliente usa para **substituir** o catálogo local inteiro. Sem a chave `groups` o catálogo não mudou. Pode haver lote com `groups` e `extensions: []` (grupo novo vazio, ou faixa sem ramal): a versão avança mesmo assim, então quem reconecta recebe o lote no replay. Atribuir 10.000 ramais de uma vez produz um lote com 10.000 ramais (cerca de 3 MB de JSON, uma vez, sem epoch novo).
 
 ### 5.3 reload (servidor para cliente)
 
@@ -711,6 +756,7 @@ painel-ramais user passwd <usuario> [--password-stdin]
 painel-ramais group import [--replace] <arquivo.csv | ->
 painel-ramais session purge [--all | --issabel <usuario>]
 painel-ramais group list
+painel-ramais group audit [--limit N]
 painel-ramais group del <grupo>
 painel-ramais token --sub <texto> [--ttl 60s] [--issabel]
 painel-ramais capturar --minutos N --saida <arquivo|-> [--anonimizar] [--digitos-externos 7]
@@ -731,9 +777,11 @@ painel-ramais version
 - `token` imprime o token no stdout e nada mais. `--ttl` máximo 60 s. Sem `--issabel`, assina com o segredo do daemon e um `--sub` que comece com `issabel:` (sem diferenciar maiúsculas) é erro de uso (código 1) com a mensagem "use --issabel para sub issabel:". Com `--issabel`, assina com a chave do Issabel (lida com a regra de permissão da seção 3.3; falha de leitura sai com 2) e o `--sub` precisa seguir a gramática da seção 3.3 (`issabel:admin:<usuario>` ou `issabel:user:<usuario>`; senão código 1). Uso: testes e homologação do fluxo do menu.
 - Depois de `user ...` ou `group ...` com sucesso, a CLI pega o PID com `systemctl show -p MainPID --value painel-ramais` e manda SIGHUP (mesmo usuário, não precisa de root). Daemon parado: avisa e sai 0. Falha no sinal: avisa `rode: systemctl reload painel-ramais` e sai 0 (o banco já foi gravado).
 - Códigos de saída: 0 sucesso; 1 erro de uso ou validação (mensagem cita a linha do CSV); 2 erro de ambiente (banco, arquivo, permissão); 3 `user add` de usuário que já existe (nada alterado). O 3 existe para o `instalar.py` ser idempotente sem ler o banco. Só no `serve`: 4 = Asterisk abaixo da versão mínima (13); a unit deve ter `RestartPreventExitStatus=4` para não reiniciar em laço.
-- `version` imprime uma linha `painel-ramais <versao> schema <user_version que o binário conhece>` (exemplo: `painel-ramais 0.1.1 schema 2`). O `instalar.py` usa o `schema` para decidir o rollback (seção 15.5).
+- `version` imprime uma linha `painel-ramais <versao> schema <user_version que o binário conhece>` (exemplo: `painel-ramais 0.1.1 schema 3`). O `instalar.py` usa o `schema` para decidir o rollback (seção 15.5).
 - Root (o instalador) chama a CLI com `runuser -u painel-ramais -- painel-ramais ...`; pessoa usa `sudo -u painel-ramais painel-ramais ...`.
-- `group list` imprime `grupo<TAB>faixas` (faixas separadas por vírgula), uma linha por grupo, ordenado por nome.
+- `group list` imprime `grupo<TAB>faixas` (faixas separadas por vírgula; vazio se o grupo não tem faixa), uma linha por grupo, ordenado por nome. Quando o grupo tem ramais atribuídos à mão, vem uma **terceira coluna** (`<TAB>2150,2151`, números separados por vírgula, ordenados). Se algum ramal foi fixado em "Sem grupo" à mão, vem no fim uma linha `Sem grupo<TAB><TAB>2160`. Linhas sem terceira coluna têm o formato antigo.
+- `group list` e `group audit` escapam como `\uXXXX` (ou `\UXXXXXXXX`; `\xNN` para byte inválido) os caracteres de controle (Cc, inclui DEL e C1), de formatação (Cf) e separadores de linha/parágrafo (Zl, Zp) de nomes, ramais, `quem` e detalhe, para texto vindo da tela não enganar o terminal.
+- `group audit [--limit N]` imprime as últimas N linhas (padrão 50, de 1 a 1000, mais nova primeiro) de `group_audit`: `data RFC 3339 UTC<TAB>quem<TAB>ação<TAB>detalhe JSON`. Só leitura (não manda SIGHUP). `group import` e `group del` gravam a auditoria com `quem = cli`; `group import` imprime `N linha(s) importada(s)` (faixas e atribuições). `--limit` fora do `audit` é erro de uso (código 1).
 
 ---
 
@@ -746,21 +794,26 @@ Suporte,2000-2099
 Suporte,2150
 Vendas,3000-3999
 Diretoria,4000
+Sem grupo,2160
 ```
 
 O mesmo arquivo com `;` (`Suporte;2000-2099`) também é aceito, desde que o arquivo inteiro use `;`. Este formato também é o do `grupos-exemplo.csv` que vai no bundle.
 
 - UTF-8, BOM aceito. Delimitador `,` ou `;`, detectado na primeira linha de dados e fixo para o arquivo (Excel em português exporta com `;`).
 - Linhas vazias e linhas que começam com `#` são ignoradas. Cabeçalho opcional: só é pulado se a primeira linha de dados for exatamente `grupo<delim>ramal` (sem diferenciar maiúsculas). Qualquer outra linha é dado.
-- `grupo`: 1 a 64 caracteres depois do trim, diferente de `Sem grupo`, sem caractere de controle (Cc, inclui C1), de formatação (Cf: marcas bidirecionais U+202A a U+202E e U+2066 a U+2069, largura zero U+200B/E/F, U+061C, U+FEFF) nem separador de linha ou de parágrafo (Zl, Zp: U+2028/2029); é a mesma regra do `<usuario>` do `sub` (seção 3.3). Grupo que não existe é criado.
-- `ramal_ou_faixa`: só dígitos (`2150`) ou `inicio-fim` com `inicio <= fim`. Comparação numérica. Ramal com zero à esquerda ou nome não numérico nunca cai em faixa e fica em `"Sem grupo"` (suposição registrada na seção 13).
-- Tudo ou nada: qualquer erro ou sobreposição (dentro do arquivo ou com faixas já gravadas) rejeita o arquivo inteiro e lista as linhas em conflito. Com `--replace`, apaga todos os grupos e importa na mesma transação; a sobreposição é checada só dentro do arquivo.
+- `grupo`: 1 a 64 caracteres depois do trim (`store.MaxGroupNameRunes`, a mesma constante que as rotas `create` e `update` validam), diferente de `Sem grupo` (exceto em linha de um ramal, ver abaixo), só com o espaço comum U+0020 (NBSP U+00A0, U+3000 e os outros separadores Zs são recusados; nas pontas o trim os remove), sem caractere de controle (Cc, inclui C1), de formatação (Cf: marcas bidirecionais U+202A a U+202E e U+2066 a U+2069, largura zero U+200B/E/F, U+061C, U+FEFF) nem separador de linha ou de parágrafo (Zl, Zp: U+2028/2029); é a mesma regra do `<usuario>` do `sub` (seção 3.3). Grupo que não existe é criado.
+- `ramal_ou_faixa`: só dígitos (`2150`, **um ramal**) ou `inicio-fim` com `inicio <= fim` (**faixa**). Comparação numérica nas faixas.
+- **Um ramal por linha (`Suporte,2150`) é atribuição manual**: grava o número como texto em `extension_groups` e vence a faixa. Faixa `N-M` continua sendo faixa do grupo (para uma faixa de um número só use `2150-2150`). Como o vínculo é pelo texto digitado, `02150` (zero à esquerda) vira atribuição manual de `02150` e passa a poder ter grupo; ramal com zero à esquerda ou nome não numérico só cai numa faixa se não houver atribuição manual, e então fica em `"Sem grupo"` (seção 13).
+- **`Sem grupo,2150`**: aceito **só em linha de um ramal** (atribuição manual a "Sem grupo", que também vence a faixa). `Sem grupo,2000-2999` é erro: faixa só existe para grupo real. A linha não cria grupo nenhum.
+- **Precedência** (CSV, CLI, API e tela): atribuição manual > faixa > `"Sem grupo"`.
+- O mesmo ramal em duas linhas do arquivo: igual (mesmo grupo) é aceito; em grupos diferentes é erro (`linhas N e M: ramal X em dois grupos`). Atribuição manual não conflita com faixa (a manual vence).
+- Tudo ou nada: qualquer erro ou sobreposição de **faixas** (dentro do arquivo ou com faixas já gravadas) rejeita o arquivo inteiro e lista as linhas em conflito. Com `--replace`, apaga todos os grupos **e todas as atribuições manuais** (inclusive as de "Sem grupo") e importa na mesma transação; a sobreposição é checada só dentro do arquivo. **Sem `--replace`, uma atribuição manual do arquivo sobrescreve a atribuição manual que o ramal já tinha** (não é conflito) e grupo citado que não existe é criado. A importação grava uma linha de auditoria (`import`: linhas, `replace`, quantas faixas e quantas atribuições).
 
 ---
 
 ## 10. SQLite (`<data_dir>/painel.db`)
 
-Driver `modernc.org/sqlite` (nome `sqlite`). Pragmas **no DSN**, para valer em toda conexão do pool (`foreign_keys` é por conexão): `?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)`. Daemon e CLI escrevem no mesmo arquivo; WAL e `busy_timeout` resolvem a concorrência.
+Driver `modernc.org/sqlite` (nome `sqlite`). Pragmas **no DSN**, para valer em toda conexão do pool (`foreign_keys` é por conexão): `?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate`. `_txlock=immediate` faz toda transação de escrita começar com `BEGIN IMMEDIATE` (o conflito com a CLI espera o `busy_timeout` em vez de falhar com `database is locked` no meio da transação); a leitura em transação (`LoadGroupData`) é `ReadOnly` e começa com `BEGIN` simples. `VACUUM INTO` do backup roda fora de transação. Daemon e CLI escrevem no mesmo arquivo; WAL e `busy_timeout` resolvem a concorrência.
 
 Migração: `PRAGMA user_version`. Só para frente. Antes de aplicar migração o daemon faz `VACUUM INTO '<data_dir>/painel.db.bak-v<versão antiga>'` (modo 0600; só quando já havia banco com `user_version` maior que 0). O backup vem antes de qualquer alteração de esquema, e o rollback do instalador (15.7) depende dele. Banco com `user_version` maior que o binário conhece: recusa iniciar (downgrade não suportado). Tempos em unix segundos (`INTEGER`).
 
@@ -847,6 +900,38 @@ CREATE TABLE extension_names (
 ) STRICT, WITHOUT ROWID;
 ```
 
+Versão 3 (grupos editáveis pela tela e atribuição manual de ramal; `PRAGMA user_version = 3`, aplicada por migração sobre a v2, com o backup `painel.db.bak-v2` antes):
+
+```sql
+-- Vínculo MANUAL ramal -> grupo, por número do ramal (texto): sobrevive a ramal apagado e recriado.
+-- group_id NULL = "Sem grupo" manual (também vence a faixa). Apagar o grupo apaga as atribuições dele
+-- (CASCADE): os ramais voltam para a faixa que casar ou para "Sem grupo".
+CREATE TABLE extension_groups (
+  number     TEXT    PRIMARY KEY CHECK (length(number) BETWEEN 1 AND 64),
+  group_id   INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT    NOT NULL CHECK (length(updated_by) BETWEEN 1 AND 128)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX extension_groups_group_id ON extension_groups(group_id);
+
+-- Auditoria de toda alteração de grupo (quem, o quê, quando), gravada na MESMA transação da alteração.
+-- detail é JSON curto; listas de números/faixas são truncadas em 20 itens (o resto vira só a contagem).
+CREATE TABLE group_audit (
+  id      INTEGER PRIMARY KEY,
+  at      INTEGER NOT NULL,
+  subject TEXT    NOT NULL CHECK (length(subject) BETWEEN 1 AND 128),
+  action  TEXT    NOT NULL CHECK (action IN ('create', 'rename', 'ranges', 'delete', 'assign', 'import')),
+  detail  TEXT    NOT NULL CHECK (json_valid(detail))
+) STRICT;
+CREATE INDEX group_audit_at ON group_audit(at);
+
+-- A auditoria só cresce: UPDATE é barrado; DELETE segue permitido (expurgo por retenção).
+CREATE TRIGGER group_audit_immutable BEFORE UPDATE ON group_audit
+BEGIN SELECT RAISE(ABORT, 'auditoria imutavel'); END;
+```
+
+`subject` é o `subject` da sessão (`issabel:admin:<usuario>` na tela) ou `cli`. Mudança só aditiva (expand): nenhuma tabela antiga muda, então o upgrade é seguro e o binário antigo ignoraria as tabelas novas; mas o binário antigo **recusa abrir** banco com `user_version` 3 (downgrade não suportado), então o rollback do instalador (15.7) precisa do backup `painel.db.bak-v2`: voltar da rc.5 para a rc.4 **descarta** as atribuições manuais, a auditoria de grupos e qualquer grupo/faixa/usuário/histórico criado depois do upgrade (ver 15.5 e 15.7).
+
 Todo nome que entra (callerid do Asterisk, display name do telefone, cache antigo, nome do outro lado da chamada) passa por `model.CleanName`: sem caracteres de controle ou de formatação (categorias Unicode `C*`: C0/C1, bidi U+202A..202E e U+2066..2069, largura zero, BOM), espaços colapsados e no máximo 64 caracteres. A tela da fase 2 deve mostrar nomes só como texto (nunca `innerHTML`) e com CSP estrita. Ao fim de cada sincronização completa o daemon expurga do cache os ramais que não existem mais no PBX (lista vazia não expurga).
 
 O daemon grava em lote (a cada 5 s e no desligamento) todo nome aprendido ao vivo (consulta de nome ou `CallerIDName` de quem origina uma chamada) e o lê na subida: o nome aparece já no primeiro snapshot, e o nome real do Asterisk sempre vence o do cache. Preenchimento em segundo plano: depois de cada sincronização, a 20 consultas/s no máximo (`ami.name_fill_per_second`), de novo a cada 6 h e depois de um evento `Reload`; o painel funciona com o nome vazio enquanto isso. Limite: nome apagado no Asterisk (callerid vazio) não limpa o nome já conhecido do ramal.
@@ -855,7 +940,8 @@ Regras de uso:
 - **Amostra de histórico**: na virada de cada minuto, o daemon grava uma linha para o total (`''`) e uma por grupo (inclui `Sem grupo`), com as contagens daquele instante. Se o AMI estava fora em qualquer momento do minuto, grava `gap=1`. Tamanho esperado com 100 grupos: cerca de 4,4 milhões de linhas em 30 dias.
 - **Retenção**: a cada hora, `DELETE FROM history WHERE minute < agora - retention_days`. Usa `history_minute`.
 - **Sessões vencidas**: a cada hora, `DELETE FROM sessions WHERE expires_at <= agora`.
-- **Grupos no daemon**: carregados na subida e a cada SIGHUP, ordenados por `range_start`, busca binária por ramal.
+- **Auditoria de grupos**: a cada hora, `DELETE FROM group_audit WHERE at < agora - retention_days` (a mesma retenção do histórico).
+- **Grupos no daemon**: catálogo (grupos com ou sem faixa) e atribuições manuais lidos juntos, numa transação de leitura, na subida, a cada SIGHUP e depois de cada escrita pela tela (`loadGroups`). Resolução do grupo de um ramal: atribuição manual (`extension_groups`, inclusive "Sem grupo" manual) > faixa (ordenadas por `range_start`, busca binária) > `"Sem grupo"`.
 
 ---
 
@@ -871,10 +957,10 @@ Os adaptadores `sip` e `pjsip` traduzem mensagens AMI nestes tipos. O supervisor
 | `SyncStarted` | `Technology`, `AsteriskVersion`, `Reason` (`connect` ou `overflow`) | começa estado de montagem separado; a visão publicada continua a anterior |
 | `SyncFinished` | (nenhum) | troca a visão pela montada, `ami_connected=true`, epoch novo |
 | `NamesLoaded` | `Names map[string]string` | cache de nomes (número para callerid); só preenche ramal sem nome; sem epoch novo (emitido pelo `cmd` na subida) |
-| `GroupsLoaded` | `Ranges []GroupRange{Start, End, Name}` | reatribui grupos, epoch novo (emitido pelo `cmd` na subida e no SIGHUP) |
+| `GroupsLoaded` | `Groups []Group{Name, Ranges []Range{Start, End}}` (catálogo completo, inclui grupo sem faixa), `Manual map[número]grupo` (`"Sem grupo"` = manual sem grupo; ausente = sem atribuição manual) | recalcula o grupo de cada ramal (manual > faixa > `Sem grupo`), marca como sujos só os que mudaram (`group` ou `group_manual`) e liga a bandeira de catálogo mudado; **sem epoch novo** (emitido pelo `cmd` na subida, no SIGHUP e depois de cada escrita pela tela) |
 | `InventoryListed` | `Reason`, `Names []string` (todos os endpoints/peers do PBX, troncos inclusos) | releitura do inventário (seção 7.4): remove do estado os ramais que não estão na lista (ou os mantém até o fim da chamada), **sem epoch novo**; ignorado durante sincronização ou com o AMI fora. Vem antes dos `EndpointSeen`/`RegistrationChanged` da mesma leitura |
 
-Regra do epoch: mudança em massa (queda do AMI, fim de sincronização, recarga de grupos) gera epoch novo e `reload`; mudança de um ramal, inclusive ramal criado ou apagado no PBX (`InventoryListed`), gera delta.
+Regra do epoch: mudança em massa (queda do AMI, fim de sincronização) gera epoch novo e `reload`; mudança de grupo (catálogo ou atribuição) e inventário vão por delta; mudança de um ramal, inclusive ramal criado ou apagado no PBX (`InventoryListed`), gera delta.
 
 ### 11.2 Registro e dispositivo
 
@@ -911,8 +997,8 @@ Fila entre leitor AMI e estado: canal com capacidade 65536. A goroutine leitora 
 
 | Tipo | Campos | Quando |
 |---|---|---|
-| `Batch` | `Epoch`, `FromVersion`, `ToVersion`, `AMIConnected`, `Extensions []Extension`, `Removed []string` (números que saíram, ordenados, disjuntos de `Extensions`; cada remoção conta uma mudança na versão) | a cada 250 ms com mudança |
-| `Reset` | `Epoch`, `Version`, `AMIConnected`, `Technology`, `Extensions []Extension` (todos), `Groups []GroupRange` (para o hub servir `/api/groups`) | a cada epoch novo |
+| `Batch` | `Epoch`, `FromVersion`, `ToVersion`, `AMIConnected`, `Extensions []Extension`, `Removed []string` (números que saíram, ordenados, disjuntos de `Extensions`; cada remoção conta uma mudança na versão), `Groups []Group` (catálogo completo, só quando mudou; `nil` = não mudou; a versão avança pelo menos 1 mesmo sem ramal afetado) | a cada 250 ms com mudança |
+| `Reset` | `Epoch`, `Version`, `AMIConnected`, `Technology`, `Extensions []Extension` (todos), `Groups []Group` (catálogo, para o hub servir `/api/groups` e o `groups` do snapshot) | a cada epoch novo |
 
 `Extension` e `Call` do `model` têm as tags JSON da seção 2: o formato da seção 2 é o próprio `json.Marshal` desses tipos.
 
@@ -1092,6 +1178,8 @@ Não altera nada no sistema. A única escrita é o relatório em `/var/log/paine
 9. Testa o Apache: `GET https://127.0.0.1/painel-ramais/api/session` precisa responder `401` com o envelope `unauthorized` do daemon; `GET https://127.0.0.1/painel-ramais/api/health` precisa responder 404 do próprio Apache, sem JSON.
 10. Resumo: versão, tecnologia, ramais por estado, quantidade de grupos, URL `https://<endereço do servidor>/painel-ramais/` e caminho do log.
 
+Upgrade que muda o esquema do banco (rc.4 para rc.5: schema 2 para 3, tabelas `extension_groups` e `group_audit`, seção 10): o daemon faz a migração na primeira subida, com o backup `painel.db.bak-v2` antes; `grupos`, usuários, sessões e histórico existentes são preservados e `group import --replace` do instalador continua valendo (a rc.5 também apaga as atribuições manuais no replace, seção 9). O `versao.txt` do RPM instalado registra `schema 3`.
+
 Falha do passo 3 em diante: não desfaz nada, mostra o passo, o erro e o comando para diagnosticar (`journalctl -u painel-ramais -n 50`, `./instalar.py status`, `httpd -t`), sai com 2.
 
 Idempotência:
@@ -1115,7 +1203,7 @@ Lê `GET http://127.0.0.1:<porta>/api/health` (porta do `config.yaml`) e `system
 5. Se precisou: guarda `painel.db` (e `-wal`, `-shm`) como `painel.db.rollback-<data>` e copia o backup para `painel.db`, dono painel-ramais.
 6. `systemctl start painel-ramais`, espera o health como no passo 8 do `instalar`, troca `rpm-instalado/` e `rpm-anterior/`.
 
-Um nível só de rollback.
+Um nível só de rollback. Voltar da rc.5 (schema 3) para a rc.4 (schema 2) restaura `painel.db.bak-v2`: as atribuições manuais de ramal, a auditoria de grupos e todas as alterações de grupo, usuário e histórico feitas depois do upgrade são **perdidas** (o binário da rc.4 recusa abrir banco schema 3). O plano do rollback avisa isso quando detecta schema mais novo.
 
 ### 15.8 `remover`
 

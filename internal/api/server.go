@@ -29,8 +29,12 @@ const (
 	cookieName   = "painel_session"
 	cookiePath   = "/painel-ramais/"
 	maxBodyBytes = 4096
-	// maxGroupsBodyBytes vale so para /api/groups/import e /api/groups/delete (CSV dentro do JSON).
+	// maxGroupsBodyBytes vale para /api/groups/import, create, update e delete (CSV dentro do JSON).
 	maxGroupsBodyBytes = 1 << 20
+	// maxAssignBodyBytes vale so para /api/groups/assign: 20000 ramais de ate 64 caracteres ASCII
+	// custam 20000 x (64 + 2 aspas + 1 virgula) = ~1,34 MB, acima de 1 MiB; 2 MiB cobre esse pior
+	// caso com folga (10.000 ramais de 4 a 6 digitos ocupam ~90 KB).
+	maxAssignBodyBytes = 2 << 20
 	// cookieMaxAge so precisa sobreviver a sessao: quem manda e o banco (inatividade). Com a
 	// tela aberta so por WebSocket nenhuma resposta REST renova o cookie.
 	cookieMaxAge = 7 * 24 * time.Hour
@@ -66,6 +70,9 @@ type Options struct {
 	// ReloadGroups relê os grupos do banco e os entrega ao estado (o caminho do SIGHUP);
 	// nil nos testes que nao precisam dele.
 	ReloadGroups func(context.Context) error
+	// StillAdmin confere no acl.db do Issabel, a cada escrita de grupo, se o usuario continua
+	// no grupo administrator (IssabelACL). nil so nos testes; o serve.go sempre liga.
+	StillAdmin func(ctx context.Context, user string) (bool, error)
 }
 
 // Server e o handler HTTP do daemon.
@@ -100,6 +107,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/session", s.api(http.MethodGet, s.session(s.sessionInfo)))
 	mux.HandleFunc("/api/snapshot", s.api(http.MethodGet, s.session(s.snapshot)))
 	mux.HandleFunc("/api/groups", s.api(http.MethodGet, s.session(s.groups)))
+	mux.HandleFunc("/api/groups/create", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsCreate))))
+	mux.HandleFunc("/api/groups/update", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsUpdate))))
+	mux.HandleFunc("/api/groups/assign", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsAssign))))
 	mux.HandleFunc("/api/groups/import", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsImport))))
 	mux.HandleFunc("/api/groups/delete", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsDelete))))
 	mux.HandleFunc("/api/history", s.api(http.MethodGet, s.session(s.history)))
@@ -320,8 +330,11 @@ func sizeText(n int64) string {
 
 // decodeBodyMax e o decodeBody com teto de corpo proprio.
 func decodeBodyMax(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
-	// Mutacao disparada por outro site (navegador declara Sec-Fetch-Site: cross-site): recusa.
-	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+	// Mutacao so da propria origem: Sec-Fetch-Site ausente (cliente sem o cabecalho, curl), same-origin
+	// ou none (acao direta do usuario). same-site (subdominio) e cross-site: recusa.
+	switch r.Header.Get("Sec-Fetch-Site") {
+	case "", "same-origin", "none":
+	default:
 		writeError(w, http.StatusForbidden, "forbidden", "Requisicao de outro site nao permitida")
 		return false
 	}

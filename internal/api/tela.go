@@ -31,6 +31,18 @@ var assetTypes = map[string]string{
 	".svg": "image/svg+xml",
 }
 
+// fontTypes vale so dentro de assets/fonts/: as fontes (woff2) e os textos de licenca (OFL) que vao com elas.
+var fontTypes = map[string]string{
+	".woff2": "font/woff2",
+	".txt":   "text/plain; charset=utf-8",
+}
+
+// fontTexts: os unicos .txt servidos em assets/fonts/, por nome exato (licencas OFL e origem das fontes).
+var fontTexts = map[string]bool{"OFL-IBMPlex.txt": true, "OFL-BarlowSemiCondensed.txt": true, "ORIGEM.txt": true}
+
+// fontCacheControl: a fonte so muda com versao nova do binario; uma semana de cache e a revalidacao por ETag cobrem a troca.
+const fontCacheControl = "public, max-age=604800"
+
 // page entrega GET e HEAD de uma rota da tela. exact != "" exige o caminho inteiro
 // (o ServeMux casa "/" e "/emergencia/" como prefixo); fora disso, 404 no envelope.
 func (s *Server) page(exact string, h http.HandlerFunc) http.HandlerFunc {
@@ -92,12 +104,20 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request, file, csp, fr
 	w.Write(body)
 }
 
-// asset serve assets/<arquivo>: um nivel so, so .js, .css e .svg. Revalida por ETag.
+// asset serve assets/<arquivo> (so .js, .css e .svg) e assets/fonts/<arquivo> (so .woff2 e .txt),
+// um nivel por pasta. Revalida por ETag.
 // ponytail: le e calcula o hash a cada pedido (centenas de KiB, poucos clientes); cache em memoria se pesar.
 func (s *Server) asset(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/assets/")
-	ctype, ok := assetTypes[path.Ext(name)]
-	if name == "" || name[0] == '.' || strings.ContainsAny(name, "/\\") || !ok || !fs.ValidPath("assets/"+name) {
+	base, types := name, assetTypes
+	if rest, isFont := strings.CutPrefix(name, "fonts/"); isFont {
+		base, types = rest, fontTypes
+	}
+	ctype, ok := types[path.Ext(base)]
+	if ok && base != name && path.Ext(base) == ".txt" && !fontTexts[base] {
+		ok = false
+	}
+	if base == "" || base[0] == '.' || strings.ContainsAny(base, "/\\") || !ok || !fs.ValidPath("assets/"+name) {
 		writeError(w, http.StatusNotFound, "not_found", "Rota inexistente")
 		return
 	}
@@ -111,6 +131,9 @@ func (s *Server) asset(w http.ResponseWriter, r *http.Request) {
 	h := w.Header()
 	h.Set("Content-Type", ctype)
 	h.Set("Cache-Control", "no-cache")
+	if base != name {
+		h.Set("Cache-Control", fontCacheControl)
+	}
 	h.Set("ETag", etag)
 	if path.Ext(name) == ".svg" { // um .svg aberto como documento nao executa nem carrega nada
 		h.Set("Content-Security-Policy", "default-src 'none'")

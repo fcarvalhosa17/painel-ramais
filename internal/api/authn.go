@@ -68,6 +68,16 @@ func (s *Server) adminOnly(h sessionHandler) sessionHandler {
 			writeError(w, http.StatusForbidden, "forbidden", "Apenas administradores do Issabel podem alterar grupos")
 			return
 		}
+		if s.StillAdmin != nil {
+			user := strings.TrimPrefix(sess.Subject, auth.AdminPrefix)
+			ok, err := s.StillAdmin(r.Context(), user)
+			if err != nil || !ok { // falha fechado: sem leitura do acl.db, nenhuma escrita
+				s.log.Warn("escrita de grupo recusada: usuario fora do grupo administrator do Issabel ou acl.db ilegivel",
+					requestIDKey, requestID(r), "path", r.URL.Path, "sub", sess.Subject, "err", err)
+				writeError(w, http.StatusForbidden, "forbidden", "Seu usuario nao esta mais no grupo administrator do Issabel (ou o Issabel nao pode ser consultado); a visualizacao continua")
+				return
+			}
+		}
 		h(w, r, sess)
 	}
 }

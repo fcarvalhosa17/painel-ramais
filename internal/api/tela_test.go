@@ -356,7 +356,7 @@ func TestGroupsImportInvalid(t *testing.T) {
 		t.Errorf("mensagem deve trazer as linhas: %q", b.Error.Message)
 	}
 	// Sobreposicao com o que ja existe (sem replace).
-	e.expect(e.do("POST", "/api/groups/import", groupsBody("Conflito,2050\n", false), h), 400, "invalid_csv")
+	e.expect(e.do("POST", "/api/groups/import", groupsBody("Conflito,2050-2060\n", false), h), 400, "invalid_csv")
 	e.expect(e.do("POST", "/api/groups/import", groupsBody("", true), h), 400, "invalid_csv")
 	e.expect(e.do("POST", "/api/groups/import", groupsBody("sem-virgula\n", true), h), 400, "invalid_csv")
 
@@ -513,14 +513,14 @@ func TestCrossSitePostRefused(t *testing.T) {
 	if len(e.groupNames()) != 0 {
 		t.Error("nada pode ser gravado")
 	}
-	for _, site := range []string{"same-origin", "same-site", "none", ""} {
+	for site, want := range map[string]int{"same-origin": 401, "none": 401, "": 401, "same-site": 403, "cross-site": 403, "qualquer": 403} {
 		h := map[string]string{"Content-Type": "application/json"}
 		if site != "" {
 			h["Sec-Fetch-Site"] = site
 		}
 		res := e.do("POST", "/api/login", `{"username":"emergencia","password":"errada-errada"}`, h)
-		if res.StatusCode != 401 {
-			t.Errorf("Sec-Fetch-Site %q: %d", site, res.StatusCode)
+		if res.StatusCode != want {
+			t.Errorf("Sec-Fetch-Site %q: %d, queria %d", site, res.StatusCode, want)
 		}
 		res.Body.Close()
 	}

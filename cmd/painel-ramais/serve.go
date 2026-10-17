@@ -130,6 +130,7 @@ func newDaemon(cfg *config.Config, hup <-chan os.Signal) (*daemon, error) {
 		SessionTTL: cfg.Auth.SessionTTL, RetentionDays: cfg.History.RetentionDays, Version: version, Log: log,
 		Static:       web.Static(),
 		ReloadGroups: func(ctx context.Context) error { return reloadAfterRequest(ctx, st, d.events) },
+		StillAdmin:   api.IssabelACL(api.DefaultIssabelACLDB),
 	})
 	d.http = &http.Server{
 		Addr: cfg.Listen, Handler: d.srv.Handler(), ReadHeaderTimeout: 10 * time.Second,
@@ -191,7 +192,7 @@ func (d *daemon) start() {
 	d.run("depcheck", func() error { d.deps.Run(ctx, depCheckEvery); return nil })
 	d.run("historico", func() error { runHistory(ctx, d.st, d.state, d.cfg, d.log); return nil })
 	d.run("nomes", func() error { runNameCache(ctx, d.st, d.names, d.prune, d.log); return nil })
-	d.run("manutencao", func() error { housekeep(ctx, d.st, d.log); return nil })
+	d.run("manutencao", func() error { housekeep(ctx, d.st, d.log, d.cfg.History.RetentionDays); return nil })
 	go onSIGHUP(ctx, d.hupChan, d.st, d.events, d.srv, d.log)
 	startDebug(ctx, d.log)
 	startMetrics(ctx, d.log)
@@ -261,24 +262,29 @@ var loadGroupsMu sync.Mutex
 // groupsReadHook roda entre a leitura e o envio (so os testes o definem, para abrir a janela da corrida).
 var groupsReadHook func()
 
-// loadGroups le as faixas do banco e entrega ao estado (epoch novo). Devolve ctx.Err()
-// se o contexto acabar antes da entrega: quem chama nao pode achar que o estado recebeu.
+// loadGroups le o catalogo de grupos e os vinculos manuais do banco e entrega ao estado, que
+// publica o que mudou por delta (o epoch nao muda). Devolve ctx.Err() se o contexto acabar antes
+// da entrega: quem chama nao pode achar que o estado recebeu.
 func loadGroups(ctx context.Context, st *store.Store, events chan<- model.Event) error {
 	loadGroupsMu.Lock()
 	defer loadGroupsMu.Unlock()
-	rows, err := st.GroupRanges(ctx)
+	data, err := st.LoadGroupData(ctx)
 	if err != nil {
 		return err
 	}
-	ranges := make([]model.GroupRange, len(rows))
-	for i, r := range rows {
-		ranges[i] = model.GroupRange{Start: r.Start, End: r.End, Name: r.Name}
+	groups := make([]model.Group, len(data.Groups))
+	for i, g := range data.Groups {
+		ranges := make([]model.Range, len(g.Ranges))
+		for j, r := range g.Ranges {
+			ranges[j] = model.Range{Start: r.Start, End: r.End}
+		}
+		groups[i] = model.Group{Name: g.Name, Ranges: ranges}
 	}
 	if groupsReadHook != nil {
 		groupsReadHook()
 	}
 	select {
-	case events <- model.GroupsLoaded{At: time.Now(), Ranges: ranges}:
+	case events <- model.GroupsLoaded{At: time.Now(), Groups: groups, Manual: data.Manual}:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -294,7 +300,7 @@ func reloadAfterRequest(ctx context.Context, st *store.Store, events chan<- mode
 	return loadGroups(ctx, st, events)
 }
 
-// onSIGHUP: a CLI mudou grupos ou usuarios. Relê os grupos (epoch novo) e fecha
+// onSIGHUP: a CLI mudou grupos ou usuarios. Relê os grupos (delta, sem epoch novo) e fecha
 // os WebSockets cuja sessao sumiu. O canal ja existia desde o inicio do processo.
 func onSIGHUP(ctx context.Context, hup <-chan os.Signal, st *store.Store, events chan<- model.Event, srv *api.Server, log *slog.Logger) {
 	for {
@@ -325,8 +331,8 @@ func runHistory(ctx context.Context, st *store.Store, s *state.State, cfg *confi
 	sm.Run(ctx)
 }
 
-// housekeep expurga as sessoes vencidas a cada hora.
-func housekeep(ctx context.Context, st *store.Store, log *slog.Logger) {
+// housekeep expurga as sessoes vencidas e a auditoria de grupos fora da retencao do historico, a cada hora.
+func housekeep(ctx context.Context, st *store.Store, log *slog.Logger, retentionDays int) {
 	t := time.NewTicker(housekeepEvery)
 	defer t.Stop()
 	for {
@@ -334,6 +340,12 @@ func housekeep(ctx context.Context, st *store.Store, log *slog.Logger) {
 			log.Warn("expurgo de sessoes", "erro", err.Error())
 		} else if n > 0 {
 			log.Info("sessoes vencidas removidas", "n", n)
+		}
+		cutoff := time.Now().Add(-time.Duration(retentionDays) * 24 * time.Hour)
+		if n, err := st.PurgeGroupAudit(ctx, cutoff); err != nil && ctx.Err() == nil {
+			log.Warn("expurgo da auditoria de grupos", "erro", err.Error())
+		} else if n > 0 {
+			log.Info("auditoria de grupos antiga removida", "n", n)
 		}
 		select {
 		case <-ctx.Done():
