@@ -6,7 +6,7 @@ A rc.2 e a versao em homologacao: nada aqui altera codigo nem gera rc nova agora
 Atualizacao 2026-10-16: o endpoint de debug do heap e as pendencias 3 a 6 abaixo (permissao do
 manager_custom.conf, bit de execucao, clone confundido com o pacote, aviso de chan_sip e chan_pjsip)
 passaram para a fase 2 (`docs/plans/2026-10-16-fase2-menu-issabel.md`, ADR-004). Continuam esperando
-o pacote: outro lado sem ramal, privilegios AMI ilegiveis (Asterisk 18) e ContactStatus sem UserAgent.
+o pacote: outro lado sem ramal e privilegios AMI ilegiveis (Asterisk 18). ContactStatus sem UserAgent foi implementado na rc.5 (ver a secao).
 
 ## Pendencia: outro lado sem ramal em conversa (lote pos-analise do pacote homologacao-*.tar.gz)
 
@@ -142,7 +142,14 @@ Linhas em 0188465:
 
 ## Pendencia: ContactStatus sem UserAgent no Asterisk 18 (lote pos-analise do pacote homologacao-*.tar.gz)
 
-**Status:** decidido, NAO implementar agora. Entra no lote de correcoes que vier depois da
+**Status:** IMPLEMENTADA na rc.5 (2026-10-16), sem verificacao na VM. `internal/ami/pjsip/pjsip.go`: o
+adaptador guarda o ultimo user agent conhecido por endpoint e IP (`lastUA`, preenchido pelo snapshot
+`PJSIPShowContacts`/`ContactList` e por qualquer evento que traga o campo, e reiniciado a cada
+releitura); `ContactStatus` sem `UserAgent` reaproveita esse valor em vez de apagar. Continua
+pendente a linha do `instalar.py` (`c_eventos`) que ainda espera `UserAgent` em `ContactStatus`.
+Texto original abaixo, para historico.
+
+**Status original:** decidido, NAO implementar agora. Entra no lote de correcoes que vier depois da
 analise do pacote `homologacao-*.tar.gz`, sem rc nova agora; a rc.2 e a versao em homologacao.
 
 **Origem:** primeiro `instalar.py verificar` em Issabel 5 real (Asterisk 18.19.0): o evento
@@ -243,7 +250,11 @@ nao executa (sem bit de execucao).
 
 ## Pendencia: clone do repositorio confundido com o pacote (lote pos-analise do pacote homologacao-*.tar.gz)
 
-**Status:** em execucao na fase 2 (plano `docs/plans/2026-10-16-fase2-menu-issabel.md`, tarefa D3).
+**Status:** SUBSTITUIDA pelo inicializador do `instalar.py`: fora de um pacote (sem o RPM ao lado,
+mesma deteccao), `instalar` nao falha mais com o aviso de "codigo-fonte"; baixa a Release do GitHub,
+confere o SHA256, extrai em `/root/painel-ramais-<versao>/` e executa o instalar.py de la
+(`--pre`, `--versao`). Roteiro: `docs/homologacao/ROTEIRO-MANUAL.md`, etapas 18 a 20. O texto abaixo
+fica como historico; o aviso so continua no codigo como rede de seguranca.
 
 **Origem:** primeiro uso em Issabel 5 real: `instalar.py instalar` rodado na pasta do clone, sem o
 RPM ao lado.

@@ -80,7 +80,7 @@ curl -fLO "$BASE/SHA256SUMS"
 
   O bundle (`painel-ramais-0.1.2-rc.4.tar.gz`) ja traz o RPM dentro e o `instalar.py` o usa; o RPM avulso (`painel-ramais-${VERSAO_RPM}.x86_64.rpm`) so e preciso para conferir o pacote sozinho (`rpm -qp`) ou instalar sem o instalador. Nesse caso baixe tambem: `gh release download "$TAG" -R fcarvalhosa17/painel-ramais -p 'painel-ramais-*.rpm'` ou `curl -fLO "$BASE/painel-ramais-${VERSAO_RPM}.x86_64.rpm"`.
 - **Resultado esperado:** na pasta atual ficam o tar.gz do bundle (e o RPM, se pedido) e o `SHA256SUMS`, sem erro de rede.
-- **Se for diferente:** `404` = a TAG nao existe ou o arquivo ainda nao foi publicado; confirme `echo $TAG` e a lista de arquivos da release. Sem internet na VM: baixe no seu computador e copie com `scp` (veja o LEIAME-INSTALACAO, passo 1b).
+- **Se for diferente:** `404` = a TAG nao existe ou o arquivo ainda nao foi publicado; confirme `echo $TAG` e a lista de arquivos da release. Sem internet na VM: baixe no seu computador e copie com `scp` (veja o LEIAME-INSTALACAO, passo 1c).
 
 ### Etapa 3. Conferir o SHA256
 
@@ -353,7 +353,7 @@ Itens marcados "quando o modulo estiver instalado" dependem do modulo PHP e do m
 - **Tela cheia:** o botao de tela cheia entra e sai (dentro do menu depende do modulo; quando o modulo estiver instalado, confira tambem pelo iframe).
 - **Administrador x operador:** quando o modulo estiver instalado, a area "Grupos" (importar CSV e remover) aparece so para `administrator`.
 - **Encerrar sessao:** `sudo -u painel-ramais painel-ramais session purge --issabel <usuario>`; a tela aberta desse usuario mostra "Sessao encerrada" em ate alguns segundos.
-- **Indicadores com AMI desconectado:** com o Asterisk fora, registrados, nao registrados, inalcancaveis e em chamada mostram "–" (nunca 0), com o texto "sem leitura com o Asterisk fora".
+- **Indicadores com AMI desconectado:** com o Asterisk fora, registrados, nao registrados, inalcancaveis e em chamada mostram "—" (nunca 0), com o texto "sem leitura com o Asterisk fora".
 - **Ranking "Mais nao registrados":** todos os itens, inclusive o ultimo, aparecem com barra e numero.
 - **Card do ramal:** o outro lado da chamada aparece uma vez so ("11468 · Ramal 11468"; chamada externa: "externo" e o numero).
 - **Layout dentro do Issabel:** na area de conteudo (cerca de 1250 x 700 px, menu lateral visivel) nao ha rolagem horizontal, o historico fica visivel ou com indicacao de que existe, e a tela cheia usa a tela inteira.
@@ -384,6 +384,64 @@ Itens marcados "quando o modulo estiver instalado" dependem do modulo PHP e do m
   confira depois do upgrade que as duas linhas novas estao no bloco e que o resto do arquivo nao mudou.
 - **Se for diferente:** anote o tempo medido, a saida de `asterisk -rx 'pjsip show endpoints'` e de `./instalar.py verificar`.
 
+### Etapa 16d. Grupos pela tela (v0.1.2-rc.5) — NAO HOMOLOGADA (so laboratorio)
+
+Esta etapa ainda nao foi homologada: so vale na VM de laboratorio, com checkpoint, e nada aqui foi confirmado em Issabel real. Entre como `administrator`, salvo onde o item diz Operator. Para os itens com duas abas, abra o painel pelo menu em duas abas (ou dois navegadores) com o mesmo usuario. Anote o que a tela mostra em cada item, mesmo quando bate com o esperado.
+
+1. **Criar grupo por faixa:** em Grupos clique em "Novo grupo", nome `Teste A` e faixas `2000-2099, 3001`. Antes de salvar, a previa mostra quantos ramais existentes entram (confira contra `./instalar.py status` ou contando no Issabel). Salve. Tente de novo com o mesmo nome (`Teste A`, e tambem `teste a`) e com faixa invalida (`2099-2000`, `abc`, `2000-`).
+   - **Esperado:** o grupo aparece na lista de grupos com o numero de ramais igual ao da previa; nome duplicado e faixa invalida sao recusados com mensagem na tela e nada e criado nem alterado.
+2. **Mover um ramal pelo clique no card:** clique num ramal, no painel de detalhes escolha outro grupo no seletor "Grupo". Antes, na aba B rode no console do navegador `window.__painel` e anote o `epoch`; depois da troca rode de novo.
+   - **Esperado:** o ramal muda de grupo na aba A e, na hora, na aba B, sem recarregar nenhuma das duas; o `epoch` de `window.__painel` e o mesmo de antes (a mudanca de grupo nao reinicia o estado do painel).
+3. **Mover varios pela selecao:** marque 3 ramais pelo checkbox do card; depois clique num e use Shift+clique em outro para marcar o intervalo. Escolha o grupo de destino.
+   - **Esperado:** uma confirmacao de resumo ("mover N ramais para <grupo>", com a origem) aparece antes de aplicar; cancelar nao muda nada; confirmar move todos os selecionados e so eles.
+4. **Busca, "Selecionar todos os resultados" e grupo novo:** busque por parte de um nome que de mais ramais do que cabem na tela. Clique em "Selecionar todos os resultados (N)". Role a lista e refine a busca (acrescente uma letra). No seletor de destino escolha "+ Novo grupo", de um nome e confirme.
+   - **Esperado:** a selecao continua marcada ao rolar e ao refinar a busca; uma barra fixa mostra "N ramais selecionados" o tempo todo; apos confirmar, o grupo novo e criado e **todos** os N mudam, inclusive os que estavam fora da tela (rolagem virtual): confira a contagem do grupo novo na lista de grupos e abra o grupo rolando ate o fim.
+5. **Faixa x movimento manual:** (a) no Issabel crie um ramal cujo numero cai numa faixa de grupo (ex. `2050`) e de Apply Config: ele entra no grupo da faixa em ate 10 s. (b) Mova pela tela outro ramal da faixa para um grupo diferente e depois crie/edite faixas: o movido continua onde o movimento manual o pos. (c) Mova um ramal para "Sem grupo" manualmente: ele fica em "Sem grupo" mesmo estando dentro de uma faixa. (d) Apague um ramal que foi movido manualmente (Apply Config) e recrie com o mesmo numero.
+   - **Esperado:** (a) entra no grupo da faixa; (b) a faixa nao mexe em ramal movido manualmente; (c) "Sem grupo" manual vence a faixa; (d) o ramal recriado volta ao mesmo grupo de antes.
+6. **Renomear, editar faixas e excluir:** renomeie `Teste A` para `Teste B`; edite as faixas (tire `3001`, acrescente `4000-4010`); exclua o grupo.
+   - **Esperado:** o nome novo aparece em todas as abas sem recarregar; a mudanca de faixa move so os ramais que dependem da faixa (os movidos manualmente ficam); ao excluir, pede confirmacao dizendo quantos ramais serao afetados, e depois os ramais manuais vao para "Sem grupo" e os de faixa passam para o grupo da faixa que os cobrir, se houver (senao "Sem grupo").
+7. **Operator (nao administrador):** entre pelo menu como usuario do grupo `Operator`.
+   - **Esperado na tela:** nao ha botao "Novo grupo", nem seletor "Grupo" no detalhe do ramal, nem checkbox/selecao.
+   - **Esperado na API:** chamada direta devolve 403. Na VM (contrato: `numbers` e a lista de ramais; `group` com o nome do grupo, `"Sem grupo"` = manual sem grupo, `null` = volta para a faixa):
+
+```
+tok=$(runuser -u painel-ramais -- /usr/bin/painel-ramais token --issabel --sub issabel:user:roteiro-operator --ttl 60s)
+OPCK=$(curl -si -H 'Content-Type: application/json' -d "{\"token\":\"$tok\"}" http://127.0.0.1:8790/api/token \
+  | tr -d '\r' | sed -n 's/^[Ss]et-[Cc]ookie: \(painel_session=[^;]*\).*/\1/p')
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Cookie: $OPCK" -H 'Content-Type: application/json' \
+  -d '{"numbers":["2001"],"group":"Teste B"}' http://127.0.0.1:8790/api/groups/assign
+# esperado: 403. Repita com o cookie de painel_login (administrator): esperado 200.
+```
+
+   - Confira depois que o ramal `2001` nao mudou de grupo.
+8. **Auditoria, CSV/CLI e upgrade:**
+   - `sudo -u painel-ramais painel-ramais group audit`: lista quem, o que e quando de cada alteracao feita acima (criar, mover um, mover varios, renomear, editar faixas, excluir), com o usuario (`administrator`) e sem registro das tentativas do Operator que deram 403 como alteracao feita.
+   - Importe um CSV com `sudo -u painel-ramais painel-ramais group import <arquivo.csv>` incluindo um ramal movido manualmente e um em "Sem grupo" manual, e mova um ramal pela CLI: a mesma precedencia da tela vale (manual vence a faixa; "Sem grupo" manual vence a faixa) e cada operacao aparece no `group audit`.
+   - **Limite de importacao:** importe um CSV com 5.001 linhas de dados e outro com 1.001 faixas no mesmo grupo. Esperado: os dois sao recusados inteiros, com a mensagem do limite (5.000 linhas por importacao; 1.000 faixas por grupo), e `group list` e `group audit` nao mudam.
+   - **Administrador rebaixado:** com a tela aberta como `administrator`, tire esse usuario do grupo administrator no Issabel (Sistema > Usuarios) e tente mover um ramal. Esperado: 403 com "Seu usuario nao esta mais no grupo administrator do Issabel", linha `escrita de grupo recusada` no `journalctl -u painel-ramais`, e a tela continua atualizando (a visualizacao nao cai). Devolva o usuario ao grupo: a escrita volta a funcionar sem novo login.
+   - **Atencao no upgrade com `--grupos --replace`:** `./instalar.py instalar --grupos arquivo.csv` com substituicao apaga tambem os grupos, as faixas e as atribuicoes manuais criados pela tela. Num servidor que ja usa a tela de grupos, nao passe `--grupos` no upgrade; para importar, use a tela ou `painel-ramais group import` sem `--replace`.
+   - **Upgrade rc.4 -> rc.5** (checkpoint "instalado" com a rc.4 e grupos criados antes): depois do upgrade o schema do `painel.db` esta na versao 3, os grupos e as faixas de antes continuam iguais (compare `painel-ramais group list` antes e depois) e existe o backup `painel.db.bak-v2` ao lado do `painel.db` (`ls -l` na pasta de dados do painel). **Rollback** para a rc.4: restaure o `painel.db.bak-v2` como `painel.db` com o servico parado (`systemctl stop painel-ramais`, copiar, instalar a rc.4, `systemctl start painel-ramais`) e confira que o painel sobe e os grupos de antes da rc.5 estao la.
+- **Se for diferente:** anote o item, o texto exato da tela ou da mensagem, o codigo HTTP, `journalctl -u painel-ramais -n 50 --no-pager` e, para os itens de auditoria e upgrade, a saida de `painel-ramais group audit` e `painel-ramais group list`.
+
+### Etapa 16e. Novo visual da tela (v0.1.2-rc.5) — NAO HOMOLOGADA (so laboratorio)
+
+Esta etapa ainda nao foi homologada: so vale na VM de laboratorio. Abra o painel pelo menu do Issabel (menu lateral aberto) e anote o que a tela mostra em cada item.
+
+- **Tres colunas e empilhamento:** na area de conteudo do Issabel com o menu lateral aberto a tela mostra tres colunas; estreite a janela (ou use a tela cheia e depois uma janela menor) ate as colunas empilharem. Esperado: tres colunas na largura normal, empilhadas na largura menor, sem rolagem horizontal em nenhum dos dois casos.
+- **Grupo inicial:** abra a tela. Esperado: nao ha linha "Todos os grupos" na lista; a tela abre no primeiro grupo da ordenacao ativa (Nome ou Mais problemas), como no design. Exclua o grupo aberto: a tela passa para o primeiro grupo da ordenacao.
+- **Dado ausente:** IP, aparelho e latencia de ramal nao registrado mostram "—", como no design.
+- **Compacto/Cartoes:** use a alternancia Compacto/Cartoes. Esperado: a lista de ramais troca de formato nos dois sentidos, sem perder a busca, o grupo aberto nem a selecao.
+- **Detalhe do ramal:** clique num ramal. Esperado: abre o detalhe com grupo, chamada (quando houver), IP, aparelho (user agent) e latencia.
+- **Chamadas ativas do grupo:** com varias chamadas em ramais do mesmo grupo (inclua uma com mais de 20 minutos), abra o grupo. Esperado: a lista fica ordenada da chamada mais longa para a mais curta; o tempo acima de 20 min aparece em laranja e os abaixo disso nao.
+- **Indicadores, barras e grafico:** Esperado: indicadores no topo e barras por grupo coerentes com a contagem real (compare com `./instalar.py status`); o grafico de 24 h aparece com dados.
+- **Busca e chips de estado:** busque por numero e por nome. Esperado: a busca olha todos os grupos, nao so o aberto; os chips de estado filtram a lista e a contagem de cada chip confere com a lista filtrada.
+- **Fontes sem internet:** desligue a saida para a internet da VM/navegador. Abra o DevTools na aba Rede, recarregue a pagina inteira (F5) e filtre por "Fonte"/"Font". Esperado: nenhuma fonte vem de fora, as `.woff2` vem do proprio painel (`/painel-ramais/assets/fonts/...`, status 200) e o Console nao mostra erro de CSP.
+- **AMI desconectado:** `systemctl stop asterisk` por alguns segundos. Esperado: indicadores com "—" (nunca 0), faixa de alerta de conexao perdida e ramais em "desconhecido"; ao subir o Asterisk de novo, tudo volta. Suba o Asterisk de novo.
+- **Sem o visual antigo:** Esperado: nao ha a barra "PBX / Painel de Ramais" nem o mapa em canvas.
+- **10.000 ramais:** num ambiente com 10.000 ramais (ou massa de teste), role a lista inteira. Esperado: a rolagem acompanha o dedo/mouse sem travar; anote qualquer engasgo e o navegador.
+- **Conferencia visual lado a lado:** abra `docs/design/painel-ramais-design.dc.html` no Claude Design e o painel na VM, um ao lado do outro, e compare secao por secao: cabecalho, indicadores, grupos, historico, central (Compacto e Cartoes), detalhe do ramal e chamadas ativas. Use `docs/design/desvios.md` como a lista das diferencas conhecidas. Esperado: so aparecem diferencas que estao nessa lista; qualquer diferenca fora dela e defeito (anote a secao, a diferenca e uma captura de cada lado).
+- **Se for diferente:** anote o item, o navegador, a largura da janela, uma captura de tela e o Console/Rede do DevTools.
+
 ## Parte 6: a prova final do LEIAME
 
 ### Etapa 17. Restaurar o checkpoint "limpo" e instalar so pelo LEIAME
@@ -395,6 +453,36 @@ Itens marcados "quando o modulo estiver instalado" dependem do modulo PHP e do m
 | Passo do LEIAME | O que faltou ou confundiu | O que voce fez | O que o documento deveria dizer |
 |---|---|---|---|
 | | | | |
+
+## Parte 7: instalar e atualizar pelo clone (inicializador do instalar.py)
+
+Valida o caminho `git clone` + `./instalar.py instalar`: fora de um pacote (sem o RPM ao lado) o `instalar.py` escolhe a versao, baixa a Release do GitHub, confere o SHA256, extrai em `/root/painel-ramais-<versao>/` e roda o `instalar.py` de la. Dentro do pacote (tar.gz) nada muda. Requer a VM com internet, como root, e pelo menos uma pre-release publicada. Use `$TAG` para a tag da pre-release que esta testando (por exemplo `v0.1.2-rc.5`) e `${TAG#v}` para a versao sem o `v`.
+
+### Etapa 18. Instalar pelo clone, com --pre
+
+- **Comando:** restaure o checkpoint `limpo`. Na VM, como root: `command -v git >/dev/null || dnf install -y git`, depois `git clone https://github.com/fcarvalhosa17/painel-ramais.git && cd painel-ramais`, `ls -l instalar.py` e `./instalar.py instalar --pre; echo "rc=$?"`.
+- **Resultado esperado:** `instalar.py` com bit de execucao (`-rwxr-xr-x`). A saida mostra, nesta ordem: `Esta pasta nao e um pacote (sem painel-ramais-*.rpm ao lado)`, `Versao escolhida: v... (ultima pre-release)`, `Baixando painel-ramais-....tar.gz`, `SHA256 conferido: <64 hex>`, `Pacote extraido em /root/painel-ramais-<versao>` e `Executando o instalar.py do pacote: ... instalar.py instalar` (sem `--pre` nessa linha), seguida da instalacao normal ate o resumo com a URL. `rc=0`. Depois: `ls -a /root` mostra `painel-ramais-<versao>/` e nenhum `.painel-ramais-*` sobrando; `cat /root/painel-ramais-<versao>/.sha256-targz` e igual a linha do tar.gz no `SHA256SUMS` da Release (`curl -fsSL https://github.com/fcarvalhosa17/painel-ramais/releases/download/$TAG/SHA256SUMS`); `./instalar.py status` com AMI conectado.
+- **Se for diferente:** anote a saida inteira e `/var/log/painel-ramais/instalacao.log`. `Ainda nao ha Release estavel` com `--pre` nao deveria acontecer. `Endereco recusado` indica redirect para host fora da lista (anote o host: pode ser um CDN novo do GitHub que precisa entrar na lista).
+
+### Etapa 19. Reexecutar, atualizar e avisar versao diferente
+
+- **Reaproveitar:** `./instalar.py instalar --versao $TAG --sim; echo "rc=$?"` (mesma tag da etapa 18). Esperado: aparece `Reaproveitando /root/painel-ramais-${TAG#v}: o tar.gz tem o mesmo SHA256 da extracao anterior, mas o conteudo da pasta NAO foi reverificado`, NAO aparece `Baixando ...tar.gz`, o pacote reinstala a mesma versao (`rpm -U --replacepkgs`) e `rc=0`. `--sim` chegou ao pacote (se o pacote reclamasse de argumento desconhecido, o repasse estaria errado).
+- **Upgrade pelo clone:** com uma rc anterior instalada (restaure o checkpoint `instalado` da etapa 7 com a versao antiga, ou instale-a com `--versao`), rode `cd ~/painel-ramais && git pull && ./instalar.py instalar --versao $TAG --sim` (ou `--pre` se `$TAG` e a ultima). Esperado: baixa a versao nova, faz o upgrade guardando o RPM anterior, `rpm -q painel-ramais` mostra a versao nova, `rc=0`, `./instalar.py rollback --sim` continua funcionando.
+- **Aviso de versao no clone:** com o clone num commit diferente da versao instalada (por exemplo `git checkout main` com uma rc instalada), rode `./instalar.py status` e `./instalar.py verificar`. Esperado: antes da saida normal, `AVISO: este clone esta em '...' e a versao instalada e v... (...)`; o comando continua e nao baixa nada. Sem git, ou com `git clone --depth 1` (sem tags): `AVISO: nao deu para comparar a versao deste clone com a instalada`. Com o clone exatamente na tag instalada (`git checkout $TAG`): nenhum aviso.
+- **Dentro do pacote nada muda:** `cd /root/painel-ramais-${TAG#v} && ./instalar.py verificar` nao imprime `AVISO` de clone nem baixa nada; `./instalar.py instalar --pre` ali dentro termina com `FALHA`/uso invalido (`rc=3`, `--pre e --versao so valem fora de um pacote`).
+- **Se for diferente:** anote o comando, a saida e o `rc`.
+
+### Etapa 20. Casos negativos do inicializador
+
+Em todos, o criterio comum e: nada instalado (`rpm -q painel-ramais` inalterado), nenhuma pasta nova `/root/painel-ramais-*` (exceto onde dito) e nenhum `/root/.painel-ramais-*` sobrando (`ls -a /root`).
+
+- **Sem Release estavel e sem --pre** (so vale enquanto o repositorio so tem pre-releases; se ja existe estavel, anote "nao se aplica"): `./instalar.py instalar; echo "rc=$?"`. Esperado: `FALHA: Ainda nao ha Release estavel publicada (so pre-releases)...` sugerindo `--pre`, `rc=2`, nada baixado alem da lista de Releases.
+- **Tag invalida:** `./instalar.py instalar --versao v1.2`, `--versao 0.1.2-rc.4` (sem o `v`), `--versao '../../etc'`, `--versao 'v0.1.2-rc.4;id'` e `--pre --versao $TAG`. Esperado em todos: `rc=3`, mensagem `--versao invalida` (ou `Use --pre OU --versao`), nenhuma conexao de rede (nao aparece `Baixando`).
+- **SHA256 adulterado:** crie uma Release de TESTE descartavel (por exemplo `v0.0.1-rc.9`, marcada como pre-release, com um arquivo qualquer chamado `painel-ramais-0.0.1-rc.9.tar.gz` e um `SHA256SUMS` com a linha desse arquivo mas com um hash trocado). Rode `./instalar.py instalar --versao v0.0.1-rc.9; echo "rc=$?"`. Esperado: `FALHA: SHA-256 do painel-ramais-0.0.1-rc.9.tar.gz nao confere ... Nada foi extraido nem instalado`, `rc=2`, e NAO existe `/root/painel-ramais-0.0.1-rc.9`. Variante: `SHA256SUMS` sem a linha do tar.gz: `nao consta (ou tem hash invalido) no SHA256SUMS`, `rc=2`. Apague a Release de teste depois.
+- **Sem internet:** `echo '127.0.0.1 github.com api.github.com' >> /etc/hosts` (ou desconecte o adaptador de rede no hipervisor; nao use `ip link set down` pelo ssh), depois `./instalar.py instalar --versao $TAG; echo "rc=$?"` e, sem `--versao`, `./instalar.py instalar --pre`. Esperado: `FALHA: Sem acesso ao GitHub (<motivo>). Nada foi instalado.` seguido do caminho offline com os comandos `curl -fLO https://github.com/fcarvalhosa17/painel-ramais/releases/download/$TAG/painel-ramais-${TAG#v}.tar.gz`, `curl -fLO .../SHA256SUMS`, `sha256sum -c SHA256SUMS --ignore-missing`, `scp ... root@<servidor>:/root/` e `cd /root && tar xzf ... && cd painel-ramais-${TAG#v} && ./instalar.py instalar`; com `--versao` a tag vem preenchida, sem ele aparecem `vX.Y.Z`/`X.Y.Z` e o link da lista de Releases. `rc=2`. Remova a linha do `/etc/hosts` depois e confira com `grep github /etc/hosts`. Teste tambem o caminho offline completo: siga esses comandos num computador com internet e instale na VM pelo tar.gz copiado.
+- **Nao-root:** `cp -r ~/painel-ramais /tmp/clone-teste && chmod -R a+rX /tmp/clone-teste && runuser -u nobody -- /usr/libexec/platform-python /tmp/clone-teste/instalar.py instalar --pre; echo "rc=$?"`. Esperado: `FALHA: Rode como root`, `rc=3`, sem `Baixando` e sem nada novo em `/root`. Apague `/tmp/clone-teste`.
+- **Destino existente com conteudo diferente:** `mkdir /root/painel-ramais-${TAG#v} && touch /root/painel-ramais-${TAG#v}/arquivo-meu && ./instalar.py instalar --versao $TAG; echo "rc=$?"`. Esperado: `FALHA: /root/painel-ramais-... ja existe com conteudo diferente ... Nao vou sobrescrever`, `rc=2`, sem `Baixando ...tar.gz`, e `arquivo-meu` continua la, intacto. Apague a pasta depois (`rm -r /root/painel-ramais-${TAG#v}`).
+- **Se for diferente:** anote o caso, a saida inteira e o `rc`. Qualquer caso que instale algo, ou que deixe `/root/.painel-ramais-*`, e defeito grave.
 
 ## Entrega
 
