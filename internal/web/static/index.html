@@ -7,27 +7,30 @@
 <title>Painel de Ramais</title>
 <link rel="icon" href="/painel-ramais/assets/icone.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/painel-ramais/assets/app.css">
+<link rel="preload" href="/painel-ramais/assets/fonts/BarlowSemiCondensed-Bold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/painel-ramais/assets/fonts/IBMPlexSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="modulepreload" href="/painel-ramais/assets/estado.js">
 <link rel="modulepreload" href="/painel-ramais/assets/dados.js">
 <link rel="modulepreload" href="/painel-ramais/assets/conexao.js">
 <link rel="modulepreload" href="/painel-ramais/assets/lista.js">
-<link rel="modulepreload" href="/painel-ramais/assets/mapa.js">
 <link rel="modulepreload" href="/painel-ramais/assets/grafico.js">
 <link rel="modulepreload" href="/painel-ramais/assets/grupos.js">
+<link rel="modulepreload" href="/painel-ramais/assets/edicao.js">
 <script type="module" src="/painel-ramais/assets/app.js"></script>
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
-  <symbol id="i-cheia" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></symbol>
+  <symbol id="i-cheia" viewBox="0 0 24 24"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></symbol>
   <symbol id="i-sair-cheia" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></symbol>
-  <symbol id="i-grupos" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></symbol>
+  <symbol id="i-grupos" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
   <symbol id="i-sair" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
-  <symbol id="i-busca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-busca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
   <symbol id="i-alerta" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
-  <symbol id="i-fechar" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-fechar" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-mais" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
 </svg>
 
-<main id="raiz" class="raiz">
+<div id="raiz" class="raiz">
 
 <section id="tela-mensagem" class="tela-mensagem">
   <div class="cartao-aviso">
@@ -51,119 +54,194 @@
   </form>
 </section>
 
-<div id="tela-painel" class="painel" hidden>
-  <header class="topo">
-    <div class="topo-marca">
-      <img src="/painel-ramais/assets/icone.svg" alt="" width="22" height="22">
-      <h1 class="topo-titulo">Painel de Ramais</h1>
-    </div>
-    <p id="status-conexao" class="status-conexao" data-status="conectando"><span class="status-pino" aria-hidden="true"></span><span id="status-texto">Conectando</span></p>
-    <div class="topo-acoes">
-      <button id="botao-grupos" class="botao botao-fantasma" type="button" hidden><svg class="icone" aria-hidden="true"><use href="#i-grupos"/></svg><span>Grupos</span></button>
-      <button id="botao-cheia" class="botao botao-fantasma" type="button" hidden><svg class="icone" aria-hidden="true"><use id="icone-cheia" href="#i-cheia"/></svg><span id="texto-cheia">Tela cheia</span></button>
-      <button id="botao-sair" class="botao botao-fantasma" type="button" hidden><svg class="icone" aria-hidden="true"><use href="#i-sair"/></svg><span>Sair</span></button>
-    </div>
-  </header>
+<main id="tela-painel" class="painel" hidden>
 
-  <div id="faixa-ami" class="faixa-ami" role="alert" hidden>
-    <svg class="icone" aria-hidden="true"><use href="#i-alerta"/></svg>
-    <strong>Conexão com o Asterisk perdida.</strong>
-    <span>Os ramais aparecem como desconhecidos até a conexão voltar.</span>
+<header class="topo">
+  <div class="topo-esq">
+    <h1 class="topo-titulo">Painel de Ramais</h1>
+    <span id="status-conexao" class="selo-vivo" data-status="conectando"><span class="selo-vivo-pino" aria-hidden="true"></span><span id="status-texto">CONECTANDO</span></span>
+    <span id="topo-info" class="topo-info"></span>
   </div>
-
-  <section class="indicadores" aria-label="Indicadores">
-    <div class="ind ind-total"><p class="ind-rotulo">Ramais</p><p id="ind-total" class="ind-valor">0</p></div>
-    <div class="ind ind-heroi" data-serie="registrados">
-      <p class="ind-rotulo"><span class="chave" aria-hidden="true"></span>Registrados</p>
-      <p class="ind-valor"><span id="ind-registrados">0</span><span class="ind-de">de <span id="ind-de-total">0</span></span></p>
-      <p id="ind-variacao" class="ind-variacao" data-sinal="zero">sem dados da última hora</p>
+  <div class="topo-dir">
+    <div class="segmentado" role="group" aria-label="Densidade">
+      <button type="button" class="seg" data-modo="compacto" aria-pressed="true">Compacto</button>
+      <button type="button" class="seg" data-modo="cartoes" aria-pressed="false">Cartões</button>
     </div>
-    <div class="ind" data-serie="nao_registrados"><p class="ind-rotulo"><span class="chave" aria-hidden="true"></span>Não registrados</p><p id="ind-nao-registrados" class="ind-valor">0</p></div>
-    <div class="ind" data-serie="inalcancaveis"><p class="ind-rotulo"><span class="chave" aria-hidden="true"></span>Inalcançáveis</p><p id="ind-inalcancaveis" class="ind-valor">0</p></div>
-    <div class="ind" data-serie="em_chamada"><p class="ind-rotulo"><span class="chave" aria-hidden="true"></span>Em chamada</p><p id="ind-em-chamada" class="ind-valor">0</p></div>
+    <button id="botao-grupos" class="botao" type="button" hidden><svg class="icone icone-15" aria-hidden="true"><use href="#i-grupos"/></svg>Gerenciar grupos</button>
+    <button id="botao-novo-grupo" class="botao" type="button" hidden><svg class="icone icone-15" aria-hidden="true"><use href="#i-mais"/></svg>Novo grupo</button>
+    <button id="botao-sair" class="botao" type="button" hidden><svg class="icone icone-15" aria-hidden="true"><use href="#i-sair"/></svg>Sair</button>
+    <button id="botao-cheia" class="botao botao-quadrado" type="button" aria-label="Tela cheia" hidden><svg class="icone icone-16" aria-hidden="true"><use id="icone-cheia" href="#i-cheia"/></svg></button>
+  </div>
+</header>
+
+<div id="faixa-ami" class="faixa-ami" role="alert" hidden>
+  <svg class="icone icone-16" aria-hidden="true"><use href="#i-alerta"/></svg>
+  <strong>Conexão com o Asterisk perdida.</strong>
+  <span>Os ramais aparecem como desconhecidos até a conexão voltar.</span>
+</div>
+
+<section class="indicadores" aria-label="Resumo do servidor">
+  <div class="ind">
+    <span class="ind-rotulo">RAMAIS</span>
+    <span id="ind-total" class="ind-valor">0</span>
+    <span id="ind-grupos" class="ind-sub">em 0 grupos</span>
+  </div>
+  <div class="ind">
+    <span class="ind-rotulo"><span class="ind-chave" data-estado="livre"></span>REGISTRADOS</span>
+    <span class="ind-valor"><span id="ind-reg">0</span> <span id="ind-reg-pct" class="ind-pct-reg">0%</span></span>
+    <div class="ind-trilho"><div id="ind-reg-barra" class="ind-barra"></div></div>
+  </div>
+  <div class="ind">
+    <span class="ind-rotulo"><span class="ind-chave" data-estado="nao_registrado"></span>NÃO REGISTRADOS</span>
+    <span id="ind-nao-reg" class="ind-valor">0</span>
+    <span id="ind-pior" class="ind-sub">pior grupo: nenhum</span>
+  </div>
+  <div class="ind">
+    <span class="ind-rotulo"><span class="ind-chave" data-estado="inalcancavel"></span>INALCANÇÁVEIS</span>
+    <span id="ind-inalc" class="ind-valor ind-valor-inalc">0</span>
+    <span class="ind-sub">registrados sem resposta (qualify)</span>
+  </div>
+  <div class="ind">
+    <span class="ind-rotulo"><span class="ind-chave" data-estado="em_conversa"></span>EM CHAMADA</span>
+    <span id="ind-chamadas" class="ind-valor">0</span>
+    <span id="ind-direcoes" class="ind-sub ind-sub-mono">↙ 0  ↗ 0  ↔ 0</span>
+  </div>
+  <div class="ind">
+    <span class="ind-rotulo"><span class="ind-chave" data-estado="tocando"></span>TOCANDO / ESPERA</span>
+    <span class="ind-valor"><span id="ind-tocando">0</span> <span class="ind-pct-espera">/ <span id="ind-espera">0</span></span></span>
+    <span class="ind-sub">aguardando atendimento</span>
+  </div>
+</section>
+
+<div class="colunas">
+
+<aside class="col-esq" aria-label="Grupos">
+  <section class="bloco bloco-grupos">
+    <div class="bloco-cabeca bloco-cabeca-centro">
+      <h2 class="bloco-titulo">GRUPOS</h2>
+      <div class="ordem" role="group" aria-label="Ordenar grupos">
+        <button type="button" class="ordem-btn" data-ordem="nome" aria-pressed="false">Nome</button>
+        <button type="button" class="ordem-btn" data-ordem="problemas" aria-pressed="true">Mais problemas</button>
+      </div>
+    </div>
+    <div id="grupos-lista" class="grupos-lista pr-scroll"></div>
   </section>
 
-  <div class="conteudo">
-    <section class="coluna-geral" aria-label="Visão geral">
-      <div class="bloco bloco-mapa">
-        <div class="bloco-cabeca">
-          <h2 class="bloco-titulo">Mapa por grupo</h2>
-          <p class="bloco-nota">Cada quadrado é um ramal. Clique num grupo para abrir.</p>
-        </div>
-        <div id="mapa-caixa" class="mapa-caixa">
-          <canvas id="mapa" class="mapa" role="img" aria-label="Mapa dos ramais por grupo"></canvas>
-          <div id="mapa-dica" class="dica" hidden></div>
-          <p id="mapa-vazio" class="vazio mapa-vazio" hidden></p>
-        </div>
+  <section class="bloco bloco-hist">
+    <div class="bloco-cabeca">
+      <h2 class="bloco-titulo">ÚLTIMAS 24 H</h2>
+      <span id="hist-grupo" class="bloco-nota">Todos os grupos</span>
+    </div>
+    <div class="hist-caixa">
+      <svg class="hist" viewBox="0 0 260 90" width="100%" height="96" role="img" aria-label="Histórico de chamadas simultâneas e ramais não registrados nas últimas 24 horas">
+        <line x1="0" y1="80" x2="260" y2="80" class="hist-base"/>
+        <line x1="0" y1="45" x2="260" y2="45" class="hist-grade"/>
+        <line x1="0" y1="10" x2="260" y2="10" class="hist-grade"/>
+        <g id="hist-series"></g>
+      </svg>
+      <div id="hist-estado" class="hist-estado" hidden>
+        <p id="hist-estado-texto"></p>
+        <button id="hist-repetir" class="botao" type="button" hidden>Tentar de novo</button>
       </div>
+    </div>
+    <div id="hist-eixo" class="hist-eixo"><span>00h</span><span>06h</span><span>12h</span><span>18h</span><span>agora</span></div>
+    <div class="hist-legenda">
+      <span class="hist-leg"><span class="leg-chamadas" aria-hidden="true"></span><span id="hist-pico">Em chamada (pico 0)</span></span>
+      <span class="hist-leg"><span class="leg-nao-reg" aria-hidden="true"></span>Não registrados</span>
+    </div>
+  </section>
+</aside>
 
-      <div class="bloco bloco-ranking">
-        <div class="bloco-cabeca">
-          <h2 class="bloco-titulo">Mais não registrados</h2>
-          <p class="bloco-nota">Grupos com mais ramais não registrados agora.</p>
-        </div>
-        <ol id="ranking" class="ranking"></ol>
-        <p id="ranking-vazio" class="vazio" hidden>Nenhum grupo com ramal não registrado.</p>
-      </div>
-
-      <div id="bloco-historico" class="bloco bloco-grafico">
-        <div class="bloco-cabeca">
-          <h2 class="bloco-titulo">Histórico <span id="grafico-grupo" class="bloco-sub">de todos os grupos</span></h2>
-          <div class="segmentado" role="group" aria-label="Período do histórico">
-            <button type="button" class="seg" data-periodo="1h" aria-pressed="true">1 h</button>
-            <button type="button" class="seg" data-periodo="24h" aria-pressed="false">24 h</button>
-            <button type="button" class="seg" data-periodo="7d" aria-pressed="false">7 d</button>
-          </div>
-        </div>
-        <div id="grafico-caixa" class="grafico-caixa">
-          <canvas id="grafico" class="grafico" role="img" aria-label="Histórico de ramais por minuto"></canvas>
-          <div id="grafico-dica" class="dica dica-grafico" hidden></div>
-          <div id="grafico-estado" class="grafico-estado" hidden>
-            <p id="grafico-estado-texto"></p>
-            <button id="grafico-repetir" class="botao botao-fantasma" type="button" hidden>Tentar de novo</button>
-          </div>
-        </div>
-      </div>
-      <button id="aviso-historico" class="aviso-abaixo" type="button" hidden>Histórico abaixo</button>
-    </section>
-
-    <section class="coluna-ramais" aria-label="Ramais">
-      <div class="barra-ramais">
-        <div class="barra-linha">
-          <label class="campo campo-grupo">
-            <span class="campo-rotulo">Grupo</span>
-            <select id="filtro-grupo"><option value="">Todos os grupos</option></select>
-          </label>
-          <label class="campo campo-busca">
-            <span class="campo-rotulo">Buscar ramal</span>
-            <span class="busca-caixa"><svg class="icone" aria-hidden="true"><use href="#i-busca"/></svg><input id="filtro-busca" type="search" placeholder="número ou nome" autocomplete="off" spellcheck="false"></span>
-          </label>
-          <p id="contagem-lista" class="contagem-lista" aria-live="off">0 de 0 ramais</p>
-        </div>
-        <div id="legenda" class="legenda" role="group" aria-label="Filtrar por estado"></div>
-      </div>
-      <div id="lista" class="lista" role="list" aria-label="Ramais" tabindex="0">
-        <div id="lista-altura" class="lista-altura"></div>
-      </div>
-      <p id="lista-vazia" class="vazio vazio-lista" hidden>Nenhum ramal com esses filtros.</p>
-    </section>
+<section class="col-centro" aria-label="Ramais do grupo">
+  <div class="centro-cabeca">
+    <div class="centro-titulo">
+      <h2 id="centro-nome" class="centro-nome">Todos os grupos</h2>
+      <span id="centro-info" class="centro-info">0 ramais</span>
+    </div>
+    <label class="busca">
+      <svg class="icone icone-15" aria-hidden="true"><use href="#i-busca"/></svg>
+      <span class="so-leitor">Buscar ramal</span>
+      <input id="filtro-busca" type="search" placeholder="Ramal, nome ou IP (busca em todos os grupos)" autocomplete="off" spellcheck="false">
+    </label>
   </div>
+
+  <div id="legenda" class="chips" role="group" aria-label="Filtrar por estado">
+    <button id="chip-todos" type="button" class="chip chip-todos" aria-pressed="true">Todos <span id="chip-todos-n" class="chip-todos-n">0</span></button>
+  </div>
+
+  <div id="lista" class="lista pr-scroll" role="list" aria-label="Ramais" tabindex="0">
+    <div id="lista-altura" class="lista-altura"></div>
+  </div>
+  <p id="lista-vazia" class="vazio" hidden>Nenhum ramal com esses filtros.</p>
+
+  <div class="centro-pe">
+    <span id="contagem-lista" aria-live="off">Mostrando 0 de 0 ramais · a lista carrega conforme a rolagem</span>
+    <button id="selecionar-resultados" class="botao-pequeno" type="button" hidden></button>
+    <span class="centro-setas">↙ entrada  ↗ saída  ↔ interna</span>
+  </div>
+</section>
+
+<aside class="col-dir" aria-label="Chamadas ativas">
+  <section id="detalhe" class="detalhe" aria-label="Detalhe do ramal" hidden>
+    <div class="detalhe-cabeca">
+      <div class="detalhe-id">
+        <span id="dr-num" class="detalhe-num"></span>
+        <span id="dr-nome" class="detalhe-nome"></span>
+      </div>
+      <button id="dr-fechar" class="botao-fechar" type="button" aria-label="Fechar detalhe"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
+    </div>
+    <span id="dr-estado" class="selo-estado"><span class="selo-ponto" aria-hidden="true"></span><span id="dr-estado-texto"></span></span>
+    <p id="dr-sumiu" class="dialogo-contexto" hidden>Este ramal não existe mais no PBX.</p>
+    <dl class="detalhe-dados">
+      <dt>Grupo</dt><dd><span id="dr-grupo"></span> <span id="dr-origem" class="dr-origem"></span></dd>
+      <dt>Chamada</dt><dd id="dr-chamada" class="mono"></dd>
+      <dt>IP</dt><dd id="dr-ip" class="mono"></dd>
+      <dt>Aparelho</dt><dd id="dr-ua"></dd>
+      <dt>Latência</dt><dd id="dr-latencia" class="mono"></dd>
+    </dl>
+    <div id="dr-admin" class="dr-admin" hidden>
+      <div class="dr-linha">
+        <label class="campo dr-campo">
+          <span class="campo-rotulo">Grupo</span>
+          <select id="dr-destino"></select>
+        </label>
+        <button id="dr-mover" class="botao botao-primario" type="button">Mover</button>
+      </div>
+      <button id="dr-faixa" class="botao" type="button" hidden>Voltar para a faixa</button>
+      <p id="dr-erro" class="campo-erro" role="alert"></p>
+      <p id="dr-ok" class="dg-ok" role="status"></p>
+    </div>
+  </section>
+
+  <section class="bloco bloco-chamadas">
+    <div class="bloco-cabeca">
+      <h2 class="bloco-titulo">CHAMADAS ATIVAS</h2>
+      <span id="chamadas-n" class="chamadas-n">0</span>
+    </div>
+    <span id="chamadas-sub" class="chamadas-sub">Todos os grupos · mais longas primeiro</span>
+    <div id="chamadas" class="chamadas pr-scroll"></div>
+    <p id="chamadas-vazio" class="vazio" hidden>Nenhuma chamada ativa.</p>
+  </section>
+</aside>
+
 </div>
+</main>
 
 <dialog id="dialogo-grupos" class="dialogo" aria-labelledby="dg-titulo">
   <div class="dialogo-cabeca">
     <h2 id="dg-titulo" class="dialogo-titulo">Grupos</h2>
-    <button id="dg-fechar" class="botao botao-icone" type="button" aria-label="Fechar"><svg class="icone" aria-hidden="true"><use href="#i-fechar"/></svg></button>
+    <button id="dg-fechar" class="botao-fechar" type="button" aria-label="Fechar"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
   </div>
   <div class="dialogo-corpo">
     <section class="dg-lista" aria-labelledby="dg-lista-titulo">
       <h3 id="dg-lista-titulo" class="dg-sub">Grupos cadastrados</h3>
-      <p id="dg-lista-estado" class="vazio">Carregando grupos...</p>
-      <ul id="dg-lista" class="dg-itens"></ul>
+      <p id="dg-lista-estado" class="vazio" hidden></p>
+      <p id="dg-ok-lista" class="dg-ok" role="status"></p>
+      <ul id="dg-lista" class="dg-itens pr-scroll"></ul>
     </section>
     <form id="dg-form" class="dg-importar" novalidate>
       <h3 class="dg-sub">Importar CSV</h3>
-      <p class="campo-ajuda">Uma linha por faixa: <code>grupo,ramal</code> ou <code>grupo,2000-2099</code>.</p>
+      <p class="campo-ajuda">Faixa: <code>grupo,2000-2099</code> (um número só: <code>2150-2150</code>). Ramal avulso <code>grupo,2150</code> fixa o ramal no grupo, acima da faixa. <code>Sem grupo,2150</code> tira o ramal do grupo.</p>
       <label class="campo">
         <span class="campo-rotulo">Arquivo</span>
         <input id="dg-arquivo" type="file" accept=".csv,text/csv,text/plain">
@@ -180,6 +258,62 @@
   </div>
 </dialog>
 
-</main>
+<dialog id="dialogo-novo-grupo" class="dialogo dialogo-estreito" aria-labelledby="ng-titulo">
+  <div class="dialogo-cabeca">
+    <h2 id="ng-titulo" class="dialogo-titulo">Novo grupo</h2>
+    <button class="botao-fechar" type="button" data-fechar aria-label="Fechar"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
+  </div>
+  <form id="ng-form" class="dialogo-pilha" novalidate>
+    <p id="ng-contexto" class="dialogo-contexto" hidden></p>
+    <label class="campo">
+      <span class="campo-rotulo">Nome</span>
+      <input id="ng-nome" type="text" maxlength="64" required autocomplete="off" spellcheck="false" aria-describedby="ng-nome-erro">
+    </label>
+    <p id="ng-nome-erro" class="campo-erro" aria-live="polite"></p>
+    <label class="campo">
+      <span class="campo-rotulo">Faixas e ramais avulsos (opcional)</span>
+      <input id="ng-faixas" type="text" autocomplete="off" spellcheck="false" placeholder="2000-2099, 3001" aria-describedby="ng-faixas-ajuda ng-faixas-erro ng-previa">
+    </label>
+    <p id="ng-faixas-ajuda" class="campo-ajuda">Faixa <code>2000-2099</code> ou ramal avulso <code>3001</code>, separados por vírgula.</p>
+    <p id="ng-faixas-erro" class="campo-erro" aria-live="polite"></p>
+    <p id="ng-previa" class="previa" aria-live="polite"></p>
+    <p id="ng-erro" class="campo-erro" role="alert"></p>
+    <div class="dialogo-botoes">
+      <button id="ng-criar" class="botao botao-primario" type="submit">Criar grupo</button>
+      <button class="botao" type="button" data-fechar>Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogo-mover" class="dialogo dialogo-estreito" aria-labelledby="dm-titulo">
+  <div class="dialogo-cabeca">
+    <h2 id="dm-titulo" class="dialogo-titulo">Confirmar mudança</h2>
+    <button class="botao-fechar" type="button" data-fechar aria-label="Fechar"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
+  </div>
+  <div class="dialogo-pilha">
+    <p id="dm-resumo" class="dm-resumo"></p>
+    <p id="dm-origens-titulo" class="campo-rotulo" hidden></p>
+    <ul id="dm-origens" class="dm-origens"></ul>
+    <p id="dm-notas" class="campo-ajuda"></p>
+    <p id="dm-erro" class="campo-erro" role="alert"></p>
+    <div class="dialogo-botoes">
+      <button id="dm-aplicar" class="botao botao-primario" type="button">Mover</button>
+      <button id="dm-cancelar" class="botao" type="button" data-fechar>Cancelar</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="barra-selecao" class="barra-selecao" role="region" aria-label="Ramais selecionados" hidden>
+  <p id="bs-contagem" class="bs-contagem" aria-live="polite"></p>
+  <label class="bs-campo">
+    <span class="so-leitor">Destino</span>
+    <select id="bs-destino"></select>
+  </label>
+  <button id="bs-mover" class="botao botao-primario" type="button" disabled>Mover para grupo...</button>
+  <button id="bs-limpar" class="botao" type="button">Limpar seleção</button>
+</div>
+<p id="aviso-status" class="aviso-status" role="status"></p>
+
+</div>
 </body>
 </html>

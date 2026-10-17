@@ -14,7 +14,7 @@ A fase 1 entregou o daemon, a API e o token HMAC de entrada (ADR-002), com login
 4. Purge de sessão por comando da CLI; expiração por 12 h sem uso mantida; risco da aba aberta aceito.
 5. Chave do Issabel separada do segredo do daemon, modo 0640; o daemon só aceita `sub` com prefixo `issabel:` assinado com ela; sem o arquivo, só a integração desliga.
 6. Gestão de grupos pela tela só para administradores do Issabel.
-7. Tela: indicadores, gráfico do histórico, mapa por grupo, visão de grupo estilo FOP com rolagem virtual, busca e filtros, ranking, faixa de AMI perdido, tela cheia, texto do Asterisk só como texto, CSP estrita, snapshot mais deltas pelo WebSocket existente, tudo em português e sem travar com 10.000 ramais.
+7. Tela: indicadores, gráfico do histórico, lista de grupos com barra por estado (o mapa por grupo em canvas saiu na rc.5, com o novo visual do `docs/design/painel-ramais-design.dc.html`), visão de grupo estilo FOP com rolagem virtual, busca e filtros, ranking, faixa de AMI perdido, tela cheia, texto do Asterisk só como texto, CSP estrita, snapshot mais deltas pelo WebSocket existente, tudo em português e sem travar com 10.000 ramais.
 
 Estudo feito sem VM (clone do IssabelFoundation `framework`, `pbx` e `ai_assistant`): o `paloSantoNavigation` distingue item de menu do tipo módulo (PHP do próprio módulo gera o conteúdo) e do tipo framed (iframe para URL fixa); o `issabel-menumerge` só concede os grupos ao **criar** o item (no update o ACL não é regravado); `modules/<x>/index.php` roda direto pela URL, sem o ACL do `index.php` principal, então o arquivo não pode ter código com efeito fora de `_moduleContent`; o `ai_assistant` (2026) é o precedente oficial de módulo web conversando com um daemon Go por segredo 0640 com grupo. Tudo isso é leitura de código, não execução: a seção "A confirmar pela VM" lista o que falta ver no servidor.
 
@@ -50,7 +50,7 @@ Estudo feito sem VM (clone do IssabelFoundation `framework`, `pbx` e `ai_assista
 
 **7. Purge de sessão.** `painel-ramais session purge --issabel <usuario>` apaga as sessões `issabel:admin:<usuario>` e `issabel:user:<usuario>` e manda o SIGHUP (os WebSockets dessas sessões fecham com `session_expired`/`revoked` e 4001). `session purge` e `--all` continuam como na fase 1.
 
-**8. Tela sem framework e sem build, embutida no binário.** HTML, CSS e JavaScript (módulos ES, sem dependência externa, sem CDN, sem fonte remota) em `internal/web/static/`, embutidos com `go:embed`. O RPM continua com um binário só, e tela e daemon nunca ficam em versões diferentes. Rolagem virtual, mapa e gráfico em canvas são escritos no próprio código (poucas centenas de linhas), sem biblioteca.
+**8. Tela sem framework e sem build, embutida no binário.** HTML, CSS e JavaScript (módulos ES, sem dependência externa, sem CDN, sem fonte remota) em `internal/web/static/`, embutidos com `go:embed`. O RPM continua com um binário só, e tela e daemon nunca ficam em versões diferentes. Rolagem virtual e gráfico em canvas (o mapa saiu na rc.5) são escritos no próprio código (poucas centenas de linhas), sem biblioteca.
 
 ### Alternativas consideradas
 

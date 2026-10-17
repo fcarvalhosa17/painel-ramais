@@ -13,6 +13,9 @@ export class Dados {
     // itens: [{ ramal, estado, chaveBusca }] ordenados por number (ordem de string).
     this.itens = [];
     this.porNumero = new Map();
+    // Catálogo de grupos [{ name, ranges }], inclui grupos vazios. catalogoMudou: quem desenha zera depois de ler.
+    this.grupos = [];
+    this.catalogoMudou = false;
   }
 
   aplicarSnapshot(data, agoraMs = Date.now()) {
@@ -21,6 +24,11 @@ export class Dados {
     this.amiConectado = data.ami_connected !== false;
     this.tecnologia = data.technology ?? null;
     this.atualizarRelogio(data.server_time, agoraMs);
+    // Snapshot novo (queda do AMI, ressincronização) traz o catálogo inteiro: só sinaliza se mudou de fato,
+    // senão o redesenho da tela Grupos apagaria um formulário de edição aberto.
+    const grupos = Array.isArray(data.groups) ? data.groups : [];
+    if (chaveCatalogo(grupos) !== chaveCatalogo(this.grupos)) this.catalogoMudou = true;
+    this.grupos = grupos;
     this.itens = [];
     this.porNumero = new Map();
     for (const ramal of data.extensions || []) {
@@ -40,6 +48,8 @@ export class Dados {
     const amiMudou = (msg.ami_connected !== false) !== this.amiConectado;
     this.amiConectado = msg.ami_connected !== false;
     this.atualizarRelogio(msg.server_time, agoraMs);
+    // Catálogo completo, só quando mudou (criar, editar, excluir grupo); o epoch não muda.
+    if (Array.isArray(msg.groups)) { this.grupos = msg.groups; this.catalogoMudou = true; }
     for (const ramal of msg.extensions || []) {
       const atual = this.porNumero.get(ramal.number);
       if (atual) {
@@ -80,6 +90,9 @@ export class Dados {
     if (!Number.isNaN(t)) this.desvioMs = t - agoraMs;
   }
 }
+
+// Nomes e faixas, na ordem do servidor: igual = mesmo catálogo.
+const chaveCatalogo = (grupos) => grupos.map((g) => g.name + ":" + (g.ranges || []).map((r) => r.start + "-" + r.end).join(",")).join("\n");
 
 const compararNumero = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const compararItens = (a, b) => compararNumero(a.ramal.number, b.ramal.number);

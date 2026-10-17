@@ -1,13 +1,13 @@
 // Regras puras da tela (contrato C9 do plano da fase 2). Sem DOM: testadas com node --test.
 
 export const ESTADOS = [
-  { chave: "livre", rotulo: "livre", cor: "--estado-livre" },
-  { chave: "tocando", rotulo: "tocando", cor: "--estado-tocando" },
-  { chave: "em_conversa", rotulo: "em conversa", cor: "--estado-em-conversa" },
-  { chave: "em_espera", rotulo: "em espera", cor: "--estado-em-espera" },
-  { chave: "nao_registrado", rotulo: "não registrado", cor: "--estado-nao-registrado" },
-  { chave: "inalcancavel", rotulo: "inalcançável", cor: "--estado-inalcancavel" },
-  { chave: "desconhecido", rotulo: "desconhecido", cor: "--estado-desconhecido" },
+  { chave: "livre", rotulo: "Livre" },
+  { chave: "tocando", rotulo: "Tocando" },
+  { chave: "em_conversa", rotulo: "Em conversa" },
+  { chave: "em_espera", rotulo: "Em espera" },
+  { chave: "nao_registrado", rotulo: "Não registrado" },
+  { chave: "inalcancavel", rotulo: "Inalcançável" },
+  { chave: "desconhecido", rotulo: "Desconhecido" },
 ];
 
 export const ROTULO = Object.fromEntries(ESTADOS.map((e) => [e.chave, e.rotulo]));
@@ -40,28 +40,36 @@ export function chamadaPrincipal(calls) {
   return melhor;
 }
 
-export function textoOutroLado(calls) {
-  const c = chamadaPrincipal(calls);
-  if (!c) return "";
-  const peer = c.peer || {};
-  const numero = peer.number || "";
-  // Nome só entra se acrescenta algo ao número (nunca "11468 · 11468").
-  const nome = peer.name && peer.name.trim() !== numero ? peer.name.trim() : "";
-  let texto;
-  if (peer.kind === "extension") {
-    texto = [numero, nome].filter(Boolean).join(" · ") || "ramal";
-  } else if (peer.kind === "external") {
-    texto = [numero ? "externo " + numero : "externo", nome].filter(Boolean).join(" · ");
-  } else {
-    texto = [numero, nome].filter(Boolean).join(" · ") || "desconhecido";
-  }
-  return calls.length > 1 ? texto + " +" + (calls.length - 1) : texto;
+// Seta da direção (legenda do design: ↙ entrada, ↗ saída, ↔ interna).
+export const SETA = { inbound: "↙", outbound: "↗", internal: "↔" };
+export const DIRECAO = { inbound: "Entrada", outbound: "Saída", internal: "Interna" };
+
+// Outro lado da chamada: número (ramal ou externo) ou, sem número, o nome.
+export function outroLado(c) {
+  const peer = (c && c.peer) || {};
+  return (peer.number || (peer.name || "").trim() || "desconhecido") + "";
 }
 
-const DIRECAO = { internal: "interna", inbound: "entrada", outbound: "saída" };
-export function textoDirecao(calls) {
+// Linha da chamada do card e do detalhe: "↙ 11987654321 03:12" (tempo à parte para o tique de 1 s).
+// Sem chamada: o rótulo do estado.
+export function linhaRamal(item, agoraMs, desvioMs) {
+  const calls = item.ramal.calls || [];
   const c = chamadaPrincipal(calls);
-  return c ? DIRECAO[c.direction] || "" : "";
+  if (!c) return { chamada: false, texto: ROTULO[item.estado], tempo: "" };
+  const d = duracaoMs(calls, agoraMs, desvioMs);
+  const extra = calls.length > 1 ? " +" + (calls.length - 1) : "";
+  return { chamada: true, texto: (SETA[c.direction] || SETA.internal) + " " + outroLado(c) + extra, tempo: d == null ? "" : formatarCronometro(d) };
+}
+
+// Ramais em conversa ou em espera, por direção da chamada principal (indicador "Em chamada").
+export function direcoes(itens) {
+  const out = { inbound: 0, outbound: 0, internal: 0 };
+  for (const it of itens) {
+    if (it.estado !== "em_conversa" && it.estado !== "em_espera") continue;
+    const c = chamadaPrincipal(it.ramal.calls);
+    if (c && out[c.direction] !== undefined) out[c.direction]++;
+  }
+  return out;
 }
 
 const dois = (n) => (n < 10 ? "0" : "") + n;
@@ -101,8 +109,9 @@ export function filtrar(lista, filtros) {
   return out;
 }
 
+// Busca por número, nome ou IP.
 export function chaveBusca(ramal) {
-  return normalizar(ramal.number + " " + (ramal.name || ""));
+  return normalizar(ramal.number + " " + (ramal.name || "") + " " + (ramal.ip || ""));
 }
 
 export function contagens(ramais) {
@@ -115,6 +124,88 @@ export function contagens(ramais) {
     if (r.calls && r.calls.length > 0) c.in_call++;
   }
   return c;
+}
+
+export const SEM_GRUPO = "Sem grupo";
+
+// Ordem dos grupos na tela: alfabética pt-BR com "Sem grupo" por último.
+export function compararGrupos(a, b) {
+  if (a === b) return 0;
+  if (a === SEM_GRUPO) return 1;
+  if (b === SEM_GRUPO) return -1;
+  return a.localeCompare(b, "pt-BR");
+}
+
+// hifen: "-" no campo editável (o parser lê), "–" na exibição (como no design: 4000–4479).
+const textoFaixa = (f, hifen = "-") => (f.start === f.end ? String(f.start) : f.start + hifen + f.end);
+export const textoFaixas = (faixas, hifen = "-") => (faixas || []).map((f) => textoFaixa(f, hifen)).join(", ");
+
+// Faixas digitadas pelo administrador: "2000-2099, 3001" (N vira N-N). Devolve { faixas, erro }.
+// Separador: vírgula, ponto e vírgula ou espaço; espaço em volta do hífen é aceito.
+export function lerFaixas(texto) {
+  const partes = String(texto ?? "").replace(/\s*-\s*/g, "-").split(/[\s,;]+/).filter(Boolean);
+  const faixas = [];
+  for (const p of partes) {
+    const m = p.match(/^(\d+)(?:-(\d+))?$/);
+    if (!m) return { faixas: [], erro: "\"" + p.slice(0, 24) + "\" não é ramal nem faixa. Use 2000-2099 ou 3001." };
+    const start = Number(m[1]);
+    const end = Number(m[2] ?? m[1]);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) return { faixas: [], erro: "Número grande demais em \"" + p.slice(0, 24) + "\"." };
+    if (start > end) return { faixas: [], erro: "Na faixa " + p + " o início é maior que o fim." };
+    faixas.push({ start, end });
+  }
+  const ord = faixas.slice().sort((a, b) => a.start - b.start);
+  for (let i = 1; i < ord.length; i++) {
+    if (ord[i].start <= ord[i - 1].end) return { faixas: [], erro: "As faixas " + textoFaixa(ord[i - 1]) + " e " + textoFaixa(ord[i]) + " se sobrepõem." };
+  }
+  return { faixas, erro: "" };
+}
+
+// Faixa que encosta na de outro grupo do catálogo (o daemon revalida; aqui é só o aviso antes de gravar).
+export function conflitoDeFaixa(faixas, catalogo, ignorar = null) {
+  for (const g of catalogo || []) {
+    if (g.name === ignorar) continue;
+    for (const r of g.ranges || []) {
+      for (const f of faixas) {
+        if (f.start <= r.end && r.start <= f.end) return "A faixa " + textoFaixa(f) + " se sobrepõe à faixa " + textoFaixa(r) + " do grupo " + g.name + ".";
+      }
+    }
+  }
+  return "";
+}
+
+// Mesma regra do daemon (CONTRATOS seção 9): número com zero à esquerda ou não numérico nunca cai em faixa.
+const NUMERICO = /^(0|[1-9]\d*)$/;
+export function numeroNaFaixa(numero, faixas) {
+  if (!faixas.length || !NUMERICO.test(numero)) return false;
+  const n = Number(numero);
+  return faixas.some((f) => n >= f.start && n <= f.end);
+}
+
+// Prévia de um grupo com estas faixas, pelos dados carregados: quem entra pela faixa (sem grupo manual),
+// quem está na faixa mas tem grupo escolhido à mão (não muda) e quem foi movido à mão para este grupo.
+export function contarComFaixas(itens, faixas, nome) {
+  let pelaFaixa = 0, manuaisNaFaixa = 0, manuaisNoGrupo = 0;
+  for (const it of itens) {
+    const r = it.ramal;
+    if (r.group_manual) {
+      if (r.group === nome) manuaisNoGrupo++;
+      else if (numeroNaFaixa(r.number, faixas)) manuaisNaFaixa++;
+    } else if (numeroNaFaixa(r.number, faixas)) pelaFaixa++;
+  }
+  return { pelaFaixa, manuaisNaFaixa, manuaisNoGrupo };
+}
+
+// Nome de grupo novo ou renomeado. Duplicado é comparado sem maiúsculas nem acentos; o daemon revalida.
+export function erroNomeGrupo(nome, catalogo, atual = null) {
+  const n = String(nome ?? "").trim();
+  if (!n) return "Digite o nome do grupo.";
+  if ([...n].length > 64) return "O nome pode ter no máximo 64 caracteres.";
+  if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(n)) return "O nome tem caractere invisível ou de controle.";
+  const chave = normalizar(n);
+  if (chave === normalizar(SEM_GRUPO)) return "\"Sem grupo\" é reservado. Escolha outro nome.";
+  const igual = (catalogo || []).find((g) => g.name !== atual && normalizar(g.name) === chave);
+  return igual ? "Já existe o grupo " + igual.name + "." : "";
 }
 
 // Por grupo: { nome, total, porEstado: {chave: n} }, na ordem de aparição dos grupos
@@ -133,29 +224,11 @@ export function agregarGrupos(itens) {
     g.porEstado[it.estado]++;
     g.itens.push(it);
   }
-  const grupos = [...mapa.values()];
-  grupos.sort((a, b) => {
-    if (a.nome === "Sem grupo") return 1;
-    if (b.nome === "Sem grupo") return -1;
-    return a.nome.localeCompare(b.nome, "pt-BR");
-  });
-  return grupos;
-}
-
-// Até 10 grupos com mais "não registrado"; desempate pelo nome; zero não entra.
-export function ranking(grupos, limite = 10) {
-  return grupos
-    .filter((g) => g.porEstado.nao_registrado > 0)
-    .map((g) => ({ nome: g.nome, quantidade: g.porEstado.nao_registrado, total: g.total }))
-    .sort((a, b) => b.quantidade - a.quantidade || (a.nome < b.nome ? -1 : a.nome > b.nome ? 1 : 0))
-    .slice(0, limite);
-}
-
-// Variação de registrados na última hora: agora menos o primeiro ponto sem lacuna.
-export function variacaoUltimaHora(registradosAgora, pontos) {
-  const p = (pontos || []).find((x) => !x.gap && x.registered != null);
-  return p ? registradosAgora - p.registered : null;
+  return [...mapa.values()].sort((a, b) => compararGrupos(a.nome, b.nome));
 }
 
 const NUM = new Intl.NumberFormat("pt-BR");
 export const formatarNumero = (n) => NUM.format(n);
+
+// Percentual com uma casa, como o design: "61,3%".
+export const formatarPct = (a, b) => (b ? (Math.round((a / b) * 1000) / 10).toLocaleString("pt-BR") : "0") + "%";

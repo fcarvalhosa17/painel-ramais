@@ -2,40 +2,39 @@
 
 Fonte da verdade do visual de `internal/web/static/`. Quem mexer na tela atualiza aqui; não contradiz.
 
+## Especificação
+
+Desde a rc.5 a tela segue **exatamente** `docs/design/painel-ramais-design.dc.html` (estrutura, ordem dos blocos,
+cores, fontes, tamanhos, raios, espaçamentos, textos e ícones). Os estilos inline do arquivo viraram classes em
+`assets/app.css` com os valores copiados (a CSP bloqueia style inline). Toda diferença entre a tela e o arquivo fica
+registrada em `docs/design/desvios.md`, com o motivo e as linhas dos dois lados. Mudou a tela, confira e atualize lá.
+
 ## Direção
 
-Sala de controle com sinalização industrial: painel operacional de NOC, sóbrio, lido de longe numa TV.
-Fundo grafite azulado em camadas tonais; a única cor saturada da tela é o estado do ramal.
+Sala de controle escura: bloco main #0d1218 com cartões #121820, borda #1f2833, raio 10. A única cor saturada é o
+estado do ramal; azul (#7fb2ff foco, #3d6aa8 seleção, #2a3a52 pressionado) só para interação.
 
-- Referências: wallboards de central de atendimento (Asterisk FOP, painéis de NOC) e sinalização DIN de sala técnica.
-- Elemento assinatura: o mosaico. No mapa, cada ramal é um quadrado na cor do estado, agrupado por grupo; o ícone
-  (2x2 quadrados), os pinos de estado da legenda, dos cards e da dica repetem o mesmo quadrado.
+- Elemento assinatura: a grade de ramais com fundo e borda pela cor do estado (tracejado para não registrado e
+  desconhecido, ponto piscando no tocando) e a linha da chamada com seta (↙ entrada, ↗ saída, ↔ interna).
 
 ## Tokens (em `assets/app.css`, `:root`)
 
-- Superfícies: `--fundo #0b1117`, `--sup-1 #111920`, `--sup-2 #16212a`, `--sup-3 #1c2934`; borda translúcida `--borda`.
-- Texto por opacidade da mesma tinta: `--tinta-1` 94%, `--tinta-2` 72%, `--tinta-3` 56% (mínimo AA sobre `--sup-1`).
-- Acento (só interação: foco, seleção, botão primário): `--acento #58a6ff`. Nunca usado como dado.
-- Estados (C9 do plano, famílias mantidas, tons para pelo menos 3:1 sobre o card):
-  livre `#2ea043`, tocando `#f2c94c`, em conversa `#f85149`, em espera `#a371f7`, não registrado `#6e7681`,
-  inalcançável `#f0883e`, desconhecido `#a5b8cc`.
-  Validado com o `validate_palette.js` do dataviz: contraste passa; separação para daltonismo NÃO passa em alguns pares
-  (verde x laranja, vermelho x laranja) porque as famílias são fixas pelo plano. Compensação obrigatória: o card sempre
-  escreve o rótulo do estado; a legenda tem rótulo e contagem; a dica do mapa lista estado por estado; o gráfico separa
-  séries por posição (uma faixa por série) e nome.
-- Tipografia (fontes do sistema, a CSP não permite fonte externa): display e números `Bahnschrift` (DIN, com
-  alternativas DIN Alternate, Barlow Semi Condensed, Roboto Condensed); texto `Segoe UI`/system-ui; IP em `Cascadia Mono`/Consolas.
-  Números sempre `tabular-nums`. Escala única em `rem`, com `html` crescendo com a largura (14 a 18 px) para a TV.
-- Forma: raio 4 px em card, botão, campo e diálogo; quadrados sem raio no mapa e nos pinos.
+- Fundos #0d1218 / #121820 / #141b24; controles #151c25; itens de lista #0f151c; trilho #232c38.
+- Bordas #1f2833 / #253040; detalhe #2c3a4d; tracejado #2a333f.
+- Texto #f2f5f8 (forte), #dbe2ea (base), #c7d0da, #aeb7c2, #8b95a3 (fraco), #7c8794.
+- Estados (cor / cor de texto): livre #2fb36b / #6fdc9f, tocando #e8b931 / #f3d36b, em conversa #e5484d / #ff8a8d,
+  em espera #9b7bf0 / #b9a6f5, não registrado #6b7480 / #aeb7c2, inalcançável #f08a3c / #ffb27a,
+  desconhecido #a3aab3 / #c7d0da. O card sempre escreve o rótulo do estado (compensa pares próximos para daltonismo).
+- Fontes locais (`assets/fonts/`, OFL): Barlow Semi Condensed 500/600/700 (títulos e números), IBM Plex Sans
+  400/500/600 (texto), IBM Plex Mono 400/500 (IP, tempos, números externos).
 
-## Sistema (densidade, navegação, convenções)
+## Sistema
 
-- Densidade compacta; uma tela só, sem abas: indicadores no topo, coluna "Visão geral" (mapa, ranking, histórico) e
-  coluna "Ramais" (cards). Abaixo de 1024 px as colunas empilham.
-- Cards de altura fixa (108 px) com rolagem virtual; estado ativo tinge o card inteiro, não registrado e desconhecido
-  ficam apagados com borda tracejada. Sem faixa lateral colorida.
-- A legenda de estados é também o filtro (botões com `aria-pressed` e contagem). Grupo pelo seletor, pelo ranking ou
-  pelo clique no mapa; a seleção vale para cards, legenda e histórico.
-- Gráfico: pequenos múltiplos (uma faixa por série, escala própria) sobre o mesmo eixo de tempo; linha 2 px, lavagem
-  de 10%, lacuna quebra a linha; cruz e dica no hover.
-- Texto que vem do Asterisk entra só por `textContent` ou desenho em canvas. Nada inline (CSP do C3).
+- Cabeçalho, seis indicadores, três colunas em flex com quebra (Grupos 280, central 560, Chamadas ativas 300; cabem a
+  partir de 1.208 px de largura útil, abaixo disso o próprio flex reorganiza).
+- Grupos: lista com barra empilhada por estado, % registrados e "N com problema", ordem Nome ou Mais problemas, com
+  "Todos os grupos" no topo; clicar filtra a coluna central, o histórico e as chamadas ativas.
+- Central: busca por número, nome ou IP em todos os grupos; chips de estado (ligados por padrão); Compacto (72 px,
+  grade 108) e Cartões (116 px, grade 220), os dois com rolagem virtual; seleção múltipla só para administrador.
+- Direita: detalhe do ramal clicado (também o lugar de mover de grupo, para administrador) e chamadas ativas.
+- Texto que vem do Asterisk entra só por `textContent`. Nada inline (CSP do C3). Sem travessão em texto da tela.

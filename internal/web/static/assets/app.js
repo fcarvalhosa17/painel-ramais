@@ -1,21 +1,28 @@
 // Painel de Ramais: entrada (C4), ligação dos módulos e gancho de medição (C10).
+// Layout e valores visuais: docs/design/painel-ramais-design.dc.html (desvios em docs/design/desvios.md).
 
 import {
-  ESTADOS, ROTULO, contagens, agregarGrupos, ranking, filtrar, variacaoUltimaHora, formatarNumero,
+  ESTADOS, SETA, DIRECAO, contagens, agregarGrupos, filtrar, formatarNumero, formatarPct, normalizar,
+  textoFaixas, direcoes, chamadaPrincipal, duracaoMs, formatarCronometro, outroLado,
 } from "./estado.js";
 import { Dados, atrasoReconexao } from "./dados.js";
 import { api, CanalAoVivo } from "./conexao.js";
 import { Lista } from "./lista.js";
-import { calcularLayout, acharBloco, desenharMapa } from "./mapa.js";
-import { Grafico } from "./grafico.js";
+import { desenharHistorico, rotulosEixo } from "./grafico.js";
 import { iniciarGrupos } from "./grupos.js";
+import { iniciarEdicao } from "./edicao.js";
 
 const $ = (id) => document.getElementById(id);
 const EMERGENCIA = location.pathname.startsWith("/painel-ramais/emergencia");
 const TOKEN = /^#t=([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/;
 const SESSAO_ENCERRADA = "Sessão encerrada. Abra de novo pelo menu PBX do Issabel.";
-const PERIODOS = { "1h": 3600e3, "24h": 24 * 3600e3, "7d": 7 * 24 * 3600e3 };
 const MIN = 60e3;
+const DIA = 24 * 3600e3;
+const TODOS = "Todos os grupos";
+const MAX_CHAMADAS = 14; // como o design: as 14 mais longas
+const CHAMADA_LONGA_MS = 20 * MIN; // tempo em laranja acima de 20 min
+const TRACO = String.fromCharCode(0x2014); // sem leitura: "—" como no design (decorate), nunca 0
+const CHAVE_MODO = "painel-ramais.modo";
 
 // ---------- gancho de medição (C10) ----------
 const medida = {
@@ -125,9 +132,15 @@ $("botao-sair").addEventListener("click", async () => {
 
 // ---------- estado da tela ----------
 const dados = new Dados();
-const filtros = { busca: "", estados: new Set(), grupo: "" };
-let grupos = [];
+// desligados: estados que o usuário apagou nos chips (vazio = todos, como o "Todos" do design).
+const filtros = { busca: "", desligados: new Set(), grupo: "" };
+let grupos = []; // agregado por grupo (só grupos com ramal)
+let porNome = new Map();
+let nomesGrupos = []; // catálogo (inclui grupos vazios) mais os grupos que têm ramal (o "Sem grupo")
+let totais = {};
 let filtrados = [];
+let ordemGrupos = "problemas";
+let ultimaMudancaMs = null;
 let cont = medida.contagens;
 const sujo = { dados: false, filtro: false, delta: false };
 let quadroPendente = false;
@@ -136,15 +149,14 @@ let timerHistorico = null;
 let timerRelogio = null;
 
 const lista = new Lista($("lista"), $("lista-altura"));
-const tema = lerTema();
-const grafico = new Grafico($("grafico"), $("grafico-dica"), () => tema);
-const areaGrupos = iniciarGrupos(() => semSessao());
+const areaGrupos = iniciarGrupos({ dados, aoSessaoEncerrada: () => semSessao() });
+const edicao = iniciarEdicao({ dados, lista, aoSessaoEncerrada: () => semSessao() });
 
 const canal = new CanalAoVivo({
   aoDelta(msg) {
     const r = dados.aplicarDelta(msg);
     if (r === "lacuna") { canal.reiniciar(); return; }
-    if (r === "aplicado") { sujo.dados = true; sujo.delta = true; agendar(); }
+    if (r === "aplicado") { ultimaMudancaMs = Date.now(); sujo.dados = true; sujo.delta = true; agendar(); }
   },
   aoPrecisarSnapshot: () => carregarSnapshot(),
   aoReconectar: () => canal.conectar(dados.epoch, dados.version),
@@ -153,9 +165,9 @@ const canal = new CanalAoVivo({
 });
 
 function status(s, atraso) {
-  const textos = { conectando: "Conectando", ao_vivo: "Ao vivo", atualizando: "Atualizando", reconectando: "Reconectando" };
+  const textos = { conectando: "CONECTANDO", ao_vivo: "AO VIVO", atualizando: "ATUALIZANDO", reconectando: "RECONECTANDO" };
   $("status-conexao").dataset.status = s;
-  $("status-texto").textContent = textos[s] + (s === "reconectando" && atraso ? " em " + Math.ceil(atraso / 1000) + " s" : "");
+  $("status-texto").textContent = textos[s] + (s === "reconectando" && atraso ? " EM " + Math.ceil(atraso / 1000) + " S" : "");
 }
 
 function iniciarPainel(sessao) {
@@ -164,11 +176,12 @@ function iniciarPainel(sessao) {
   $("botao-grupos").hidden = !sessao.admin;
   $("botao-sair").hidden = !EMERGENCIA;
   $("botao-cheia").hidden = !document.fullscreenEnabled;
+  edicao.definirAdmin(!!sessao.admin);
   canal.parado = false;
   status("conectando");
   carregarSnapshot();
   clearInterval(timerRelogio);
-  timerRelogio = setInterval(() => lista.tique(), 1000);
+  timerRelogio = setInterval(tique, 1000);
   // pararPainel desliga o histórico; numa nova entrada (sair e entrar na emergência) ele precisa voltar.
   // A primeira entrada liga o histórico pelo gancho da primeira exibição.
   if (medida.pronto) depoisDaPrimeiraExibicao();
@@ -180,6 +193,8 @@ function pararPainel() {
   clearInterval(timerRelogio);
   clearInterval(timerHistorico);
   timerHistorico = null;
+  edicao.parar();
+  for (const d of document.querySelectorAll("dialog[open]")) d.close();
 }
 
 let tentativasSnapshot = 0;
@@ -198,14 +213,20 @@ async function carregarSnapshot() {
   tentativasSnapshot = 0;
   const epochMudou = data.epoch !== dados.epoch;
   dados.aplicarSnapshot(data);
+  ultimaMudancaMs = Date.now();
   sujo.dados = true;
   agendar();
   canal.conectar(dados.epoch, dados.version);
   // Grupos podem ter mudado com o epoch: o histórico do grupo selecionado é buscado de novo.
-  if (epochMudou && medida.pronto) {
-    carregarHistorico(false);
-    areaGrupos.aoMudarEpoch();
-  }
+  if (epochMudou && medida.pronto) carregarHistorico(false);
+}
+
+// Tique de 1 s: cronômetros dos cards, chamadas ativas, "Atualizado há" e o detalhe.
+function tique() {
+  lista.tique();
+  renderChamadas();
+  renderInfo();
+  edicao.tique();
 }
 
 // ---------- quadro: tudo que depende dos dados, num requestAnimationFrame ----------
@@ -220,31 +241,30 @@ function quadro() {
   const veioDelta = sujo.delta;
   if (sujo.dados) {
     grupos = agregarGrupos(dados.itens);
+    porNome = new Map(grupos.map((g) => [g.nome, g]));
+    nomesGrupos = [...new Set([...dados.grupos.map((g) => g.name), ...grupos.map((g) => g.nome)])];
+    // Como no design, a tela abre no primeiro grupo da ordenação ativa; o mesmo vale quando o grupo
+    // selecionado some (excluído, renomeado ou fora do catálogo). Sem nenhum grupo, fica "" (todos os ramais).
+    // Roda antes do filtro deste quadro, então lista, chips e histórico já saem com o grupo novo.
+    if (!nomesGrupos.includes(filtros.grupo)) selecionarGrupo(gruposOrdenados()[0]?.nome ?? "", false);
+    totais = {};
+    for (const e of ESTADOS) totais[e.chave] = 0;
+    for (const g of grupos) for (const e of ESTADOS) totais[e.chave] += g.porEstado[e.chave];
     cont = contagens(dados.itens.map((i) => i.ramal));
     renderIndicadores();
-    renderLegenda();
-    renderRanking();
-    renderOpcoesGrupo();
+    renderGrupos();
+    renderChamadas();
+    renderInfo();
     $("faixa-ami").hidden = dados.amiConectado;
-    agendarMapa();
+    if (dados.catalogoMudou) {
+      dados.catalogoMudou = false;
+      areaGrupos.aoMudarCatalogo();
+      edicao.aoMudarCatalogo();
+    }
+    areaGrupos.aoMudarDados();
+    edicao.aoMudarDados();
   }
-  if (sujo.dados || sujo.filtro) {
-    filtrados = filtrar(dados.itens, filtros);
-    lista.itens = filtrados;
-    lista.desvioMs = dados.desvioMs;
-    lista.render();
-    $("contagem-lista").textContent = formatarNumero(filtrados.length) + " de " + formatarNumero(dados.itens.length) + " ramais";
-    // Vazio por filtro, ou servidor sem ramal nenhum (estado pronto, não "carregando"); a frase muda sozinha
-    // quando o primeiro ramal entra por delta ou o último sai.
-    // Antes do primeiro snapshot (epoch nulo) não há o que afirmar: nada de "Nenhum ramal cadastrado".
-    const carregou = dados.epoch !== null;
-    const vazio = $("lista-vazia");
-    vazio.hidden = !carregou || filtrados.length > 0;
-    vazio.textContent = dados.itens.length > 0 ? "Nenhum ramal com esses filtros."
-      : dados.amiConectado ? "Nenhum ramal cadastrado." : "Aguardando a conexão com o Asterisk.";
-    $("mapa-vazio").hidden = !carregou || dados.itens.length > 0;
-    if (dados.itens.length === 0) $("mapa-vazio").textContent = vazio.textContent;
-  }
+  if (sujo.dados || sujo.filtro) renderCentro();
   sujo.dados = sujo.filtro = sujo.delta = false;
   // Publica no gancho no quadro seguinte: o anterior já foi pintado.
   const c = cont;
@@ -268,146 +288,192 @@ function depoisDaPrimeiraExibicao() {
   timerHistorico = setInterval(() => carregarHistorico(false), MIN);
 }
 
+function renderInfo() {
+  const partes = [];
+  if (ultimaMudancaMs !== null) {
+    const s = Math.max(0, Math.round((Date.now() - ultimaMudancaMs) / 1000));
+    partes.push("Atualizado há " + (s < 60 ? s + " s" : Math.floor(s / 60) + " min"));
+  }
+  if (dados.tecnologia) partes.push(String(dados.tecnologia).toUpperCase());
+  if (location.hostname) partes.push(location.hostname);
+  $("topo-info").textContent = partes.join(" · ");
+}
+
 // ---------- indicadores ----------
-// Com o Asterisk fora não há leitura: traço, nunca 0 (0 diria "ninguém registrado").
-const SEM_LEITURA = String.fromCharCode(0x2013);
 function renderIndicadores() {
-  const leitura = (n) => (dados.amiConectado ? formatarNumero(n) : SEM_LEITURA);
-  $("ind-total").textContent = formatarNumero(cont.total);
-  $("ind-registrados").textContent = leitura(cont.registered);
-  $("ind-de-total").textContent = formatarNumero(cont.total);
-  $("ind-nao-registrados").textContent = leitura(cont.unregistered);
-  $("ind-inalcancaveis").textContent = leitura(cont.unreachable);
-  $("ind-em-chamada").textContent = leitura(cont.in_call);
-  renderVariacao();
+  const ami = dados.amiConectado;
+  const leitura = (n) => (ami ? formatarNumero(n) : TRACO);
+  const total = dados.itens.length;
+  // Como o design: registrado é todo ramal com registro, inclusive o inalcançável (registrado sem resposta).
+  const reg = total - totais.nao_registrado - totais.desconhecido;
+  $("ind-total").textContent = formatarNumero(total);
+  $("ind-grupos").textContent = "em " + formatarNumero(nomesGrupos.length) + " grupos";
+  $("ind-reg").textContent = leitura(reg);
+  $("ind-reg-pct").textContent = ami ? formatarPct(reg, total) : "";
+  $("ind-reg-barra").style.width = ami && total ? ((reg / total) * 100).toFixed(2) + "%" : "0%";
+  $("ind-nao-reg").textContent = leitura(totais.nao_registrado);
+  let pior = null;
+  for (const g of grupos) if (g.porEstado.nao_registrado > 0 && (!pior || g.porEstado.nao_registrado > pior.porEstado.nao_registrado)) pior = g;
+  $("ind-pior").textContent = "pior grupo: " + (!ami ? TRACO : pior ? pior.nome + " (" + formatarNumero(pior.porEstado.nao_registrado) + ")" : "nenhum");
+  $("ind-inalc").textContent = leitura(totais.inalcancavel);
+  $("ind-chamadas").textContent = leitura(totais.em_conversa + totais.em_espera);
+  const d = direcoes(dados.itens);
+  $("ind-direcoes").textContent = SETA.inbound + " " + leitura(d.inbound) + "  " + SETA.outbound + " " + leitura(d.outbound) + "  " + SETA.internal + " " + leitura(d.internal);
+  $("ind-tocando").textContent = leitura(totais.tocando);
+  $("ind-espera").textContent = leitura(totais.em_espera);
 }
 
-let pontosUltimaHora = null;
-function renderVariacao() {
-  const el = $("ind-variacao");
-  // Com o Asterisk fora todos ficam desconhecidos: a conta daria uma queda falsa.
-  if (!dados.amiConectado) { el.dataset.sinal = "zero"; el.textContent = "sem leitura com o Asterisk fora"; return; }
-  const v = variacaoUltimaHora(cont.registered, pontosUltimaHora);
-  if (v == null) { el.dataset.sinal = "zero"; el.textContent = "sem dados da última hora"; return; }
-  el.dataset.sinal = v > 0 ? "mais" : v < 0 ? "menos" : "zero";
-  el.textContent = v === 0 ? "sem variação na última hora"
-    : (v > 0 ? "+" : "−") + formatarNumero(Math.abs(v)) + " na última hora";
+// ---------- coluna Grupos: barra empilhada, % registrados e "N com problema" ----------
+const linhasGrupo = new Map(); // nome ("" = Todos) -> nós da linha
+let chaveOrdemGrupos = "";
+
+function criarLinhaGrupo(nome) {
+  const span = (classe, pai) => { const s = document.createElement("span"); s.className = classe; pai.append(s); return s; };
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "grupo";
+  const l1 = span("grupo-linha", b);
+  const titulo = span("grupo-nome", l1);
+  const n = span("grupo-n", l1);
+  const barra = span("grupo-barra", b);
+  barra.setAttribute("aria-hidden", "true");
+  const segs = ["s-livre", "s-chamada", "s-tocando", "s-inalc", "s-nao-reg"].map((c) => span(c, barra));
+  const pe = span("grupo-pe", b);
+  const reg = span("", pe);
+  const alerta = span("", pe);
+  titulo.textContent = nome || TODOS;
+  b.addEventListener("click", () => { edicao.fecharDetalhe(); selecionarGrupo(nome); });
+  return { b, n, segs, reg, alerta };
 }
 
-// ---------- legenda, que também é o filtro por estado ----------
+const ZEROS = Object.fromEntries(ESTADOS.map((e) => [e.chave, 0]));
+// g ausente: grupo do catálogo sem nenhum ramal agora.
+function estatGrupo(nome, g) {
+  const p = g ? g.porEstado : ZEROS;
+  const n = g ? g.total : 0;
+  const ruins = (p.nao_registrado || 0) + (p.inalcancavel || 0);
+  return { nome, n, p, ruins, problema: n ? ruins / n : 0, reg: n - (p.nao_registrado || 0) - (p.desconhecido || 0) };
+}
+
+// Grupos na ordenação ativa (Nome ou Mais problemas). Sem linha "Todos os grupos", como no design.
+function gruposOrdenados() {
+  const linhas = nomesGrupos.map((nome) => estatGrupo(nome, porNome.get(nome)));
+  if (ordemGrupos === "nome") linhas.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  else linhas.sort((a, b) => b.problema - a.problema || a.nome.localeCompare(b.nome, "pt-BR"));
+  return linhas;
+}
+
+function renderGrupos() {
+  const linhas = gruposOrdenados();
+  const vivos = new Set();
+  for (const e of linhas) {
+    let ui = linhasGrupo.get(e.nome);
+    if (!ui) { ui = criarLinhaGrupo(e.nome); linhasGrupo.set(e.nome, ui); }
+    vivos.add(e.nome);
+    const w = (v) => (e.n ? ((v / e.n) * 100).toFixed(2) : "0") + "%";
+    const larguras = [e.p.livre, e.p.em_conversa + e.p.em_espera, e.p.tocando, e.p.inalcancavel, e.p.nao_registrado + e.p.desconhecido];
+    ui.segs.forEach((s, i) => { s.style.width = w(larguras[i] || 0); });
+    ui.n.textContent = formatarNumero(e.n);
+    ui.reg.textContent = formatarPct(e.reg, e.n) + " registrados";
+    ui.alerta.textContent = formatarNumero(e.ruins) + " com problema";
+    ui.alerta.classList.toggle("grupo-alerta-forte", e.problema > 0.25);
+    ui.b.setAttribute("aria-pressed", String(e.nome === filtros.grupo));
+  }
+  for (const nome of [...linhasGrupo.keys()]) if (!vivos.has(nome)) { linhasGrupo.get(nome).b.remove(); linhasGrupo.delete(nome); }
+  // Só reordena o DOM quando a ordem muda (mover o nó tira o foco do botão).
+  const chave = linhas.map((e) => e.nome).join("\n");
+  if (chave !== chaveOrdemGrupos) {
+    chaveOrdemGrupos = chave;
+    $("grupos-lista").replaceChildren(...linhas.map((e) => linhasGrupo.get(e.nome).b));
+  }
+}
+
+for (const b of document.querySelectorAll(".ordem-btn")) {
+  b.addEventListener("click", () => {
+    ordemGrupos = b.dataset.ordem;
+    for (const o of document.querySelectorAll(".ordem-btn")) o.setAttribute("aria-pressed", String(o === b));
+    renderGrupos();
+  });
+}
+
+function selecionarGrupo(nome, rolar = true) {
+  if (filtros.grupo === nome) return;
+  filtros.grupo = nome;
+  $("hist-grupo").textContent = nome || TODOS;
+  lista.irAoTopo();
+  sujo.dados = true; // grupos, chamadas ativas e centro marcam o grupo
+  agendar();
+  carregarHistorico(true);
+  // Colunas empilhadas: leva a lista para a vista se ela ficou abaixo da dobra.
+  if (rolar && $("lista").getBoundingClientRect().top > window.innerHeight) {
+    $("lista").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+}
+
+// ---------- coluna central ----------
 const chips = new Map();
 for (const e of ESTADOS) {
   const b = document.createElement("button");
   b.type = "button";
   b.className = "chip";
   b.dataset.estado = e.chave;
-  b.setAttribute("aria-pressed", "false");
-  const pino = document.createElement("span");
-  pino.className = "pino";
-  pino.setAttribute("aria-hidden", "true");
-  const nome = document.createElement("span");
-  nome.textContent = e.rotulo;
+  b.setAttribute("aria-pressed", "true");
+  const cor = document.createElement("span");
+  cor.className = "chip-cor";
+  cor.setAttribute("aria-hidden", "true");
   const n = document.createElement("span");
   n.className = "chip-n";
   n.textContent = "0";
-  b.append(pino, nome, n);
+  b.append(cor, e.rotulo + " ", n);
   b.addEventListener("click", () => {
-    if (filtros.estados.has(e.chave)) filtros.estados.delete(e.chave); else filtros.estados.add(e.chave);
-    b.setAttribute("aria-pressed", String(filtros.estados.has(e.chave)));
-    lista.irAoTopo();
-    sujo.filtro = true;
-    agendar();
+    if (filtros.desligados.has(e.chave)) filtros.desligados.delete(e.chave); else filtros.desligados.add(e.chave);
+    aplicarFiltroEstados();
   });
-  chips.set(e.chave, n);
+  chips.set(e.chave, { b, n });
   $("legenda").append(b);
 }
+$("chip-todos").addEventListener("click", () => { filtros.desligados.clear(); aplicarFiltroEstados(); });
 
-function renderLegenda() {
-  const base = filtros.grupo ? grupos.find((g) => g.nome === filtros.grupo) : null;
+function aplicarFiltroEstados() {
+  for (const [chave, c] of chips) c.b.setAttribute("aria-pressed", String(!filtros.desligados.has(chave)));
+  $("chip-todos").setAttribute("aria-pressed", String(filtros.desligados.size === 0));
+  $("legenda").classList.toggle("com-filtro", filtros.desligados.size > 0);
+  lista.irAoTopo();
+  sujo.filtro = true;
+  agendar();
+}
+
+const filtroAtivo = () => !!(normalizar(filtros.busca) || filtros.desligados.size || filtros.grupo);
+
+function renderCentro() {
+  // Com busca, o design procura em todos os grupos e ignora o grupo selecionado.
+  const fonte = filtrar(dados.itens, { busca: filtros.busca, grupo: normalizar(filtros.busca) ? "" : filtros.grupo, estados: null });
   const porEstado = {};
   for (const e of ESTADOS) porEstado[e.chave] = 0;
-  if (base) Object.assign(porEstado, base.porEstado);
-  else for (const g of grupos) for (const e of ESTADOS) porEstado[e.chave] += g.porEstado[e.chave];
-  for (const [chave, el] of chips) el.textContent = formatarNumero(porEstado[chave]);
-}
+  for (const it of fonte) porEstado[it.estado]++;
+  filtrados = filtros.desligados.size ? fonte.filter((it) => !filtros.desligados.has(it.estado)) : fonte;
+  lista.itens = filtrados;
+  lista.desvioMs = dados.desvioMs;
+  lista.render();
+  for (const [chave, c] of chips) c.n.textContent = formatarNumero(porEstado[chave]);
+  $("chip-todos-n").textContent = formatarNumero(fonte.length);
 
-// ---------- ranking ----------
-let chaveRanking = "";
-function renderRanking() {
-  const top = ranking(grupos);
-  const chave = JSON.stringify(top) + "|" + filtros.grupo;
-  if (chave === chaveRanking) return;
-  chaveRanking = chave;
-  const ol = $("ranking");
-  ol.replaceChildren();
-  const maior = top.length ? top[0].quantidade : 1;
-  for (const g of top) {
-    const li = document.createElement("li");
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "rank";
-    if (g.nome === filtros.grupo) b.setAttribute("aria-current", "true");
-    const nome = document.createElement("span");
-    nome.className = "rank-nome";
-    nome.textContent = g.nome;
-    const barra = document.createElement("span");
-    barra.className = "rank-barra";
-    barra.setAttribute("aria-hidden", "true");
-    const fill = document.createElement("span");
-    fill.style.transform = "scaleX(" + (g.quantidade / maior).toFixed(3) + ")";
-    barra.append(fill);
-    const n = document.createElement("span");
-    n.className = "rank-n";
-    const q = document.createElement("b");
-    q.textContent = formatarNumero(g.quantidade);
-    n.append(q, " de " + formatarNumero(g.total));
-    b.append(nome, barra, n);
-    b.addEventListener("click", () => selecionarGrupo(g.nome));
-    li.append(b);
-    ol.append(li);
-  }
-  $("ranking-vazio").hidden = top.length > 0;
-}
+  const g = filtros.grupo;
+  const total = g ? (porNome.get(g) || { total: 0 }).total : dados.itens.length;
+  const cat = g ? dados.grupos.find((x) => x.name === g) : null;
+  const faixas = cat && cat.ranges && cat.ranges.length ? "faixa " + textoFaixas(cat.ranges, String.fromCharCode(0x2013)) + " · " : "";
+  $("centro-nome").textContent = g || TODOS;
+  $("centro-info").textContent = faixas + formatarNumero(total) + " ramais";
+  $("contagem-lista").textContent = "Mostrando " + formatarNumero(filtrados.length) + " de " + formatarNumero(fonte.length) + " ramais · a lista carrega conforme a rolagem";
 
-// ---------- seleção de grupo ----------
-let chaveOpcoes = "";
-function renderOpcoesGrupo() {
-  const nomes = grupos.map((g) => g.nome);
-  // Grupo selecionado que ficou sem ramal (removed) some de `grupos`: o filtro volta para "Todos".
-  // Fica antes do retorno antecipado e roda antes do filtrar() do quadro, então lista, select,
-  // legenda, mapa e histórico já saem com "Todos" neste mesmo quadro (o mapa desenha depois, pelo timer).
-  if (filtros.grupo && !nomes.includes(filtros.grupo)) selecionarGrupo("", false);
-  const chave = nomes.join("\n");
-  if (chave === chaveOpcoes) return;
-  chaveOpcoes = chave;
-  const sel = $("filtro-grupo");
-  const todos = sel.options[0];
-  sel.replaceChildren(todos);
-  for (const nome of nomes) {
-    const o = document.createElement("option");
-    o.value = nome;
-    o.textContent = nome;
-    sel.append(o);
-  }
-  sel.value = filtros.grupo;
+  // Vazio por filtro, ou servidor sem ramal nenhum (estado pronto, não "carregando").
+  // Antes do primeiro snapshot (epoch nulo) não há o que afirmar.
+  const vazio = $("lista-vazia");
+  vazio.hidden = dados.epoch === null || filtrados.length > 0;
+  vazio.textContent = dados.itens.length > 0 ? "Nenhum ramal com esses filtros."
+    : dados.amiConectado ? "Nenhum ramal cadastrado." : "Aguardando a conexão com o Asterisk.";
+  edicao.aoFiltrar(filtrados, filtroAtivo());
 }
-
-// rolar = false quando a troca é automática (grupo sumiu): não arrasta a tela no celular.
-function selecionarGrupo(nome, rolar = true) {
-  if (filtros.grupo === nome) return;
-  filtros.grupo = nome;
-  $("filtro-grupo").value = nome;
-  $("grafico-grupo").textContent = nome ? "do grupo " + nome : "de todos os grupos";
-  lista.irAoTopo();
-  sujo.dados = true; // legenda e ranking marcam o grupo
-  agendar();
-  carregarHistorico(true);
-  if (rolar && matchMedia("(max-width: 1023px)").matches) {
-    $("lista").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  }
-}
-
-$("filtro-grupo").addEventListener("change", (e) => selecionarGrupo(e.target.value));
 
 let timerBusca = null;
 $("filtro-busca").addEventListener("input", (e) => {
@@ -420,139 +486,110 @@ $("filtro-busca").addEventListener("input", (e) => {
   }, 120);
 });
 
-// ---------- mapa (no máximo 4 redesenhos por segundo) ----------
-const mapa = $("mapa");
-const mapaCtx = mapa.getContext("2d");
-let layoutMapa = { blocos: [], passo: 3, lado: 2, altura: 0 };
-let ultimoMapa = -1e9;
-let timerMapa = null;
-let sobreMapa = null;
-
-function agendarMapa() {
-  if (timerMapa) return;
-  const espera = Math.max(0, 250 - (performance.now() - ultimoMapa));
-  timerMapa = setTimeout(() => {
-    requestAnimationFrame(() => { timerMapa = null; desenharMapaAgora(); });
-  }, espera);
+// Densidade: Compacto (72 px) ou Cartões (116 px). A escolha fica no navegador de quem vê.
+function aplicarModo(modo) {
+  lista.definirModo(modo);
+  for (const b of document.querySelectorAll(".seg[data-modo]")) b.setAttribute("aria-pressed", String(b.dataset.modo === modo));
 }
-
-function desenharMapaAgora() {
-  ultimoMapa = performance.now();
-  const caixa = $("mapa-caixa");
-  const largura = Math.max(50, caixa.clientWidth);
-  // Alvo: perto de 45% da altura da janela; com muitos grupos o mapa cresce e a coluna rola.
-  // Janela baixa (área do Issabel, ~700 px): mapa menor para o ranking e o histórico subirem.
-  const alvo = Math.max(180, Math.round(window.innerHeight * (window.innerHeight < 800 ? 0.36 : 0.45)));
-  layoutMapa = calcularLayout(grupos, largura - 8, alvo - 10);
-  // Grupo que ficou sem ramal (removed) sai do mapa: some também o destaque e a dica dele.
-  const dica = $("mapa-dica");
-  if (sobreMapa && !grupos.some((g) => g.nome === sobreMapa)) sobreMapa = null;
-  if (!dica.hidden && !grupos.some((g) => g.nome === dica.dataset.grupo)) { dica.hidden = true; delete dica.dataset.grupo; }
-  const altura = layoutMapa.altura + 10;
-  const dpr = window.devicePixelRatio || 1;
-  if (mapa.width !== Math.round(largura * dpr) || mapa.height !== Math.round(altura * dpr)) {
-    mapa.width = Math.round(largura * dpr);
-    mapa.height = Math.round(altura * dpr);
-    mapa.style.height = altura + "px";
-  }
-  mapaCtx.setTransform(dpr, 0, 0, dpr, 4 * dpr, 5 * dpr);
-  desenharMapa(mapaCtx, layoutMapa, grupos, tema.coresEstado, {
-    selecionado: filtros.grupo, sobre: sobreMapa,
-    corTexto: tema.texto, corTextoFraco: tema.textoFraco, corSelecao: tema.acento, fonte: tema.fonte,
+for (const b of document.querySelectorAll(".seg[data-modo]")) {
+  b.addEventListener("click", () => {
+    aplicarModo(b.dataset.modo);
+    try { localStorage.setItem(CHAVE_MODO, b.dataset.modo); } catch { /* sem armazenamento: vale só nesta visita */ }
   });
-  mapa.setAttribute("aria-label", "Mapa de " + formatarNumero(cont.total) + " ramais em " + grupos.length + " grupos");
+}
+try { if (localStorage.getItem(CHAVE_MODO) === "cartoes") aplicarModo("cartoes"); } catch { /* idem */ }
+
+// ---------- chamadas ativas do grupo selecionado, mais longas primeiro ----------
+const poolChamadas = [];
+function criarLinhaChamada() {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "chamada";
+  const seta = document.createElement("span");
+  seta.className = "chamada-seta";
+  seta.setAttribute("aria-hidden", "true");
+  const meio = document.createElement("span");
+  meio.className = "chamada-meio";
+  const l1 = document.createElement("span");
+  l1.className = "chamada-l1";
+  const num = document.createElement("strong");
+  const nome = document.createTextNode("");
+  l1.append(num, nome);
+  const l2 = document.createElement("span");
+  l2.className = "chamada-l2";
+  meio.append(l1, l2);
+  const tempo = document.createElement("span");
+  tempo.className = "chamada-tempo";
+  b.append(seta, meio, tempo);
+  $("chamadas").append(b);
+  return { b, seta, num, nome, l2, tempo };
 }
 
-function pontoMapa(e) {
-  const r = mapa.getBoundingClientRect();
-  return { x: e.clientX - r.left - 4, y: e.clientY - r.top - 5 };
-}
-
-mapa.addEventListener("pointermove", (e) => {
-  const p = pontoMapa(e);
-  const b = acharBloco(layoutMapa, p.x, p.y);
-  const nome = b ? b.nome : null;
-  mapa.classList.toggle("clicavel", !!b);
-  if (nome !== sobreMapa) { sobreMapa = nome; agendarMapa(); }
-  const dica = $("mapa-dica");
-  if (!b) { dica.hidden = true; return; }
-  const g = grupos.find((x) => x.nome === nome);
-  if (!g) { dica.hidden = true; return; }
-  if (dica.dataset.grupo !== nome || dica.dataset.versao !== String(dados.version)) {
-    dica.dataset.grupo = nome;
-    dica.dataset.versao = String(dados.version);
-    dica.replaceChildren();
-    const t = document.createElement("strong");
-    t.textContent = g.nome;
-    const total = document.createElement("span");
-    total.className = "dica-sub";
-    total.textContent = formatarNumero(g.total) + " ramais";
-    dica.append(t, total);
-    for (const est of ESTADOS) {
-      const n = g.porEstado[est.chave];
-      if (!n) continue;
-      const linha = document.createElement("span");
-      linha.className = "dica-linha";
-      linha.dataset.estado = est.chave;
-      const pino = document.createElement("i");
-      pino.className = "pino";
-      const rot = document.createElement("span");
-      rot.textContent = ROTULO[est.chave];
-      const v = document.createElement("b");
-      v.textContent = formatarNumero(n);
-      linha.append(pino, rot, v);
-      dica.append(linha);
-    }
+function renderChamadas() {
+  const agora = Date.now();
+  const ativos = [];
+  for (const it of dados.itens) {
+    if (it.estado !== "em_conversa" && it.estado !== "em_espera") continue;
+    if (filtros.grupo && it.ramal.group !== filtros.grupo) continue;
+    ativos.push({ it, ms: duracaoMs(it.ramal.calls, agora, dados.desvioMs) ?? 0 });
   }
-  dica.hidden = false;
-  const caixa = $("mapa-caixa");
-  const larg = dica.offsetWidth, alt = dica.offsetHeight;
-  const r = caixa.getBoundingClientRect();
-  const cx = e.clientX - r.left, cy = e.clientY - r.top;
-  const x = cx + 16 + larg > caixa.clientWidth ? cx - 16 - larg : cx + 16;
-  const y = Math.min(cy + 12, caixa.clientHeight - alt - 4);
-  dica.style.transform = "translate(" + Math.round(Math.max(0, x)) + "px," + Math.round(Math.max(0, y)) + "px)";
-});
-mapa.addEventListener("pointerleave", () => {
-  $("mapa-dica").hidden = true;
-  mapa.classList.remove("clicavel");
-  if (sobreMapa) { sobreMapa = null; agendarMapa(); }
-});
-mapa.addEventListener("click", (e) => {
-  const p = pontoMapa(e);
-  const b = acharBloco(layoutMapa, p.x, p.y);
-  if (b) selecionarGrupo(b.nome === filtros.grupo ? "" : b.nome);
+  ativos.sort((a, b) => b.ms - a.ms);
+  $("chamadas-n").textContent = formatarNumero(ativos.length);
+  $("chamadas-sub").textContent = (filtros.grupo || TODOS) + " · mais longas primeiro";
+  const mostrar = ativos.slice(0, MAX_CHAMADAS);
+  while (poolChamadas.length < mostrar.length) poolChamadas.push(criarLinhaChamada());
+  poolChamadas.forEach((ui, k) => {
+    const a = mostrar[k];
+    ui.b.hidden = !a;
+    if (!a) return;
+    const r = a.it.ramal;
+    const c = chamadaPrincipal(r.calls) || {};
+    const espera = a.it.estado === "em_espera";
+    ui.b.dataset.numero = r.number;
+    if (espera) ui.b.dataset.espera = "1"; else delete ui.b.dataset.espera;
+    ui.seta.textContent = SETA[c.direction] || SETA.internal;
+    ui.num.textContent = r.number;
+    ui.nome.data = " " + (r.name || "sem nome");
+    ui.l2.textContent = (espera ? "Em espera" : DIRECAO[c.direction] || "Chamada") + " · " + outroLado(c);
+    ui.tempo.textContent = formatarCronometro(a.ms);
+    ui.tempo.classList.toggle("longa", a.ms > CHAMADA_LONGA_MS);
+    ui.b.setAttribute("aria-label", "Ramal " + r.number + ", " + (r.name || "sem nome") + ", " + ui.l2.textContent + ", " + ui.tempo.textContent);
+  });
+  $("chamadas-vazio").hidden = ativos.length > 0;
+}
+
+$("chamadas").addEventListener("click", (e) => {
+  const b = e.target.closest(".chamada");
+  if (b && b.dataset.numero) edicao.abrirRamal(b.dataset.numero);
 });
 
-// ---------- histórico ----------
-let periodo = "1h";
+// ---------- últimas 24 h ----------
 let pedidoHistorico = 0;
 async function carregarHistorico(mostrarCarregando) {
   if (!ativo) return;
   const meu = ++pedidoHistorico;
-  const estado = $("grafico-estado");
-  const texto = $("grafico-estado-texto");
-  const repetir = $("grafico-repetir");
+  const estado = $("hist-estado");
+  const texto = $("hist-estado-texto");
+  const repetir = $("hist-repetir");
   if (mostrarCarregando) {
     estado.hidden = false;
     texto.textContent = "Carregando histórico...";
     repetir.hidden = true;
   }
   const ate = new Date();
-  const de = new Date(ate.getTime() - PERIODOS[periodo]);
-  const pedidos = [api.historico(de, ate, filtros.grupo)];
-  // A variação da última hora é sempre do total da instalação (C9).
-  const precisaHora = periodo !== "1h" || filtros.grupo;
-  if (precisaHora) pedidos.push(api.historico(new Date(ate.getTime() - PERIODOS["1h"]), ate, ""));
+  const de = new Date(ate.getTime() - DIA);
   try {
-    const [h, hora] = await Promise.all(pedidos);
+    const h = await api.historico(de, ate, filtros.grupo);
     if (meu !== pedidoHistorico) return;
-    pontosUltimaHora = (precisaHora ? hora : h).points;
-    renderVariacao();
-    const temDado = h.points.some((p) => !p.gap);
+    const pontos = h.points || [];
+    const temDado = pontos.some((p) => !p.gap);
     estado.hidden = temDado;
-    if (!temDado) texto.textContent = "Sem dados no período. O histórico grava um ponto por minuto.";
-    grafico.definir(h.points, periodo);
+    repetir.hidden = true;
+    if (!temDado) texto.textContent = "Sem dados nas últimas 24 h. O histórico grava um ponto por minuto.";
+    const pico = desenharHistorico($("hist-series"), pontos);
+    $("hist-pico").textContent = "Em chamada (pico " + formatarNumero(pico) + ")";
+    const rotulos = rotulosEixo(de.getTime());
+    [...$("hist-eixo").children].forEach((s, i) => { s.textContent = rotulos[i]; });
   } catch (e) {
     if (meu !== pedidoHistorico) return;
     if (e.status === 401) { semSessao(); return; }
@@ -561,15 +598,7 @@ async function carregarHistorico(mostrarCarregando) {
     repetir.hidden = false;
   }
 }
-
-$("grafico-repetir").addEventListener("click", () => carregarHistorico(true));
-for (const b of document.querySelectorAll(".seg[data-periodo]")) {
-  b.addEventListener("click", () => {
-    periodo = b.dataset.periodo;
-    for (const o of document.querySelectorAll(".seg[data-periodo]")) o.setAttribute("aria-pressed", String(o === b));
-    carregarHistorico(true);
-  });
-}
+$("hist-repetir").addEventListener("click", () => carregarHistorico(true));
 
 // ---------- tela cheia e grupos ----------
 $("botao-cheia").addEventListener("click", () => {
@@ -579,37 +608,11 @@ $("botao-cheia").addEventListener("click", () => {
 document.addEventListener("fullscreenchange", () => {
   const cheia = !!document.fullscreenElement;
   $("icone-cheia").setAttribute("href", cheia ? "#i-sair-cheia" : "#i-cheia");
-  $("texto-cheia").textContent = cheia ? "Sair da tela cheia" : "Tela cheia";
+  $("botao-cheia").setAttribute("aria-label", cheia ? "Sair da tela cheia" : "Tela cheia");
 });
 $("botao-grupos").addEventListener("click", () => areaGrupos.abrir());
 
-// ---------- tamanho ----------
-new ResizeObserver(() => { if (ativo) agendarMapa(); }).observe($("mapa-caixa"));
-new ResizeObserver(() => { if (ativo) grafico.desenhar(); }).observe($("grafico-caixa"));
 new ResizeObserver(() => { if (ativo) lista.agendar(); }).observe($("lista"));
-
-// Histórico fora da área visível (janela baixa, coluna rolável ou telas empilhadas): aviso fixo no pé da coluna.
-// Raiz nula: o observador já desconta o recorte da coluna que rola.
-const avisoHistorico = $("aviso-historico");
-new IntersectionObserver((entradas) => {
-  for (const e of entradas) avisoHistorico.hidden = e.intersectionRatio >= 0.25;
-}, { threshold: [0, 0.25] }).observe($("bloco-historico"));
-avisoHistorico.addEventListener("click", () => {
-  const suave = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-  $("bloco-historico").scrollIntoView({ behavior: suave ? "smooth" : "auto", block: "nearest" });
-});
-
-function lerTema() {
-  const css = getComputedStyle(document.documentElement);
-  const v = (n) => css.getPropertyValue(n).trim();
-  const coresEstado = {};
-  const cores = {};
-  for (const e of ESTADOS) { coresEstado[e.chave] = v(e.cor); cores[e.cor] = v(e.cor); }
-  return {
-    coresEstado, cores, texto: v("--tinta-1"), textoFraco: v("--tinta-3"), linha: v("--linha"),
-    fundo: v("--sup-1"), acento: v("--acento"), fonte: v("--fonte-texto"), fonteNum: v("--fonte-display"),
-  };
-}
 
 // ---------- início ----------
 if (!EMERGENCIA && window.top === window.self) {

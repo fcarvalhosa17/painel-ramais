@@ -45,6 +45,11 @@ export const api = {
   grupos: () => chamar("GET", "api/groups"),
   importarGrupos: (csv, replace) => chamar("POST", "api/groups/import", { csv, replace }),
   removerGrupo: (name) => chamar("POST", "api/groups/delete", { name }),
+  criarGrupo: (name, ranges) => chamar("POST", "api/groups/create", ranges && ranges.length ? { name, ranges } : { name }),
+  // mudancas: { new_name?, ranges? } (ranges substitui todas as faixas do grupo).
+  editarGrupo: (name, mudancas) => chamar("POST", "api/groups/update", { name, ...mudancas }),
+  // group: nome, "Sem grupo" (manual sem grupo) ou null (volta para a faixa). Uma chamada só, atômica.
+  moverRamais: (numbers, group) => chamar("POST", "api/groups/assign", { numbers, group }),
 };
 
 // Ciclo de vida do WebSocket. eventos: { aoDelta(msg), aoPrecisarSnapshot(), aoReconectar(), aoSessaoEncerrada(), aoStatus(status, detalhe) }

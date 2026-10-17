@@ -1,86 +1,225 @@
-// Área "Grupos" (C6): só aparece com sessão de administrador. Listar, importar CSV e remover.
-// Depois de gravar, o daemon troca o epoch e a tela recarrega sozinha pelo reload do /ws.
+// "Gerenciar grupos" (C6): só aparece com sessão de administrador (o daemon decide e responde 403).
+// Lista o catálogo do snapshot/delta (inclui grupos vazios), renomeia, edita faixas, exclui e importa CSV.
+// Criar, editar, excluir e importar chegam por delta, sem epoch novo. A lista é redesenhada quando o catálogo
+// muda de fato (aoMudarCatalogo), nunca por um GET logo depois do POST.
 
 import { api } from "./conexao.js";
+import {
+  SEM_GRUPO, formatarNumero, textoFaixas, lerFaixas, conflitoDeFaixa, contarComFaixas, erroNomeGrupo,
+} from "./estado.js";
 
 const $ = (id) => document.getElementById(id);
-const LIMITE_CORPO = 1024 * 1024; // o daemon aceita até 1 MiB no corpo JSON (C6); acima disso, 413
+const LIMITE_CORPO = 1024 * 1024; // o daemon aceita até 1 MiB no corpo JSON do import (C6); acima disso, 413
+const VAZIO = "Nenhum grupo cadastrado. Use Novo grupo ou importe um CSV.";
+const plural = (n, um, varios) => formatarNumero(n) + " " + (n === 1 ? um : varios);
 
 // Tamanho do corpo exatamente como sai no POST: o JSON escapa aspas, barras e quebras de linha do CSV.
 export const tamanhoCorpo = (csv, replace) => new TextEncoder().encode(JSON.stringify({ csv, replace })).length;
 
-function faixasTexto(ranges) {
-  if (!ranges || !ranges.length) return "sem faixa";
-  return ranges.map((r) => (r.start === r.end ? String(r.start) : r.start + "-" + r.end)).join(", ");
+function botaoTexto(rotulo, classe) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = classe;
+  b.textContent = rotulo;
+  return b;
 }
 
-export function iniciarGrupos(aoSessaoEncerrada) {
+function campoTexto(rotulo, valor, extra) {
+  const label = document.createElement("label");
+  label.className = "campo";
+  const span = document.createElement("span");
+  span.className = "campo-rotulo";
+  span.textContent = rotulo;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = valor;
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  Object.assign(input, extra);
+  label.append(span, input);
+  return { label, input };
+}
+
+function paragrafo(classe, viva) {
+  const p = document.createElement("p");
+  p.className = classe;
+  if (viva) p.setAttribute("aria-live", "polite");
+  return p;
+}
+
+export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
   const dialogo = $("dialogo-grupos");
   const lista = $("dg-lista");
   const estado = $("dg-lista-estado");
+  const okLista = $("dg-ok-lista");
   const erro = $("dg-erro");
   const ok = $("dg-ok");
   const texto = $("dg-texto");
   const botao = $("dg-importar");
+  const contadores = new Map(); // nome -> { det, g }
+
+  const catalogo = () => dados.grupos.filter((g) => g.name !== SEM_GRUPO)
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  function contarPorGrupo() {
+    const m = new Map();
+    for (const it of dados.itens) m.set(it.ramal.group, (m.get(it.ramal.group) || 0) + 1);
+    return m;
+  }
+
+  const detalhe = (g, n) => (textoFaixas(g.ranges) || "sem faixa") + " · " + plural(n, "ramal", "ramais");
 
   const tratar = (e, alvo) => {
     if (e.status === 401) { dialogo.close(); aoSessaoEncerrada(); return; }
     alvo.textContent = e.message;
   };
 
-  async function carregar() {
-    estado.hidden = false;
-    estado.textContent = "Carregando grupos...";
-    lista.replaceChildren();
-    try {
-      const grupos = await api.grupos();
-      const cadastrados = grupos.filter((g) => g.name !== "Sem grupo");
-      estado.hidden = cadastrados.length > 0;
-      estado.textContent = "Nenhum grupo cadastrado. Importe um CSV para criar.";
-      for (const g of cadastrados) lista.append(linhaGrupo(g));
-    } catch (e) {
-      tratar(e, estado);
-    }
+  // ponytail: redesenha a lista inteira quando o catálogo muda; uma edição em andamento noutra linha se perde
+  // (só acontece com dois administradores ao mesmo tempo). Chavear por nome se isso incomodar.
+  function render() {
+    const cat = catalogo();
+    const porGrupo = contarPorGrupo();
+    contadores.clear();
+    lista.replaceChildren(...cat.map((g) => linhaGrupo(g, porGrupo.get(g.name) || 0)));
+    estado.hidden = cat.length > 0;
+    estado.textContent = VAZIO;
   }
 
-  function linhaGrupo(g) {
+  function atualizarContagens() {
+    if (!dialogo.open || !contadores.size) return;
+    const porGrupo = contarPorGrupo();
+    for (const [nome, c] of contadores) c.det.textContent = detalhe(c.g, porGrupo.get(nome) || 0);
+  }
+
+  function linhaGrupo(g, n) {
     const li = document.createElement("li");
     li.className = "dg-item";
     const info = document.createElement("div");
+    info.className = "dg-info";
     const nome = document.createElement("strong");
     nome.textContent = g.name;
     const det = document.createElement("span");
     det.className = "dg-det";
-    det.textContent = faixasTexto(g.ranges) + " · " + g.extensions.length + " ramais";
+    det.textContent = detalhe(g, n);
     info.append(nome, det);
+    contadores.set(g.name, { det, g });
     const acoes = document.createElement("div");
     acoes.className = "dg-acoes";
-    const remover = botaoTexto("Remover", "botao botao-fantasma");
-    remover.setAttribute("aria-label", "Remover o grupo " + g.name);
+    const editar = botaoTexto("Editar", "botao");
+    editar.setAttribute("aria-label", "Editar o grupo " + g.name);
+    const remover = botaoTexto("Excluir", "botao");
+    remover.setAttribute("aria-label", "Excluir o grupo " + g.name);
+    acoes.append(editar, remover);
+    li.append(info, acoes);
+
+    editar.addEventListener("click", () => abrirEdicao(li, g, () => { li.replaceChildren(info, acoes); editar.focus(); }));
+
     remover.addEventListener("click", () => {
-      const confirmar = botaoTexto("Confirmar remoção", "botao botao-perigo");
-      const cancelar = botaoTexto("Cancelar", "botao botao-fantasma");
-      cancelar.addEventListener("click", () => { acoes.replaceChildren(remover); remover.focus(); });
+      const qtd = contarPorGrupo().get(g.name) || 0;
+      const aviso = paragrafo("dg-aviso");
+      aviso.textContent = qtd
+        ? "Os " + plural(qtd, "ramal", "ramais") + " deste grupo vão para \"Sem grupo\" (os movidos à mão voltam para a faixa deles)."
+        : "O grupo está vazio.";
+      const confirmar = botaoTexto("Confirmar exclusão", "botao botao-perigo");
+      const cancelar = botaoTexto("Cancelar", "botao");
+      const restaurar = () => { aviso.remove(); acoes.replaceChildren(editar, remover); };
+      cancelar.addEventListener("click", () => { restaurar(); remover.focus(); });
       confirmar.addEventListener("click", async () => {
         confirmar.disabled = cancelar.disabled = true;
-        confirmar.textContent = "Removendo...";
+        confirmar.textContent = "Excluindo...";
         try {
           await api.removerGrupo(g.name);
-          ok.textContent = "Grupo " + g.name + " removido.";
-          // Tira da lista já: o GET /api/groups só reflete a remoção depois do epoch novo (aoMudarEpoch relê).
+          okLista.textContent = "Grupo " + g.name + " excluído.";
+          // Tira da lista já, pelo resultado do POST; o catálogo novo chega pelo delta (ou snapshot) e redesenha.
           li.remove();
-          if (!lista.children.length) { estado.hidden = false; estado.textContent = "Nenhum grupo cadastrado. Importe um CSV para criar."; }
+          contadores.delete(g.name);
+          if (!lista.children.length) { estado.hidden = false; estado.textContent = VAZIO; }
         } catch (e) {
           tratar(e, erro);
-          acoes.replaceChildren(remover);
+          restaurar();
         }
       });
+      info.append(aviso);
       acoes.replaceChildren(confirmar, cancelar);
       cancelar.focus();
     });
-    acoes.append(remover);
-    li.append(info, acoes);
     return li;
+  }
+
+  // Renomear e editar faixas no mesmo formulário, com a contagem prévia pelos dados carregados.
+  function abrirEdicao(li, g, cancelarEdicao) {
+    const form = document.createElement("form");
+    form.className = "dg-editar";
+    form.noValidate = true;
+    const nome = campoTexto("Nome", g.name, { maxLength: 64, required: true });
+    const nomeErro = paragrafo("campo-erro", true);
+    const faixas = campoTexto("Faixas e ramais avulsos", textoFaixas(g.ranges), { placeholder: "2000-2099, 3001" });
+    const faixasErro = paragrafo("campo-erro", true);
+    const previa = paragrafo("previa", true);
+    const erroForm = paragrafo("campo-erro");
+    erroForm.setAttribute("role", "alert");
+    const botoes = document.createElement("div");
+    botoes.className = "dialogo-botoes";
+    const salvar = document.createElement("button");
+    salvar.type = "submit";
+    salvar.className = "botao botao-primario";
+    salvar.textContent = "Salvar";
+    const cancelar = botaoTexto("Cancelar", "botao");
+    botoes.append(salvar, cancelar);
+    form.append(nome.label, nomeErro, faixas.label, faixasErro, previa, erroForm, botoes);
+
+    const ler = () => {
+      const lidas = lerFaixas(faixas.input.value);
+      return { faixas: lidas.faixas, erro: lidas.erro || conflitoDeFaixa(lidas.faixas, catalogo(), g.name) };
+    };
+    const atualizarPrevia = () => {
+      const { faixas: fx, erro: e } = ler();
+      faixasErro.textContent = e;
+      if (e) { previa.textContent = ""; return; }
+      const c = contarComFaixas(dados.itens, fx, g.name);
+      const hoje = contarPorGrupo().get(g.name) || 0;
+      let t = "Com essas faixas o grupo fica com " + plural(c.pelaFaixa + c.manuaisNoGrupo, "ramal", "ramais") + " (hoje " + formatarNumero(hoje) + ").";
+      if (c.manuaisNaFaixa) t += " " + plural(c.manuaisNaFaixa, "ramal da faixa tem grupo escolhido à mão e não entra.", "ramais da faixa têm grupo escolhido à mão e não entram.");
+      previa.textContent = t;
+    };
+    faixas.input.addEventListener("input", atualizarPrevia);
+    nome.input.addEventListener("input", () => {
+      nomeErro.textContent = nome.input.value.trim() ? erroNomeGrupo(nome.input.value, catalogo(), g.name) : "";
+    });
+    cancelar.addEventListener("click", cancelarEdicao);
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const novoNome = nome.input.value.trim();
+      const eNome = erroNomeGrupo(novoNome, catalogo(), g.name);
+      const { faixas: fx, erro: eFaixas } = ler();
+      nomeErro.textContent = eNome;
+      faixasErro.textContent = eFaixas;
+      erroForm.textContent = "";
+      if (eNome) { nome.input.focus(); return; }
+      if (eFaixas) { faixas.input.focus(); return; }
+      const mudancas = { ranges: fx };
+      if (novoNome !== g.name) mudancas.new_name = novoNome;
+      salvar.disabled = cancelar.disabled = true;
+      salvar.textContent = "Salvando...";
+      try {
+        const r = await api.editarGrupo(g.name, mudancas);
+        const final = (r && r.name) || novoNome;
+        okLista.textContent = "Grupo " + final + " atualizado.";
+        // Mostra o resultado do POST já; o delta com o catálogo novo redesenha a lista logo depois.
+        const c = contarComFaixas(dados.itens, fx, g.name);
+        li.replaceWith(linhaGrupo({ name: final, ranges: fx }, c.pelaFaixa + c.manuaisNoGrupo));
+        if (final !== g.name) contadores.delete(g.name);
+      } catch (err) {
+        tratar(err, erroForm);
+        salvar.disabled = cancelar.disabled = false;
+        salvar.textContent = "Salvar";
+      }
+    });
+
+    li.replaceChildren(form);
+    atualizarPrevia();
+    nome.input.focus();
   }
 
   $("dg-arquivo").addEventListener("change", async (e) => {
@@ -103,10 +242,9 @@ export function iniciarGrupos(aoSessaoEncerrada) {
     botao.textContent = "Importando...";
     try {
       const r = await api.importarGrupos(csv, substituir);
-      ok.textContent = r.rows + (r.rows === 1 ? " linha importada." : " linhas importadas.") + " A tela recarrega com os grupos novos.";
+      ok.textContent = r.rows + (r.rows === 1 ? " linha importada." : " linhas importadas.");
       texto.value = "";
       $("dg-arquivo").value = "";
-      await carregar();
     } catch (err) {
       tratar(err, erro);
     } finally {
@@ -121,20 +259,15 @@ export function iniciarGrupos(aoSessaoEncerrada) {
     abrir() {
       erro.textContent = "";
       ok.textContent = "";
+      okLista.textContent = "";
+      render();
       dialogo.showModal();
-      carregar();
     },
-    // A gravação troca o epoch logo depois de responder: a lista é relida quando o snapshot novo chega.
-    aoMudarEpoch() {
-      if (dialogo.open) carregar();
+    aoMudarCatalogo() {
+      if (dialogo.open) render();
+    },
+    aoMudarDados() {
+      atualizarContagens();
     },
   };
-}
-
-function botaoTexto(rotulo, classe) {
-  const b = document.createElement("button");
-  b.type = "button";
-  b.className = classe;
-  b.textContent = rotulo;
-  return b;
 }

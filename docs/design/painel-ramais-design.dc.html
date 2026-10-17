@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Painel de Ramais</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#eef1f4}
+a{color:#7fb2ff}a:hover{color:#a9caff}
+@keyframes pr-pulse{0%{box-shadow:0 0 0 0 rgba(47,179,107,.6)}70%{box-shadow:0 0 0 7px rgba(47,179,107,0)}100%{box-shadow:0 0 0 0 rgba(47,179,107,0)}}
+@keyframes pr-ring{0%,100%{opacity:1}50%{opacity:.45}}
+.pr-live{animation:pr-pulse 1.8s infinite}
+.pr-ringing{animation:pr-ring 1s infinite}
+.pr-scroll::-webkit-scrollbar{width:10px;height:10px}
+.pr-scroll::-webkit-scrollbar-thumb{background:#2a3441;border-radius:6px;border:2px solid #10161e}
+.pr-scroll::-webkit-scrollbar-track{background:transparent}
+button{font-family:inherit}
+button:focus-visible,input:focus-visible{outline:2px solid #7fb2ff;outline-offset:2px}
+input::placeholder{color:#7c8794}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #dbe2ea; background: #eef1f4; padding: 12px 14px 14px">
+
+<nav aria-label="Navegação" style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1px solid #dde2e8; border-radius: 6px; padding: 10px 16px; margin-bottom: 10px; color: #5b6673; font-size: 13px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg>
+<span>PBX</span>
+<span aria-hidden="true" style="color: #b3bcc6">/</span>
+<span style="color: #2b3440; font-weight: 600">Painel de Ramais</span>
+</nav>
+
+<main style="background: #0d1218; border-radius: 8px; padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 16px">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<h1 style="margin: 0; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: .02em; color: #f2f5f8">Painel de Ramais</h1>
+<span style="display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 999px; background: rgba(47,179,107,.12); color: #6fdc9f; font-size: 12px; font-weight: 600; letter-spacing: .06em">
+<span class="pr-live" style="width: 8px; height: 8px; border-radius: 50%; background: #2fb36b"></span>AO VIVO</span>
+<span style="font-size: 12px; color: #8b95a3">Atualizado há 1 s · PJSIP · 10.255.200.1</span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<div role="group" aria-label="Densidade" style="display: flex; background: #151c25; border: 1px solid #253040; border-radius: 8px; padding: 3px">
+<button type="button" onClick="{{setCompact}}" aria-pressed="{{compactPressed}}" style="min-height: 34px; padding: 0 12px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; background: {{compactBg}}; color: {{compactFg}}">Compacto</button>
+<button type="button" onClick="{{setCards}}" aria-pressed="{{cardsPressed}}" style="min-height: 34px; padding: 0 12px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; background: {{cardsBg}}; color: {{cardsFg}}">Cartões</button>
+</div>
+<button type="button" style="min-height: 40px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid #253040; border-radius: 8px; background: #151c25; color: #dbe2ea; font-size: 13px; font-weight: 600; cursor: pointer">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 13l9 5 9-5"></path></svg>Gerenciar grupos</button>
+<button type="button" aria-label="Tela cheia" style="min-height: 40px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #253040; border-radius: 8px; background: #151c25; color: #dbe2ea; cursor: pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path></svg></button>
+</div>
+</header>
+
+<section aria-label="Resumo do servidor" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px">
+<div style="background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: .08em; color: #8b95a3">RAMAIS</span>
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 34px; line-height: 1; color: #f2f5f8">{{k.total}}</span>
+<span style="font-size: 12px; color: #8b95a3">em {{k.groups}} grupos</span>
+</div>
+<div style="background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: #8b95a3"><span style="width: 8px; height: 8px; border-radius: 2px; background: #2fb36b"></span>REGISTRADOS</span>
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 34px; line-height: 1; color: #f2f5f8">{{k.reg}} <span style="font-size: 18px; color: #6fdc9f">{{k.regPct}}</span></span>
+<div style="height: 6px; border-radius: 3px; background: #232c38; overflow: hidden"><div style="height: 6px; background: #2fb36b; width: {{k.regPct}}"></div></div>
+</div>
+<div style="background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: #8b95a3"><span style="width: 8px; height: 8px; border-radius: 2px; background: #6b7480"></span>NÃO REGISTRADOS</span>
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 34px; line-height: 1; color: #f2f5f8">{{k.naoreg}}</span>
+<span style="font-size: 12px; color: #8b95a3">pior grupo: {{k.worst}}</span>
+</div>
+<div style="background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: #8b95a3"><span style="width: 8px; height: 8px; border-radius: 2px; background: #f08a3c"></span>INALCANÇÁVEIS</span>
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 34px; line-height: 1; color: #ffb27a">{{k.inalc}}</span>
+<span style="font-size: 12px; color: #8b95a3">registrados sem resposta (qualify)</span>
+</div>
+<div style="background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: #8b95a3"><span style="width: 8px; height: 8px; border-radius: 2px; background: #e5484d"></span>EM CHAMADA</span>
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 34px; line-height: 1; color: #f2f5f8">{{k.calls}}</span>
+<span style="font-size: 12px; color: #8b95a3; font-family: 'IBM Plex Mono', monospace">↙ {{k.cin}}  ↗ {{k.cout}}  ↔ {{k.cint}}</span>
+</div>
+<div style="background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: #8b95a3"><span style="width: 8px; height: 8px; border-radius: 2px; background: #e8b931"></span>TOCANDO / ESPERA</span>
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 34px; line-height: 1; color: #f2f5f8">{{k.ring}} <span style="font-size: 18px; color: #b9a6f5">/ {{k.hold}}</span></span>
+<span style="font-size: 12px; color: #8b95a3">aguardando atendimento</span>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">
+
+<aside aria-label="Grupos" style="flex: 1 1 280px; max-width: 100%; display: flex; flex-direction: column; gap: 14px">
+<section style="background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<h2 style="margin: 0; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: .04em; color: #f2f5f8">GRUPOS</h2>
+<div role="group" aria-label="Ordenar grupos" style="display: flex; gap: 2px; font-size: 12px">
+<button type="button" onClick="{{sortName}}" aria-pressed="{{sortNamePressed}}" style="min-height: 30px; padding: 0 8px; border: 0; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; background: {{sortNameBg}}; color: {{sortNameFg}}">Nome</button>
+<button type="button" onClick="{{sortIssue}}" aria-pressed="{{sortIssuePressed}}" style="min-height: 30px; padding: 0 8px; border: 0; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; background: {{sortIssueBg}}; color: {{sortIssueFg}}">Mais problemas</button>
+</div>
+</div>
+<div class="pr-scroll" style="display: flex; flex-direction: column; gap: 6px; max-height: 520px; overflow-y: auto; padding-right: 2px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="9">
+<button type="button" onClick="{{g.pick}}" aria-pressed="{{g.pressed}}" style="text-align: left; display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; border-radius: 8px; border: 1px solid {{g.bc}}; background: {{g.bg}}; color: #dbe2ea; cursor: pointer">
+<span style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: 100%">
+<span style="font-size: 14px; font-weight: 600; color: #f2f5f8">{{g.name}}</span>
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 600; font-size: 16px; color: #c7d0da">{{g.nFmt}}</span>
+</span>
+<span aria-hidden="true" style="display: flex; width: 100%; height: 6px; border-radius: 3px; overflow: hidden; background: #232c38">
+<span style="height: 6px; background: #2fb36b; width: {{g.wLivre}}"></span>
+<span style="height: 6px; background: #e5484d; width: {{g.wCall}}"></span>
+<span style="height: 6px; background: #e8b931; width: {{g.wRing}}"></span>
+<span style="height: 6px; background: #f08a3c; width: {{g.wInalc}}"></span>
+<span style="height: 6px; background: #4b5460; width: {{g.wNaoreg}}"></span>
+</span>
+<span style="display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: #8b95a3">
+<span>{{g.regPct}} registrados</span>
+<span style="color: {{g.alertFg}}">{{g.alert}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</section>
+
+<section style="background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h2 style="margin: 0; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: .04em; color: #f2f5f8">ÚLTIMAS 24 H</h2>
+<span style="font-size: 12px; color: #8b95a3">{{sel.name}}</span>
+</div>
+<svg viewBox="0 0 260 90" width="100%" height="96" role="img" aria-label="Histórico de chamadas simultâneas e ramais não registrados nas últimas 24 horas">
+<line x1="0" y1="80" x2="260" y2="80" stroke="#232c38" stroke-width="1"></line>
+<line x1="0" y1="45" x2="260" y2="45" stroke="#1a222c" stroke-width="1"></line>
+<line x1="0" y1="10" x2="260" y2="10" stroke="#1a222c" stroke-width="1"></line>
+<polygon points="{{hist.area}}" fill="rgba(229,72,77,.16)"></polygon>
+<polyline points="{{hist.calls}}" fill="none" stroke="#e5484d" stroke-width="2" stroke-linejoin="round"></polyline>
+<polyline points="{{hist.naoreg}}" fill="none" stroke="#8b95a3" stroke-width="1.5" stroke-dasharray="3 3" stroke-linejoin="round"></polyline>
+</svg>
+<div style="display: flex; justify-content: space-between; font-size: 11px; color: #7c8794; font-family: 'IBM Plex Mono', monospace"><span>00h</span><span>06h</span><span>12h</span><span>18h</span><span>agora</span></div>
+<div style="display: flex; gap: 14px; font-size: 12px; color: #aeb7c2">
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 2px; background: #e5484d"></span>Em chamada (pico {{hist.peak}})</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 0; border-top: 2px dashed #8b95a3"></span>Não registrados</span>
+</div>
+</section>
+</aside>
+
+<section aria-label="Ramais do grupo" style="flex: 999 1 560px; min-width: 0; background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px">
+<div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap">
+<h2 style="margin: 0; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 22px; color: #f2f5f8">{{sel.name}}</h2>
+<span style="font-size: 13px; color: #8b95a3">faixa {{sel.range}} · {{sel.nFmt}} ramais</span>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; background: #0d1218; border: 1px solid #253040; border-radius: 8px; padding: 0 12px; min-height: 40px; flex: 0 1 300px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8b95a3" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Buscar ramal</span>
+<input type="search" value="{{q}}" onChange="{{onSearch}}" placeholder="Ramal, nome ou IP (busca em todos os grupos)" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: #f2f5f8; font-size: 13px; font-family: inherit">
+</label>
+</div>
+
+<div role="group" aria-label="Filtrar por estado" style="display: flex; flex-wrap: wrap; gap: 6px">
+<button type="button" onClick="{{clearFilter}}" aria-pressed="{{allPressed}}" style="min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid {{allBc}}; background: {{allBg}}; color: #f2f5f8; font-size: 13px; font-weight: 600; cursor: pointer">Todos <span style="color: #aeb7c2; font-weight: 500">{{sel.nFmt}}</span></button>
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="7">
+<button type="button" onClick="{{c.toggle}}" aria-pressed="{{c.pressed}}" style="min-height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; border-radius: 999px; border: 1px solid {{c.bc}}; background: {{c.bg}}; color: {{c.fg}}; font-size: 13px; font-weight: 500; cursor: pointer">
+<span style="width: 9px; height: 9px; border-radius: 2px; background: {{c.color}}; opacity: {{c.op}}"></span>{{c.label}} <span style="font-weight: 700">{{c.count}}</span></button>
+</sc-for>
+</div>
+
+<sc-if value="{{compact}}" hint-placeholder-val="{{ true }}">
+<div class="pr-scroll" style="max-height: 600px; overflow-y: auto; padding-right: 4px">
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 6px">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="48">
+<button type="button" onClick="{{t.pick}}" aria-label="{{t.aria}}" style="text-align: left; height: 72px; box-sizing: border-box; padding: 7px 9px; border-radius: 7px; border: 1px {{t.bs}} {{t.bc}}; background: {{t.bg}}; color: #dbe2ea; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%">
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 20px; line-height: 1; color: {{t.numFg}}">{{t.num}}</span>
+<span class="{{t.dotClass}}" style="width: 8px; height: 8px; border-radius: 50%; background: {{t.color}}"></span>
+</span>
+<span style="font-size: 11px; color: #aeb7c2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%">{{t.name}}</span>
+<span style="font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: {{t.lineFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%">{{t.line}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{cards}}" hint-placeholder-val="{{ false }}">
+<div class="pr-scroll" style="max-height: 600px; overflow-y: auto; padding-right: 4px">
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="18">
+<button type="button" onClick="{{t.pick}}" aria-label="{{t.aria}}" style="text-align: left; height: 116px; box-sizing: border-box; padding: 12px 14px; border-radius: 9px; border: 1px {{t.bs}} {{t.bc}}; background: {{t.bg}}; color: #dbe2ea; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between">
+<span style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; width: 100%">
+<span style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 26px; line-height: 1; color: {{t.numFg}}">{{t.num}}</span>
+<span style="font-size: 13px; color: #c7d0da; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.name}}</span>
+</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,.25); font-size: 11px; font-weight: 600; letter-spacing: .04em; color: {{t.labelFg}}; white-space: nowrap"><span class="{{t.dotClass}}" style="width: 7px; height: 7px; border-radius: 50%; background: {{t.color}}"></span>{{t.labelUp}}</span>
+</span>
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 12px">
+<span style="color: {{t.lineFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.line}}</span>
+<span style="color: #7c8794">{{t.ip}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: #8b95a3; border-top: 1px solid #1f2833; padding-top: 10px">
+<span>Mostrando {{shown}} de {{matched}} ramais · a lista carrega conforme a rolagem</span>
+<span style="font-family: 'IBM Plex Mono', monospace">↙ entrada  ↗ saída  ↔ interna</span>
+</div>
+</section>
+
+<aside aria-label="Chamadas ativas" style="flex: 1 1 300px; max-width: 100%; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{hasDetail}}" hint-placeholder-val="{{ false }}">
+<section style="background: #121820; border: 1px solid #2c3a4d; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 28px; line-height: 1; color: #f2f5f8">{{d.num}}</span>
+<span style="font-size: 13px; color: #c7d0da">{{d.name}}</span>
+</div>
+<button type="button" onClick="{{closeDetail}}" aria-label="Fechar detalhe" style="min-width: 36px; min-height: 36px; border: 1px solid #253040; border-radius: 7px; background: #151c25; color: #dbe2ea; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<span style="display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: rgba(0,0,0,.3); font-size: 11px; font-weight: 600; letter-spacing: .04em; color: {{d.labelFg}}"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{d.color}}"></span>{{d.labelUp}}</span>
+<dl style="margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13px">
+<dt style="color: #8b95a3">Grupo</dt><dd style="margin: 0; color: #dbe2ea">{{sel.name}}</dd>
+<dt style="color: #8b95a3">Chamada</dt><dd style="margin: 0; color: #dbe2ea; font-family: 'IBM Plex Mono', monospace">{{d.line}}</dd>
+<dt style="color: #8b95a3">IP</dt><dd style="margin: 0; color: #dbe2ea; font-family: 'IBM Plex Mono', monospace">{{d.ip}}</dd>
+<dt style="color: #8b95a3">Aparelho</dt><dd style="margin: 0; color: #dbe2ea">{{d.ua}}</dd>
+<dt style="color: #8b95a3">Latência</dt><dd style="margin: 0; color: #dbe2ea; font-family: 'IBM Plex Mono', monospace">{{d.rtt}}</dd>
+</dl>
+</section>
+</sc-if>
+
+<section style="background: #121820; border: 1px solid #1f2833; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h2 style="margin: 0; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: .04em; color: #f2f5f8">CHAMADAS ATIVAS</h2>
+<span style="font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 20px; color: #ff8a8d">{{callCount}}</span>
+</div>
+<span style="font-size: 12px; color: #8b95a3; margin-top: -6px">{{sel.name}} · mais longas primeiro</span>
+<div class="pr-scroll" style="display: flex; flex-direction: column; gap: 4px; max-height: 470px; overflow-y: auto">
+<sc-for list="{{calls}}" as="c" hint-placeholder-count="10">
+<button type="button" onClick="{{c.pick}}" style="text-align: left; display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; border: 1px solid #1f2833; background: #0f151c; color: #dbe2ea; cursor: pointer">
+<span aria-hidden="true" style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: {{c.dirFg}}">{{c.arrow}}</span>
+<span style="display: flex; flex-direction: column; gap: 1px; min-width: 0">
+<span style="font-size: 13px; color: #f2f5f8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><strong style="font-weight: 600">{{c.num}}</strong> {{c.name}}</span>
+<span style="font-size: 12px; color: #8b95a3; font-family: 'IBM Plex Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.dirLabel}} · {{c.peer}}</span>
+</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: {{c.timeFg}}">{{c.time}}</span>
+</button>
+</sc-for>
+</div>
+</section>
+</aside>
+
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+var PR_ST = {
+  livre:   { label: 'Livre',          c: '#2fb36b', fg: '#6fdc9f' },
+  tocando: { label: 'Tocando',        c: '#e8b931', fg: '#f3d36b' },
+  conversa:{ label: 'Em conversa',    c: '#e5484d', fg: '#ff8a8d' },
+  espera:  { label: 'Em espera',      c: '#9b7bf0', fg: '#b9a6f5' },
+  naoreg:  { label: 'Não registrado', c: '#6b7480', fg: '#aeb7c2' },
+  inalc:   { label: 'Inalcançável',   c: '#f08a3c', fg: '#ffb27a' },
+  desc:    { label: 'Desconhecido',   c: '#a3aab3', fg: '#c7d0da' }
+};
+var PR_ORDER = ['livre','tocando','conversa','espera','naoreg','inalc','desc'];
+var PR_GROUPS = [
+  { id: 'sac',  name: 'Atendimento SAC',        base: 4000, n: 480,  w: [0.35,0.06,0.45,0.06,0.06,0.01,0.01], prefix: 'SAC Posição' },
+  { id: 'reit', name: 'Reitoria',               base: 1000, n: 412,  w: [0.66,0.02,0.16,0.02,0.12,0.01,0.01] },
+  { id: 'norte',name: 'Campus Norte',           base: 2000, n: 2140, w: [0.60,0.02,0.15,0.01,0.19,0.02,0.01] },
+  { id: 'sul',  name: 'Campus Sul',             base: 5000, n: 1980, w: [0.63,0.02,0.14,0.01,0.17,0.02,0.01] },
+  { id: 'hosp', name: 'Hospital Universitário', base: 7000, n: 1630, w: [0.52,0.04,0.28,0.03,0.10,0.02,0.01] },
+  { id: 'adm',  name: 'Administração',          base: 3000, n: 860,  w: [0.64,0.02,0.18,0.02,0.12,0.01,0.01] },
+  { id: 'lab',  name: 'Laboratórios',           base: 8500, n: 1204, w: [0.58,0.01,0.08,0.00,0.28,0.04,0.01] },
+  { id: 'ti',   name: 'TI',                     base: 9900, n: 96,   w: [0.70,0.02,0.18,0.00,0.08,0.01,0.01] },
+  { id: 'sem',  name: 'Sem grupo',              base: 6000, n: 1198, w: [0.45,0.01,0.06,0.00,0.43,0.04,0.01] }
+];
+var PR_NAMES = ['Recepção','Secretaria','Coordenação','Ana Paula','Bruno Lima','Carla Souza','Diego Alves','Elaine Rocha','Fábio Nunes','Gabriela Reis','Henrique Dias','Isabela Melo','João Pedro','Karina Lopes','Lucas Martins','Mariana Costa','Natália Prado','Otávio Ramos','Paula Freitas','Rafael Moura','Sabrina Teles','Tiago Barros','Vanessa Pinto','Wagner Cruz','Protocolo','Almoxarifado','Sala de Reunião','Portaria'];
+var PR_UA = ['Grandstream GXP1625','Yealink T31P','Khomp IPS 200','Unify CP100','MicroSIP 3.21','Alcatel 8008G'];
+
+function prRng(seed) { var s = seed >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+function prFmt(n) { return n.toLocaleString('pt-BR'); }
+function prPct(a, b) { return b ? (Math.round(a / b * 1000) / 10).toLocaleString('pt-BR') + '%' : '0%'; }
+function prTime(s) { var m = Math.floor(s / 60), r = s % 60; return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r; }
+
+class Component extends DCLogic {
+  data() {
+    if (this._data) return this._data;
+    var all = {};
+    PR_GROUPS.forEach(function (g, gi) {
+      var r = prRng(1000 + gi * 7919), list = [];
+      for (var i = 0; i < g.n; i++) {
+        var x = r(), acc = 0, st = 'livre';
+        for (var k = 0; k < PR_ORDER.length; k++) { acc += g.w[k]; if (x < acc) { st = PR_ORDER[k]; break; } }
+        var num = String(g.base + i);
+        var name = g.prefix ? g.prefix + ' ' + (i + 1 < 10 ? '0' : '') + (i + 1) : PR_NAMES[Math.floor(r() * PR_NAMES.length)];
+        var t = { num: num, name: name, st: st, g: g.id };
+        if (st !== 'naoreg' && st !== 'desc') t.ip = '10.' + (20 + gi) + '.' + Math.floor(r() * 30) + '.' + (10 + Math.floor(r() * 240));
+        t.ua = PR_UA[Math.floor(r() * PR_UA.length)];
+        t.rtt = st === 'inalc' ? 'sem resposta' : (8 + Math.floor(r() * 60)) + ' ms';
+        if (st === 'conversa' || st === 'espera' || st === 'tocando') {
+          var d = r();
+          t.dir = d < 0.45 ? 'in' : (d < 0.8 ? 'out' : 'int');
+          if (t.dir === 'int') t.peer = String(PR_GROUPS[Math.floor(r() * PR_GROUPS.length)].base + Math.floor(r() * 90));
+          else t.peer = '(21) 9' + (1000 + Math.floor(r() * 8999)) + '-' + (1000 + Math.floor(r() * 8999));
+          t.start = st === 'tocando' ? 2 + Math.floor(r() * 20) : 5 + Math.floor(r() * 1400);
+        }
+        list.push(t);
+      }
+      all[g.id] = list;
+    });
+    this._data = all;
+    return all;
+  }
+
+  componentDidMount() {
+    var self = this;
+    this._timer = setInterval(function () { var s = self.state || {}; self.setState({ tick: (s.tick || 0) + 1 }); }, 1000);
+  }
+  componentWillUnmount() { if (this._timer) clearInterval(this._timer); }
+
+  renderVals() {
+    var self = this;
+    var s = this.state || {};
+    var tick = s.tick || 0;
+    var selId = s.sel || 'sac';
+    var dens = s.dens || 'compact';
+    var sort = s.sort || 'issue';
+    var q = (s.q || '').trim().toLowerCase();
+    var off = s.off || {};
+    var data = this.data();
+
+    // per-group stats
+    var stats = PR_GROUPS.map(function (g) {
+      var c = {}; PR_ORDER.forEach(function (k) { c[k] = 0; });
+      var cin = 0, cout = 0, cint = 0;
+      data[g.id].forEach(function (t) {
+        c[t.st]++;
+        if (t.st === 'conversa' || t.st === 'espera') { if (t.dir === 'in') cin++; else if (t.dir === 'out') cout++; else cint++; }
+      });
+      var reg = c.livre + c.tocando + c.conversa + c.espera + c.inalc;
+      return { g: g, c: c, reg: reg, cin: cin, cout: cout, cint: cint, issue: (c.naoreg + c.inalc) / g.n };
+    });
+
+    var tot = { n: 0, reg: 0, naoreg: 0, inalc: 0, calls: 0, ring: 0, hold: 0, cin: 0, cout: 0, cint: 0 };
+    var worst = stats[0];
+    stats.forEach(function (x) {
+      tot.n += x.g.n; tot.reg += x.reg; tot.naoreg += x.c.naoreg; tot.inalc += x.c.inalc;
+      tot.calls += x.c.conversa + x.c.espera; tot.ring += x.c.tocando; tot.hold += x.c.espera;
+      tot.cin += x.cin; tot.cout += x.cout; tot.cint += x.cint;
+      if (x.c.naoreg > worst.c.naoreg) worst = x;
+    });
+
+    var k = {
+      total: prFmt(tot.n), groups: PR_GROUPS.length, reg: prFmt(tot.reg), regPct: prPct(tot.reg, tot.n),
+      naoreg: prFmt(tot.naoreg), worst: worst.g.name + ' (' + prFmt(worst.c.naoreg) + ')',
+      inalc: prFmt(tot.inalc), calls: prFmt(tot.calls), cin: prFmt(tot.cin), cout: prFmt(tot.cout), cint: prFmt(tot.cint),
+      ring: prFmt(tot.ring), hold: prFmt(tot.hold)
+    };
+
+    var sorted = stats.slice();
+    if (sort === 'name') sorted.sort(function (a, b) { return a.g.name.localeCompare(b.g.name, 'pt-BR'); });
+    else sorted.sort(function (a, b) { return b.issue - a.issue; });
+
+    var groups = sorted.map(function (x) {
+      var on = x.g.id === selId, n = x.g.n;
+      var w = function (v) { return (v / n * 100).toFixed(2) + '%'; };
+      var bad = x.c.naoreg + x.c.inalc;
+      var badPct = bad / n;
+      return {
+        name: x.g.name, nFmt: prFmt(n), regPct: prPct(x.reg, n),
+        wLivre: w(x.c.livre), wCall: w(x.c.conversa + x.c.espera), wRing: w(x.c.tocando), wInalc: w(x.c.inalc), wNaoreg: w(x.c.naoreg + x.c.desc),
+        alert: prFmt(bad) + ' com problema', alertFg: badPct > 0.25 ? '#ffb27a' : '#8b95a3',
+        bg: on ? '#18263a' : '#0f151c', bc: on ? '#3d6aa8' : '#1f2833', pressed: on ? 'true' : 'false',
+        pick: function () { self.setState({ sel: x.g.id, detail: null }); }
+      };
+    });
+
+    var selStat = stats.filter(function (x) { return x.g.id === selId; })[0];
+    var sg = selStat.g;
+    var sel = { name: sg.name, nFmt: prFmt(sg.n), range: sg.base + '–' + (sg.base + sg.n - 1) };
+
+    // source list: search spans all groups
+    var source = q ? [].concat.apply([], PR_GROUPS.map(function (g) { return data[g.id]; })) : data[selId];
+    if (q) source = source.filter(function (t) { return t.num.indexOf(q) >= 0 || t.name.toLowerCase().indexOf(q) >= 0 || (t.ip && t.ip.indexOf(q) >= 0); });
+
+    var anyOff = PR_ORDER.some(function (key) { return off[key]; });
+    var chips = PR_ORDER.map(function (key) {
+      var st = PR_ST[key], active = !off[key];
+      var cnt = q ? source.filter(function (t) { return t.st === key; }).length : selStat.c[key];
+      return {
+        label: st.label, count: prFmt(cnt), color: st.c, op: active ? 1 : 0.35,
+        bg: active && anyOff ? '#18202b' : (active ? '#141b24' : 'transparent'),
+        bc: active ? (anyOff ? st.c : '#253040') : '#1f2833',
+        fg: active ? '#dbe2ea' : '#7c8794', pressed: active ? 'true' : 'false',
+        toggle: function () { var o = Object.assign({}, off); o[key] = !o[key]; self.setState({ off: o }); }
+      };
+    });
+
+    var matchedList = source.filter(function (t) { return !off[t.st]; });
+    var limit = dens === 'compact' ? 96 : 30;
+
+    function decorate(t) {
+      var st = PR_ST[t.st];
+      var bg = '#141b24', bc = '#232c38', bs = 'solid', numFg = '#f2f5f8';
+      if (t.st === 'tocando') { bg = 'rgba(232,185,49,.12)'; bc = 'rgba(232,185,49,.6)'; }
+      else if (t.st === 'conversa') { bg = 'rgba(229,72,77,.14)'; bc = 'rgba(229,72,77,.5)'; }
+      else if (t.st === 'espera') { bg = 'rgba(155,123,240,.14)'; bc = 'rgba(155,123,240,.55)'; }
+      else if (t.st === 'inalc') { bg = 'rgba(240,138,60,.10)'; bc = 'rgba(240,138,60,.55)'; }
+      else if (t.st === 'naoreg' || t.st === 'desc') { bg = 'transparent'; bc = '#2a333f'; bs = 'dashed'; numFg = '#8b95a3'; }
+      var line = st.label, lineFg = '#8b95a3', arrow = '';
+      if (t.dir) {
+        arrow = t.dir === 'in' ? '↙' : (t.dir === 'out' ? '↗' : '↔');
+        line = arrow + ' ' + t.peer + ' ' + prTime(t.start + tick);
+        lineFg = st.fg;
+      } else if (t.st === 'livre') { line = 'Livre'; lineFg = '#6fdc9f'; }
+      else if (t.st === 'inalc') { lineFg = '#ffb27a'; }
+      return {
+        num: t.num, name: t.name, color: st.c, labelFg: st.fg, labelUp: st.label.toUpperCase(),
+        bg: bg, bc: bc, bs: bs, numFg: numFg, line: line, lineFg: lineFg, ip: t.ip || '—',
+        ua: t.st === 'naoreg' ? '—' : t.ua, rtt: t.st === 'naoreg' ? '—' : t.rtt,
+        dotClass: t.st === 'tocando' ? 'pr-ringing' : '',
+        aria: 'Ramal ' + t.num + ', ' + t.name + ', ' + st.label,
+        pick: function () { self.setState({ detail: t.g + ':' + t.num }); }
+      };
+    }
+
+    var tiles = matchedList.slice(0, limit).map(decorate);
+
+    var active = data[selId].filter(function (t) { return t.st === 'conversa' || t.st === 'espera'; });
+    active.sort(function (a, b) { return b.start - a.start; });
+    var calls = active.slice(0, 14).map(function (t) {
+      var e = t.start + tick;
+      return {
+        num: t.num, name: t.name, peer: t.peer, time: prTime(e),
+        arrow: t.dir === 'in' ? '↙' : (t.dir === 'out' ? '↗' : '↔'),
+        dirLabel: t.st === 'espera' ? 'Em espera' : (t.dir === 'in' ? 'Entrada' : (t.dir === 'out' ? 'Saída' : 'Interna')),
+        dirFg: t.st === 'espera' ? '#b9a6f5' : '#ff8a8d',
+        timeFg: e > 1200 ? '#ffb27a' : '#c7d0da',
+        pick: function () { self.setState({ detail: t.g + ':' + t.num }); }
+      };
+    });
+
+    var d = null;
+    if (s.detail) {
+      var parts = s.detail.split(':');
+      var found = (data[parts[0]] || []).filter(function (t) { return t.num === parts[1]; })[0];
+      if (found) d = decorate(found);
+    }
+
+    // history sparkline for selected group
+    var hr = prRng(42 + sg.base), pts = [], np = [], peak = 0, H = 48;
+    var maxCalls = Math.max(4, Math.round(sg.n * (sg.w[2] + sg.w[3]) * 1.25));
+    var vals = [];
+    for (var i = 0; i < H; i++) {
+      var hour = i / 2, day = Math.max(0, Math.sin((hour - 7) / 12 * Math.PI));
+      var v = Math.round(maxCalls * (0.04 + 0.9 * day * (0.8 + hr() * 0.25)));
+      if (hour >= 12 && hour < 13.5) v = Math.round(v * 0.6);
+      vals.push(v); if (v > peak) peak = v;
+    }
+    var nr = Math.round(sg.n * sg.w[4]);
+    for (var j = 0; j < H; j++) {
+      var x = (j / (H - 1) * 260).toFixed(1);
+      pts.push(x + ',' + (80 - vals[j] / peak * 68).toFixed(1));
+      var nv = nr * (1 + (Math.sin(j / 5) * 0.08) + (hr() - 0.5) * 0.06);
+      np.push(x + ',' + (80 - nv / Math.max(nr * 1.4, 1) * 50).toFixed(1));
+    }
+    var hist = { calls: pts.join(' '), area: '0,80 ' + pts.join(' ') + ' 260,80', naoreg: np.join(' '), peak: prFmt(peak) };
+
+    var on = function (b) { return b ? '#2a3a52' : 'transparent'; };
+    var fg = function (b) { return b ? '#f2f5f8' : '#8b95a3'; };
+
+    return {
+      k: k, groups: groups, sel: sel, chips: chips, tiles: tiles, calls: calls, hist: hist,
+      callCount: prFmt(active.length), shown: prFmt(tiles.length), matched: prFmt(matchedList.length),
+      q: s.q || '', onSearch: function (e) { self.setState({ q: e.target.value }); },
+      compact: dens === 'compact', cards: dens === 'cards',
+      setCompact: function () { self.setState({ dens: 'compact' }); },
+      setCards: function () { self.setState({ dens: 'cards' }); },
+      compactPressed: dens === 'compact' ? 'true' : 'false', cardsPressed: dens === 'cards' ? 'true' : 'false',
+      compactBg: on(dens === 'compact'), compactFg: fg(dens === 'compact'),
+      cardsBg: on(dens === 'cards'), cardsFg: fg(dens === 'cards'),
+      sortName: function () { self.setState({ sort: 'name' }); },
+      sortIssue: function () { self.setState({ sort: 'issue' }); },
+      sortNamePressed: sort === 'name' ? 'true' : 'false', sortIssuePressed: sort === 'issue' ? 'true' : 'false',
+      sortNameBg: on(sort === 'name'), sortNameFg: fg(sort === 'name'),
+      sortIssueBg: on(sort === 'issue'), sortIssueFg: fg(sort === 'issue'),
+      clearFilter: function () { self.setState({ off: {} }); },
+      allPressed: anyOff ? 'false' : 'true', allBg: anyOff ? 'transparent' : '#18263a', allBc: anyOff ? '#253040' : '#3d6aa8',
+      hasDetail: !!d, d: d || {}, closeDetail: function () { self.setState({ detail: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>
