@@ -18,7 +18,7 @@ Voce precisa de:
 
 Legenda usada em todo o roteiro: **A, B, C** = os tres ramais; **T** = tronco; **X** = seu celular; **F** = fila; **R** = ring group.
 
-**A rc.4 ainda nao foi publicada: este roteiro so vale depois que a Release `v0.1.2-rc.4` existir.** Variaveis da versao (troque pelos valores da release que vai testar):
+Variaveis da versao (troque pelos valores da release que vai testar):
 
 ```
 export TAG=v0.1.2-rc.4
@@ -278,7 +278,6 @@ Fim do roteiro: deixe o relogio zerar (ou Ctrl-C). O pacote fica em `homologacao
 
 #### Upgrade da rc.3 para a rc.4 (a rc.3 ja esta instalada, com o painel funcionando)
 
-Vale **so depois que a rc.4 for publicada** (a Release `v0.1.2-rc.4` precisa existir no GitHub; antes disso os enderecos abaixo dao 404).
 Use o proprio instalador da rc.4. Nunca troque arquivo do painel a mao nem rode `rpm -U` solto. Esta e a homologacao do upgrade com o `%post` do menu
 (que a rc.3 nao cobriu: ela foi instalacao nova).
 
