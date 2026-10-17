@@ -16,7 +16,7 @@ func TestCheckExistingDoesNotAccumulateMessages(t *testing.T) {
 	for i := 0; i < 3000; i++ {
 		have = append(have, GroupRow{Line: i + 1, Name: fmt.Sprintf("G%d", i), Start: int64(i * 10), End: int64(i*10 + 5)})
 	}
-	if err := s.ImportGroups(ctx, have, true, now); err != nil {
+	if err := s.ImportGroups(ctx, "t", have, true, now); err != nil {
 		t.Fatal(err)
 	}
 	var rows []GroupRow
@@ -26,7 +26,7 @@ func TestCheckExistingDoesNotAccumulateMessages(t *testing.T) {
 
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	err := s.ImportGroups(ctx, rows, false, now)
+	err := s.ImportGroups(ctx, "t", rows, false, now)
 	runtime.ReadMemStats(&after)
 
 	if !errors.Is(err, ErrOverlap) {

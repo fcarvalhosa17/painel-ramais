@@ -113,7 +113,7 @@ func TestServeExitsWithCode4OnOldAsterisk(t *testing.T) {
 	}
 }
 
-// SIGHUP (a CLI mudou grupos) recarrega os grupos e gera epoch novo.
+// SIGHUP (a CLI mudou grupos) recarrega os grupos sem mudar o epoch (vai por delta).
 func TestSIGHUPReloadsGroups(t *testing.T) {
 	r := newRig(t)
 	cfg, _ := daemonConfig(t, r, freePort(t))
@@ -136,18 +136,22 @@ func TestSIGHUPReloadsGroups(t *testing.T) {
 	before := d.state.Stats().Epoch
 
 	rows, _ := store.ParseGroupsCSV(strings.NewReader("Suporte,2000-2099\n"))
-	if err := d.st.ImportGroups(ctx, rows, true, time.Now()); err != nil {
+	if err := d.st.ImportGroups(ctx, "t", rows, true, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	hup <- syscall.SIGHUP
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		if d.state.Stats().Epoch != before {
+		st := d.state.Stats()
+		if _, ok := st.ByGroup["Suporte"]; ok {
+			if st.Epoch != before {
+				t.Fatal("grupo novo nao pode mudar o epoch")
+			}
 			return
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatal("epoch nao mudou depois do SIGHUP")
+	t.Fatal("grupo nao apareceu nas estatisticas depois do SIGHUP")
 }
 
 // A linha de log da protecao de 1 s tem de trazer uniqueid e linkedid (e e a unica saida do hook onNoPeer).

@@ -19,7 +19,7 @@ func TestConcurrentGroupReloadsEndWithLatestState(t *testing.T) {
 	ctx := context.Background()
 	set := func(start int64) {
 		rows := []store.GroupRow{{Line: 1, Name: "G", Start: start, End: start + 5}}
-		if err := st.ImportGroups(ctx, rows, true, time.Now()); err != nil {
+		if err := st.ImportGroups(ctx, "t", rows, true, time.Now()); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -57,9 +57,11 @@ func TestConcurrentGroupReloadsEndWithLatestState(t *testing.T) {
 	wg.Wait()
 	close(events)
 
-	var last []model.GroupRange
+	var last []model.Range
 	for ev := range events {
-		last = ev.(model.GroupsLoaded).Ranges
+		if g := ev.(model.GroupsLoaded).Groups; len(g) == 1 {
+			last = g[0].Ranges
+		}
 	}
 	if len(last) != 1 || last[0].Start != 900 {
 		t.Fatalf("a ultima entrega ao estado foi %+v; devia ser o estado novo (900)", last)

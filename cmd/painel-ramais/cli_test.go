@@ -133,12 +133,12 @@ func TestGroupCommands(t *testing.T) {
 	if code := r.run("", "group", "import", csv, "--config", r.cfg); code != 0 || r.notified != 1 {
 		t.Fatalf("import: %d %q", code, r.err.String())
 	}
-	if code := r.run("", "group", "list", "--config", r.cfg); code != 0 || r.out.String() != "Suporte\t2000-2099,2150\nVendas\t3000-3999\n" || r.notified != 1 {
+	if code := r.run("", "group", "list", "--config", r.cfg); code != 0 || r.out.String() != "Suporte\t2000-2099\t2150\nVendas\t3000-3999\n" || r.notified != 1 {
 		t.Errorf("list: %d %q", code, r.out.String())
 	}
 	// Sobreposicao com o que existe: rejeita e cita a linha.
 	bad := filepath.Join(r.dir, "bad.csv")
-	os.WriteFile(bad, []byte("Novo,5000\nOutro,2050\n"), 0o600)
+	os.WriteFile(bad, []byte("Novo,5000\nOutro,2050-2060\n"), 0o600)
 	if code := r.run("", "group", "import", bad, "--config", r.cfg); code != 1 || !strings.Contains(r.err.String(), "linha 2") {
 		t.Errorf("sobreposicao: %d %q", code, r.err.String())
 	}
@@ -151,7 +151,7 @@ func TestGroupCommands(t *testing.T) {
 	os.WriteFile(bad, []byte("Novo,5000\n"), 0o600)
 	r.run("", "group", "import", "--replace", bad, "--config", r.cfg)
 	r.run("", "group", "list", "--config", r.cfg)
-	if r.out.String() != "Novo\t5000\n" {
+	if r.out.String() != "Novo\t\t5000\n" {
 		t.Errorf("replace deve apagar o resto: %q", r.out.String())
 	}
 	if code := r.run("", "group", "del", "Novo", "--config", r.cfg); code != 0 {

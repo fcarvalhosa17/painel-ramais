@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 )
 
 const noGroupName = "Sem grupo"
@@ -55,6 +54,21 @@ func ParseGroupsCSV(r io.Reader) ([]GroupRow, error) {
 		}
 		rows = append(rows, row)
 	}
+	// M2: teto antes de qualquer gravacao (o trigger de sobreposicao e O(N) por faixa).
+	if len(rows) > MaxImportRows {
+		return nil, fmt.Errorf("o arquivo tem %d linhas de dados; o maximo por importacao e %d. Nada foi gravado: divida o arquivo", len(rows), MaxImportRows)
+	}
+	perGroup := map[string]int{}
+	for _, r := range rows {
+		if !r.Manual {
+			perGroup[r.Name]++
+		}
+	}
+	for name, n := range perGroup {
+		if n > MaxGroupRanges {
+			return nil, fmt.Errorf("o grupo %q tem %d faixas no arquivo; o maximo e %d por grupo. Nada foi gravado", name, n, MaxGroupRanges)
+		}
+	}
 	errs = append(errs, overlaps(rows)...)
 	if len(errs) > 0 {
 		return nil, errors.New(strings.Join(limit(errs, 20), "\n"))
@@ -85,16 +99,14 @@ func parseGroupRecord(line int, rec []string) (GroupRow, error) {
 		return GroupRow{}, fmt.Errorf("linha %d: esperado grupo e ramal (ou faixa), veio %d campo(s)", line, len(rec))
 	}
 	name := strings.TrimSpace(rec[0])
-	if n := utf8.RuneCountInString(name); n < 1 || n > 64 {
-		return GroupRow{}, fmt.Errorf("linha %d: nome do grupo deve ter de 1 a 64 caracteres", line)
+	noGroup := strings.EqualFold(name, noGroupName) // "Sem grupo,2150": "Sem grupo" manual, so ramal unico
+	if noGroup {
+		name = noGroupName
+	} else if err := ValidGroupName(name); err != nil {
+		return GroupRow{}, fmt.Errorf("linha %d: %w", line, err)
 	}
-	if strings.ContainsFunc(name, badNameRune) {
-		return GroupRow{}, fmt.Errorf("linha %d: nome do grupo com caractere de controle ou de formatacao invisivel", line)
-	}
-	if strings.EqualFold(name, noGroupName) {
-		return GroupRow{}, fmt.Errorf("linha %d: %q e nome reservado", line, noGroupName)
-	}
-	lo, hi, found := strings.Cut(strings.TrimSpace(rec[1]), "-")
+	val := strings.TrimSpace(rec[1])
+	lo, hi, found := strings.Cut(val, "-")
 	start, err := parseNum(lo)
 	end := start
 	if err == nil && found {
@@ -106,7 +118,11 @@ func parseGroupRecord(line int, rec []string) (GroupRow, error) {
 	if end < start {
 		return GroupRow{}, fmt.Errorf("linha %d: faixa %d-%d com inicio maior que o fim", line, start, end)
 	}
-	return GroupRow{Line: line, Name: name, Start: start, End: end}, nil
+	if found && noGroup {
+		return GroupRow{}, fmt.Errorf("linha %d: %q aceita so um ramal por linha, nao faixa", line, noGroupName)
+	}
+	// Ramal unico vira vinculo manual (vence a faixa); faixa N-M continua sendo faixa do grupo.
+	return GroupRow{Line: line, Name: name, Start: start, End: end, Manual: !found, Number: val}, nil
 }
 
 // badNameRune: a mesma regra do <usuario> do sub issabel: (auth.ValidIssabelSub): controle (Cc,
@@ -128,8 +144,15 @@ func parseNum(s string) (int64, error) {
 	return strconv.ParseInt(s, 10, 64)
 }
 
+// overlaps acha faixas que se cruzam dentro do arquivo (vinculo manual nao e faixa) e ramal
+// atribuido a dois grupos diferentes.
 func overlaps(rows []GroupRow) []string {
-	sorted := append([]GroupRow(nil), rows...)
+	var sorted []GroupRow
+	for _, r := range rows {
+		if !r.Manual {
+			sorted = append(sorted, r)
+		}
+	}
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Start < sorted[j].Start })
 	var out []string
 	maxEnd := GroupRow{End: -1}
@@ -143,6 +166,17 @@ func overlaps(rows []GroupRow) []string {
 		}
 		if r.End > maxEnd.End {
 			maxEnd = r
+		}
+	}
+	first := map[string]GroupRow{}
+	for _, r := range rows {
+		if !r.Manual {
+			continue
+		}
+		if p, ok := first[r.Number]; !ok {
+			first[r.Number] = r
+		} else if !strings.EqualFold(p.Name, r.Name) {
+			out = append(out, fmt.Sprintf("linhas %d e %d: ramal %s em dois grupos (%q e %q)", p.Line, r.Line, r.Number, p.Name, r.Name))
 		}
 	}
 	return out

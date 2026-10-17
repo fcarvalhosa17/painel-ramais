@@ -18,6 +18,8 @@ var (
 	ErrNotFound   = errors.New("nao encontrado")
 	ErrUserExists = errors.New("usuario ja existe")
 	ErrOverlap    = errors.New("faixa sobreposta")
+	ErrExists     = errors.New("grupo ja existe")
+	ErrInvalid    = errors.New("entrada invalida") // a mensagem do erro e segura para o cliente (ver invalidf)
 )
 
 // Store e o banco aberto. O pool tem uma conexao so: serializa as escritas do
@@ -34,7 +36,7 @@ type Store struct {
 func Open(ctx context.Context, dataDir string) (*Store, error) {
 	path := filepath.Join(dataDir, "painel.db")
 	dsn := "file:" + filepath.ToSlash(path) +
-		"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+		"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -51,7 +53,7 @@ func Open(ctx context.Context, dataDir string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 // migrations[i] leva o banco da versao i para i+1. So para frente.
-var migrations = []string{ddlV1, ddlV2}
+var migrations = []string{ddlV1, ddlV2, ddlV3}
 
 // SchemaVersion e o PRAGMA user_version que este binario conhece (uma migracao por versao).
 var SchemaVersion = len(migrations)
@@ -180,4 +182,31 @@ CREATE TABLE extension_names (
   name       TEXT    NOT NULL CHECK (length(name) BETWEEN 1 AND 128),
   updated_at INTEGER NOT NULL
 ) STRICT, WITHOUT ROWID;
+`
+
+// v3: grupos editaveis pela tela. extension_groups e o vinculo MANUAL ramal -> grupo, por numero
+// (texto): sobrevive a ramal apagado e recriado. group_id NULL = "Sem grupo" manual (vence a faixa).
+// ON DELETE CASCADE: apagar o grupo desfaz as atribuicoes dele (o ramal volta para a faixa ou para
+// "Sem grupo"). group_audit guarda quem, o que e quando de cada alteracao de grupo (mesma transacao).
+const ddlV3 = `
+CREATE TABLE extension_groups (
+  number     TEXT    PRIMARY KEY CHECK (length(number) BETWEEN 1 AND 64),
+  group_id   INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT    NOT NULL CHECK (length(updated_by) BETWEEN 1 AND 128)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX extension_groups_group_id ON extension_groups(group_id);
+
+CREATE TABLE group_audit (
+  id      INTEGER PRIMARY KEY,
+  at      INTEGER NOT NULL,
+  subject TEXT    NOT NULL CHECK (length(subject) BETWEEN 1 AND 128),
+  action  TEXT    NOT NULL CHECK (action IN ('create', 'rename', 'ranges', 'delete', 'assign', 'import')),
+  detail  TEXT    NOT NULL CHECK (json_valid(detail))
+) STRICT;
+CREATE INDEX group_audit_at ON group_audit(at);
+
+-- Auditoria so cresce: UPDATE e barrado; DELETE continua permitido (expurgo por retencao).
+CREATE TRIGGER group_audit_immutable BEFORE UPDATE ON group_audit
+BEGIN SELECT RAISE(ABORT, 'auditoria imutavel'); END;
 `

@@ -15,7 +15,7 @@ func TestGroupImportFromStdin(t *testing.T) {
 		t.Fatalf("import -: %d %q", code, r.err.String())
 	}
 	r.run("", "group", "list", "--config", r.cfg)
-	if r.out.String() != "Suporte\t2000-2099\nVendas\t3000\n" {
+	if r.out.String() != "Suporte\t2000-2099\nVendas\t\t3000\n" {
 		t.Errorf("list: %q", r.out.String())
 	}
 	if code := r.run("", "group", "import", "-", "--config", r.cfg); code != 1 {
