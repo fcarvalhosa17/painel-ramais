@@ -17,6 +17,10 @@ script de dados de exemplo).
   D18 abaixo). Substitui a regra da rc.5 "abre no primeiro grupo da ordenação e volta a ele se o grupo aberto for
   excluído". Motivo: ver todos os ramais do servidor, inclusive os sem grupo, sem escolher grupo.
 - **Layout: sem desvio.** A tela segue o empilhamento do próprio design (3 colunas, depois 2 + 1, depois 1).
+- **rc.7, decididos pelo usuário em 2026-10-19 (ADR-006 e ADR-007): D19 a D27.** O design não tem abas, relatório de
+  registro nem ramal em vários grupos. Tudo reaproveita os tokens, componentes e medidas que já existem; as únicas cores
+  novas são as duas das barras de instabilidade (#6b7480 e #f08a3c), escolhidas pelo usuário. A coluna "Tela" de D19 a
+  D27 é preenchida pelo @frontend com arquivo:linha na entrega.
 
 ## Layout das colunas (o mesmo do design)
 
@@ -46,19 +50,28 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 | D2 | Busca: o design tira o contorno do campo (`outline: none`) e não mostra foco; a tela desenha o anel de foco (2 px #7fb2ff, offset 2 px, o mesmo do design) no rótulo inteiro | Acessibilidade: foco visível | D155 | app.css:269-271 |
 | D3 | Só em tela de toque (`pointer: coarse`): botões, chips e campos com 44 px de altura mínima; checkbox 22 px | Acessibilidade: alvo de toque | D47-D53, D97-D99, D160-D163 | app.css:458-461 |
 | D4 | `prefers-reduced-motion: reduce` desliga pr-pulse e pr-ring (e a entrada da barra de seleção) | Acessibilidade | D16-D19 | app.css:448-450 |
-| D6 | "Mostrando N de M": N = todos os ramais do resultado (a rolagem virtual mostra todos, sem limite de 96 ou 30 cards); M = total antes dos chips de estado (grupo ou busca) | Rolagem virtual (item 3) e "mostre o total real" | D207, D404 | app.js:465 |
-| D7 | Contagem do chip "Todos": durante a busca mostra o total da busca (o design mostra o total do grupo selecionado mesmo buscando) | Coerência com os chips de estado, que contam a busca | D160, D394 | app.js:457 |
+| D6 | "Mostrando N de M": N = todos os ramais do resultado (a rolagem virtual mostra todos, sem limite de 96 ou 30 cards); M = total antes dos chips de estado (grupo ou busca) | Rolagem virtual (item 3) e "mostre o total real" | D207, D404 | app.js:490 |
+| D7 | Contagem do chip "Todos": durante a busca mostra o total da busca (o design mostra o total do grupo selecionado mesmo buscando) | Coerência com os chips de estado, que contam a busca | D160, D394 | app.js:482 |
 | D8 | Cronômetro acima de 1 h no formato h:mm:ss (o design faz mm:ss com minutos acima de 59) | Dado real: chamadas longas | D287 | estado.js:76 |
 | D9 | Ramal com mais de uma chamada: a linha ganha " +N" depois do outro lado | Dado real (o design só tem uma chamada por ramal) | D416-D417 | estado.js:60 |
-| D10 | Cabeçalho central: "faixa ..." só aparece se o grupo tiver faixa; várias faixas separadas por vírgula; "Sem grupo" sem faixa | Dado real (o design calcula uma faixa contínua por grupo) | D384, D150 | app.js:462 |
+| D10 | Cabeçalho central: "faixa ..." só aparece se o grupo tiver faixa; várias faixas separadas por vírgula; "Sem grupo" sem faixa | Dado real (o design calcula uma faixa contínua por grupo) | D384, D150 | app.js:487 |
 | D11 | Histórico: rótulos do eixo com a hora real do início da janela e a cada 6 h, terminando em "agora" (o design fixa 00h 06h 12h 18h); escala de não registrados pelo máximo do período x 1,4 (o design usa a média sintética x 1,4) | Dado real do /api/history | D138, D455-D466 | grafico.js:39, grafico.js:57 |
-| D12 | Detalhe, linha "Grupo": grupo do próprio ramal mais a origem "(pela faixa)", "(escolhido à mão)" ou "(nenhuma faixa)" (o design mostra o grupo selecionado na coluna) | Busca em todos os grupos abre ramal de outro grupo; a origem é a gestão de grupos (item 3) | D227 | edicao.js:207 |
-| D13 | "Atualizado há N s" passa a "N min" a partir de 60 s; o IP do servidor é o endereço com que o navegador abriu a tela (`location.hostname`, pode ser um nome) | O snapshot não traz IP do servidor | D44 | app.js:289-298 |
-| D14 | Ordem "Mais problemas": empate desempata pelo nome | Ordem estável com dado real (muitos grupos com 0%) | D365-D366 | app.js:360 |
+| D12 | Detalhe, linha "Grupo": grupo do próprio ramal mais a origem "(pela faixa)", "(escolhido à mão)" ou "(nenhuma faixa)" (o design mostra o grupo selecionado na coluna) | Busca em todos os grupos abre ramal de outro grupo; a origem é a gestão de grupos (item 3) | D227 | substituído pelo D22 (edicao.js:197-208) |
+| D13 | "Atualizado há N s" passa a "N min" a partir de 60 s; o IP do servidor é o endereço com que o navegador abriu a tela (`location.hostname`, pode ser um nome) | O snapshot não traz IP do servidor | D44 | app.js:313-322 |
+| D14 | Ordem "Mais problemas": empate desempata pelo nome | Ordem estável com dado real (muitos grupos com 0%) | D365-D366 | app.js:384 |
 | D15 | Busca ignora maiúsculas e acentos (o design só ignora maiúsculas) | Regra de busca já existente (C9) | D388 | estado.js:113 |
-| D16 | Linhas de "Chamadas ativas" ganham `aria-label` com ramal, nome, direção e tempo (invisível) | Acessibilidade | D242 | app.js:592 |
-| D17 | Linha fixa **"Todos os ramais"** no topo da coluna Grupos, sempre primeira, fora da ordenação Nome / Mais problemas. É o mesmo componente dos itens de grupo (nome, total, barra empilhada, % registrados, "N com problema", mesmas cores, fontes, raio e espaçamento; sem estilo novo), calculado sobre todos os ramais, inclusive os sem grupo. A tela abre com ela selecionada e volta para ela se o grupo aberto some (excluído, renomeado). Com ela: título central "Todos os ramais" e "N ramais" sem faixa; "ÚLTIMAS 24 H" e "Chamadas ativas" com o subtítulo "Todos os ramais"; histórico do total da instalação (`/api/history` sem `group`); "Selecionar todos os resultados (N)" aparece para administrador mesmo sem busca nem chip (N = todos os ramais do resultado). Não é grupo: fica fora do catálogo, da gestão de grupos, dos seletores de destino e da contagem "em N grupos". O nome "Todos os ramais" é reservado na criação e renomeação pela tela (estado.js:207-208); **dívida:** o daemon (internal/api/groups.go) e o import CSV ainda aceitam esse nome. A coluna central passa a ter `aria-label="Ramais"` (era "Ramais do grupo"), sem efeito visual. O design não tem essa linha (abre no primeiro grupo) | Decisão do Fabio (2026-10-16), reverte o antigo D5 | D102-D121, D128, D149-D150, D239, D331, D384 | app.js:21, app.js:247, app.js:342, app.js:364-366, app.js:401, app.js:463-464, app.js:555; edicao.js:302-304; estado.js:207-208; index.html:133, 155, 158, 221 |
-| D18 | "Chamadas ativas" lista **todas** as chamadas do escopo (grupo ou todos os ramais), mais longas primeiro, com rolagem virtual na mesma caixa de 470 px (só as linhas da janela visível existem no DOM, dois espaçadores ocupam o lugar das outras). O design mostra as 14 mais longas. Linha, cores e vão iguais ao design. A caixa ganha `overflow-anchor: none` (valor novo, sem efeito visual): com os espaçadores no fluxo, a ancoragem de rolagem do Chrome/Firefox faria a lista pular até o fim | Servidor inteiro com centenas de chamadas: rolar até qualquer uma sem desenhar todas | D240, D435 | app.js:500-600, app.css:374 |
+| D16 | Linhas de "Chamadas ativas" ganham `aria-label` com ramal, nome, direção e tempo (invisível) | Acessibilidade | D242 | app.js:649 |
+| D17 | Linha fixa **"Todos os ramais"** no topo da coluna Grupos, sempre primeira, fora da ordenação Nome / Mais problemas. É o mesmo componente dos itens de grupo (nome, total, barra empilhada, % registrados, "N com problema", mesmas cores, fontes, raio e espaçamento; sem estilo novo), calculado sobre todos os ramais, inclusive os sem grupo. A tela abre com ela selecionada e volta para ela se o grupo aberto some (excluído, renomeado). Com ela: título central "Todos os ramais" e "N ramais" sem faixa; "ÚLTIMAS 24 H" e "Chamadas ativas" com o subtítulo "Todos os ramais"; histórico do total da instalação (`/api/history` sem `group`); "Selecionar todos os resultados (N)" aparece para administrador mesmo sem busca nem chip (N = todos os ramais do resultado). Não é grupo: fica fora do catálogo, da gestão de grupos, dos seletores de destino e da contagem "em N grupos". O nome "Todos os ramais" é reservado na criação e renomeação pela tela (estado.js:226-227); **dívida:** o daemon (internal/api/groups.go) e o import CSV ainda aceitam esse nome. A coluna central passa a ter `aria-label="Ramais"` (era "Ramais do grupo"), sem efeito visual. O design não tem essa linha (abre no primeiro grupo) | Decisão do Fabio (2026-10-16), reverte o antigo D5 | D102-D121, D128, D149-D150, D239, D331, D384 | app.js:23, app.js:269, app.js:366, app.js:388-390, app.js:425, app.js:488-489, app.js:612; edicao.js:340-341; estado.js:226-227; index.html:140, 179, 182, 247 |
+| D18 | "Chamadas ativas" lista **todas** as chamadas do escopo (grupo ou todos os ramais), mais longas primeiro, com rolagem virtual na mesma caixa de 470 px (só as linhas da janela visível existem no DOM, dois espaçadores ocupam o lugar das outras). O design mostra as 14 mais longas. Linha, cores e vão iguais ao design. A caixa ganha `overflow-anchor: none` (valor novo, sem efeito visual): com os espaçadores no fluxo, a ancoragem de rolagem do Chrome/Firefox faria a lista pular até o fim | Servidor inteiro com centenas de chamadas: rolar até qualquer uma sem desenhar todas | D240, D435 | app.js:557-657, app.css:374 |
+| D19 | **Barra de abas** no topo: primeiro item da `.topo-dir`, um controle segmentado com o mesmo componente de "Densidade" (`.segmentado`/`.seg`, 34 px, raio 6, ligado #2a3a52/#f2f5f8), com `role="tablist"`, botões `role="tab"` e `aria-selected`, setas esquerda e direita trocam a aba. Abas: "Ramais" (a tela atual, aberta ao entrar) e "Registros". Na aba Registros o segmentado "Densidade" fica escondido (não vale lá); os demais botões do cabeçalho continuam. A aba "Chamadas" (Etapa 2) só tem o encaixe no código (lista de abas e um ponto de montagem comentado); **nenhum** botão visível, nem desabilitado | Decisão do usuário (rc.7): relatório de registro em tela própria sem tirar espaço da tela de ramais | D46-D49 | index.html:68-72 (abas), 73 (Densidade), 123 e 256 (painéis); app.js:27-29 (ABAS), app.js:197-201 (aba guardada), app.js:525-555 (troca, teclado, Densidade escondida); app.css:182 |
+| D20 | Bloco **"INSTABILIDADE DE REGISTRO (24 H)"** na `.col-esq`, logo abaixo de "ÚLTIMAS 24 H": mesmo `.bloco` (#121820, borda #1f2833, raio 10, padding 14, gap 10), título no estilo `.bloco-titulo` e nota com o grupo selecionado no estilo `.bloco-nota`. Até 10 linhas (ramal em Barlow 600 e nome 12 px #aeb7c2; barra horizontal empilhada de 6 px, raio 3, trilho #232c38, "perdeu registro" #6b7480 e "ficou inalcançável" #f08a3c, escala pelo maior total do bloco; números à direita em mono 12 px). Legenda das duas cores no estilo `.hist-legenda`. Vazio: "Nenhuma instabilidade nas últimas 24 h". Se o período começa antes do `since`: "Dados desde DD/MM HH:MM". Acompanha o grupo selecionado (inclusive "Todos os ramais"). Clique ou Enter na linha abre a aba Registros com período 24 h, o grupo atual e a linha do tempo do ramal aberta. A coluna esquerda fica mais alta; a central não estica (`.colunas` já tem `align-items: flex-start`) e a caixa da lista de ramais continua com 600 px e rolagem virtual | Decisão do usuário (rc.7): ranking de instabilidade sem sair da tela principal | D93-D94, D126-D129 | index.html:161-176; instabilidade.js:48-104 (lista, barras, vazio, "Dados desde"), instabilidade.js:110-118 (30 s, só aba visível); app.js:159-167 (clique abre Registros), app.js:426 (grupo); app.css:468-489 |
+| D21 | **Aba Registros** (tela nova, sem design): faixa de controles (segmentado de período 24 h / 7 d / 30 d no componente `.segmentado`; seletor de grupo com "Todos os ramais", o catálogo e "Sem grupo"; campo de busca no componente da busca central; botão "Exportar CSV" no estilo de "Gerenciar grupos"; nota "Dados desde ..."), bloco do gráfico (barras empilhadas por hora ou por dia nas duas cores do D20, intervalo sem dado em tracejado #2a333f, eixo no estilo `.hist-eixo`, linha "Eventos do sistema no período" em 12 px #8b95a3), tabela ordenável (cabeçalhos com `aria-sort`, clique alterna; ordem inicial perdeu registro + inalcançável, maior primeiro) com corpo de linhas de altura fixa e rolagem virtual (mesma técnica da lista de ramais e do D18), linha de ramal removido com selo "removido" nas cores de desconhecido, e painel da linha do tempo do ramal no estilo do detalhe (`.detalhe`: #121820, borda #2c3a4d, raio 10). Atualiza sozinha a cada 5 s (CONTRATOS 4.7.2) | Decisão do usuário (rc.7) | sem correspondente (usa D37-D54, D146-D168, D214-D229) | index.html:256-358; registros.js:222-264 (ciclo de 5 s por cursor), registros.js:273-391 (tabela, rolagem virtual, ordem), registros.js:420-441 (período), registros.js:478-555 (gráfico), registros.js:557-642 (linha do tempo), registros.js:644-646 (documento escondido); app.css:491-560 |
+| D22 | Detalhe do ramal: a linha "Grupo" vira **"Grupos"**, uma linha por grupo com a origem "(pela faixa A-B)", "(pela faixa A-B e manual)" ou "(manual)"; ramal sem nenhum vínculo mostra "Sem grupo (nenhum vínculo)". Atualiza o D12 | ADR-006: ramal em N grupos | D227 | index.html:220; edicao.js:197-208; estado.js:180-204 (faixa com BigInt e origem); app.css:365, 367 |
+| D23 | Controles de administrador no detalhe: saem "Mover" e "Voltar para a faixa"; entram **"Adicionar ao grupo"** (lista de caixas de seleção com os grupos em que o ramal ainda não está, um ou mais, botão primário) e **"Remover deste grupo"** (só com um grupo aberto na coluna Grupos, botão de perigo). Quando o ramal está no grupo aberto pela faixa, o botão fica desabilitado e aparece abaixo dele, em 12 px #8b95a3: "Este ramal pertence ao grupo pela faixa X-Y" | ADR-006: vínculo manual soma à faixa; tirar da faixa é editar a faixa | D224-D229 | index.html:226-240; edicao.js:228-289; app.css:368, 428, 463-466 |
+| D24 | Seleção múltipla: a barra fixa troca "Mover para" por **"Adicionar aos grupos"** (escolha de um ou mais) e **"Remover deste grupo"** (só com grupo aberto). A confirmação conta à parte os ramais que estão no grupo pela faixa ("N continuam no grupo pela faixa; para tirá-los, edite a faixa") | ADR-006 | sem correspondente (estado do item 3) | index.html:423-449; edicao.js:332-337 (botão só com grupo aberto), edicao.js:376-493 (confirmação, contagem pela faixa, tetos do assign) |
+| D25 | Contagens com ramal em vários grupos: o total de cada item da coluna Grupos conta todo ramal do grupo, então a soma dos grupos pode passar do total; "Todos os ramais", os indicadores e "Chamadas ativas" de "Todos os ramais" contam cada ramal uma vez. Filtro por grupo = `groups` contém o grupo | ADR-006 | D104-D121 | estado.js:104, 132, 234-250; app.js:270-273 (totais uma vez), app.js:607; grupos.js:65-69 |
+| D26 | Gestão de grupos: a ajuda do CSV passa a dizer "o mesmo ramal pode estar em vários grupos; faixas de grupos diferentes podem se cruzar; a importação só acrescenta; `Sem grupo,N` é ignorado"; o diálogo de exclusão diz "os ramais saem só deste grupo; quem ficar sem nenhum vai para Sem grupo"; o 409 de faixa sobreposta entre grupos deixa de aparecer | ADR-006 | sem correspondente (estado do item 3, index.html:380) | index.html:380; grupos.js:65-69 (contagem N:N), grupos.js:121-124 (exclusão), grupos.js:175 (sem conflito de faixa entre grupos), grupos.js:245-248 (`ignored`); estado.js:167 |
+| D27 | Botão "Exportar CSV" gera o arquivo no navegador (CONTRATOS 4.7.5); durante a geração fica desabilitado; tabela vazia deixa o botão desabilitado | ADR-007 | sem correspondente | index.html:272; registros.js:73-121 (célula, CSV, nome, download), registros.js:459-476 (botão) |
 
 ## Itens 3 e 4 (permitidos, registrados)
 
@@ -83,12 +96,11 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
     fundo do modal rgba(13,18,24,.72)); botão primário #2a3a52/#3d6aa8, perigo nas cores de em conversa;
   - seleção múltipla: checkbox no card, anel interno de 2 px #3d6aa8 no card marcado, barra fixa (#121820, borda
     #3d6aa8, raio 10, sombra para descolar do conteúdo) e aviso de status;
-  - controles de administrador no detalhe (seletor "Grupo", "Mover", "Voltar para a faixa");
+  - controles de administrador no detalhe (na rc.7: "Adicionar ao grupo" e "Remover deste grupo", D23);
   - textos longos reais (nome, aparelho, nome de grupo) quebram em vez de vazar (`overflow-wrap: anywhere`);
   - mensagem de erro dos diálogos (`.campo-erro`, cor #ff8a8d, 12 px) com `white-space: pre-line`: o 409 do daemon
     lista até 20 conflitos, um por linha (app.css:140); valor novo, só nesse estado de erro;
-  - ajuda do import CSV na gestão de grupos com a regra atual (faixa, ramal avulso fixo acima da faixa,
-    `Sem grupo,N` tira do grupo), index.html:244.
+  - ajuda do import CSV na gestão de grupos com a regra atual (na rc.7: a do D26), index.html:380.
 
 ## Conferência por seção (valor do design x valor na tela)
 
@@ -103,8 +115,8 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 | selo AO VIVO | padding 4 10, raio 999, rgba(47,179,107,.12), #6fdc9f, 12 px 600 .06em; pino 8 px #2fb36b com pr-pulse 1.8s (D42-D43) | app.css:167-171 | ok |
 | texto de atualização | 12 px #8b95a3 (D44) | app.css:165 | ok (dado: D13) |
 | segmentado Densidade | #151c25, borda #253040, raio 8, padding 3; botões 34 px, 0 12, raio 6, 13 px 600; ligado #2a3a52/#f2f5f8, desligado transparente/#8b95a3 (D47-D49) | app.css:179-182 | ok |
-| Gerenciar grupos | 40 px, gap 8, 0 14, #253040, raio 8, #151c25, #dbe2ea, 13 px 600; ícone 15 px, mesmos paths (D51-D52) | app.css:101-106, index.html:25, 70 | ok |
-| Tela cheia | 40 x 44, mesma borda e fundo; ícone 16 px, mesmos 4 paths (D53-D54) | app.css:109, index.html:23 | ok |
+| Gerenciar grupos | 40 px, gap 8, 0 14, #253040, raio 8, #151c25, #dbe2ea, 13 px 600; ícone 15 px, mesmos paths (D51-D52) | app.css:101-106, index.html:27, 77 | ok |
+| Tela cheia | 40 x 44, mesma borda e fundo; ícone 16 px, mesmos 4 paths (D53-D54) | app.css:109, index.html:25 | ok |
 
 ### Indicadores
 
@@ -115,10 +127,10 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 | rótulo | 11 px 600 .08em #8b95a3; quadrado 8 px raio 2 (D60, D65) | app.css:194-195 | ok |
 | valor | Barlow 700, 34 px, line-height 1, #f2f5f8 (D61) | app.css:196 | ok |
 | % registrados | 18 px #6fdc9f; trilho 6 px raio 3 #232c38; barra #2fb36b (D66-D67) | app.css:198, 200-201 | ok |
-| inalcançáveis | valor #ffb27a; texto "registrados sem resposta (qualify)" (D76-D77) | app.css:197, index.html:102 | ok |
+| inalcançáveis | valor #ffb27a; texto "registrados sem resposta (qualify)" (D76-D77) | app.css:197, index.html:109 | ok |
 | em chamada | linha mono "↙ N  ↗ N  ↔ N" (D82) | app.css:203, app.js | ok |
-| tocando / espera | "/ N" 18 px #b9a6f5; "aguardando atendimento" (D86-D87) | app.css:199, index.html:112 | ok |
-| rótulos | RAMAIS, REGISTRADOS, NÃO REGISTRADOS, INALCANÇÁVEIS, EM CHAMADA, TOCANDO / ESPERA (D60-D85) | index.html:85-112 | ok |
+| tocando / espera | "/ N" 18 px #b9a6f5; "aguardando atendimento" (D86-D87) | app.css:199, index.html:119 | ok |
+| rótulos | RAMAIS, REGISTRADOS, NÃO REGISTRADOS, INALCANÇÁVEIS, EM CHAMADA, TOCANDO / ESPERA (D60-D85) | index.html:92-119 | ok |
 
 ### Grupos
 
@@ -127,7 +139,7 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 | coluna | flex 1 1 280px, max-width 100%, gap 14 (D93) | app.css:207 | ok |
 | bloco | #121820, borda #1f2833, raio 10, padding 14, gap 10 (D94) | app.css:214 | ok |
 | título | Barlow 600, 17 px, .04em, #f2f5f8 "GRUPOS" (D96) | app.css:218 | ok |
-| ordenar | gap 2, 12 px; botões 30 px, 0 8, raio 5, 600; Nome / Mais problemas; padrão "Mais problemas" (D97-D100, D331) | app.css:222-225, app.js:141 | ok ("Todos os ramais" fora da ordenação: D17) |
+| ordenar | gap 2, 12 px; botões 30 px, 0 8, raio 5, 600; Nome / Mais problemas; padrão "Mais problemas" (D97-D100, D331) | app.css:222-225, app.js:146 | ok ("Todos os ramais" fora da ordenação: D17) |
 | lista | gap 6, max-height 520, padding-right 2, pr-scroll (D102) | app.css:227 | ok |
 | item | gap 7, padding 10 12, raio 8, borda #1f2833/#3d6aa8, fundo #0f151c/#18263a (D104, D371-D372) | app.css:228-233 | ok |
 | nome / total | 14 px 600 #f2f5f8 / Barlow 600 16 px #c7d0da (D106-D107) | app.css:235-236 | ok |
@@ -139,7 +151,7 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 | Item | Design | Tela | |
 |---|---|---|---|
 | bloco | gap 8; título "ÚLTIMAS 24 H"; grupo 12 px #8b95a3 (D126-D129) | app.css:215, 220 | ok |
-| svg | viewBox 0 0 260 90, 100% x 96 (D130) | index.html:136 | ok |
+| svg | viewBox 0 0 260 90, 100% x 96 (D130) | index.html:143 | ok |
 | grades | y 80 #232c38; y 45 e 10 #1a222c (D131-D133) | app.css:250-251 | ok |
 | área / linhas | rgba(229,72,77,.16); #e5484d 2 px; #8b95a3 1.5 px tracejado 3 3, junções arredondadas (D134-D136) | app.css:252-254 | ok |
 | eixo | 11 px #7c8794 mono (D138) | app.css:256 | ok (rótulos: D11) |
@@ -168,10 +180,10 @@ Conta com os valores do design (D37, D91, D93, D146, D212):
 |---|---|---|---|
 | bloco | #121820, borda #2c3a4d, raio 10, padding 14, gap 10 (D214) | app.css:352 | ok |
 | número / nome | Barlow 700 28 px lh 1 / 13 px #c7d0da (D217-D218) | app.css:355-356 | ok |
-| Fechar detalhe | 36 x 36, #253040, raio 7, #151c25; ícone 14, path "M6 6l12 12M18 6L6 18" (D220-D221) | app.css:115-118, index.html:29 | ok |
+| Fechar detalhe | 36 x 36, #253040, raio 7, #151c25; ícone 14, path "M6 6l12 12M18 6L6 18" (D220-D221) | app.css:115-118, index.html:31 | ok |
 | selo | 3 9, raio 999, rgba(0,0,0,.3), 11 px 600 .04em; ponto 7 px (D223) | app.css:357-361 | ok |
-| dados | grid auto 1fr, gap 6 12, 13 px; dt #8b95a3; dd #dbe2ea; mono em Chamada, IP, Latência (D224-D229) | app.css:362-364 | ok (Grupo: D12) |
-| aparelho / latência | user_agent; inalcançável "sem resposta"; não registrado traço (D424) | edicao.js:184-211 | ok |
+| dados | grid auto 1fr, gap 6 12, 13 px; dt #8b95a3; dd #dbe2ea; mono em Chamada, IP, Latência (D224-D229) | app.css:362-364 | ok (Grupos: D22) |
+| aparelho / latência | user_agent; inalcançável "sem resposta"; não registrado traço (D424) | edicao.js:185-226 | ok |
 
 ### Chamadas ativas
 

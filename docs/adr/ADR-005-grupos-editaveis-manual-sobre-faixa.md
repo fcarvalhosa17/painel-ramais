@@ -1,7 +1,7 @@
 ## ADR-005: Grupos editáveis pela tela, atribuição manual sobre faixa e delta sem epoch
 
 **Data**: 2026-10-16
-**Status**: Aceito (decisão do usuário na rc.5; ainda sem verificação na VM).
+**Status**: Aceito (decisão do usuário na rc.5); **substituído em parte pelo ADR-006 na rc.7**: o vínculo manual passa a somar à faixa (não vence mais), faixas de grupos diferentes podem se sobrepor, o "Sem grupo" manual deixa de existir e `group`/`group_manual` viram `groups`/`range_groups`/`manual_groups`. Continuam valendo deste ADR: vínculo por número em texto, mudança de grupo por delta sem epoch, auditoria na mesma transação, rotas só de administrador.
 **Porta**: 1 via para o formato do snapshot/delta (`groups`, `group_manual`) e para o esquema 3 do SQLite: o frontend e o rollback do instalador dependem deles.
 
 ### Contexto

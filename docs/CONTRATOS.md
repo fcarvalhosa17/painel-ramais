@@ -2,7 +2,7 @@
 
 **Data**: 2026-10-13
 **Origem**: `docs/PROMPT-FASE-1.md` e `docs/ADENDO-FASE-1-INSTALADOR.md` (especificação do usuário, mesmo peso; o adendo troca o `discovery.sh` pelo `instalar.py verificar`). Em conflito, a especificação vence e este documento é corrigido.
-**Decisões de arquitetura ligadas**: `docs/adr/ADR-001-protocolo-websocket.md` (Aceito), `docs/adr/ADR-002-sessao-e-token-hmac.md` (PROPOSTO, aguarda o usuário), `docs/adr/ADR-003-pacote-rpm-e-integracao-issabel.md` (Proposto, aguarda spike em Rocky 8 e 9), `docs/adr/ADR-004-tela-e-menu-do-issabel.md` (Proposto; fase 2: tela, menu do Issabel, chave própria do Issabel e acesso de emergência). Plano da fase 2: `docs/plans/2026-10-16-fase2-menu-issabel.md`.
+**Decisões de arquitetura ligadas**: `docs/adr/ADR-001-protocolo-websocket.md` (Aceito), `docs/adr/ADR-002-sessao-e-token-hmac.md` (PROPOSTO, aguarda o usuário), `docs/adr/ADR-003-pacote-rpm-e-integracao-issabel.md` (Proposto, aguarda spike em Rocky 8 e 9), `docs/adr/ADR-004-tela-e-menu-do-issabel.md` (Proposto; fase 2: tela, menu do Issabel, chave própria do Issabel e acesso de emergência), `docs/adr/ADR-005-grupos-editaveis-manual-sobre-faixa.md` (substituído em parte pelo ADR-006), `docs/adr/ADR-006-ramal-em-n-grupos.md` e `docs/adr/ADR-007-relatorio-de-registro.md` (Aceitos, rc.7). Planos: `docs/plans/2026-10-16-fase2-menu-issabel.md` e `docs/plans/2026-10-19-rc7-n-grupos-e-registros.md`.
 
 Este documento é a fonte única dos formatos trocados entre as partes do coletor, e entre o coletor e quem o consome (fase 2: tela e item no menu do Issabel). Quem implementa não inventa campo: campo novo entra aqui primeiro.
 
@@ -15,7 +15,7 @@ Valem para todos os agentes. Reabrir só com o usuário.
 | # | Decisão | Onde se materializa |
 |---|---|---|
 | D1 | Ramal = endpoint (PJSIP) ou peer (SIP) cujo nome casa **inteiro** com `extension_pattern` (padrão `^[0-9]+$`). O resto é tronco. Troncos não aparecem no snapshot; servem para resolver "com quem fala". | seção 7, seção 11 |
-| D2 | Um grupo por ramal. A importação rejeita o arquivo inteiro se houver sobreposição de faixas (no arquivo ou com o que já existe). `--replace` troca todos os grupos numa transação só. | seções 8, 9, 10 |
+| D2 | N grupos por ramal (rc.7, ADR-006): o ramal está em todo grupo cuja faixa o contém e em todo grupo onde tem vínculo manual; o manual soma à faixa. Faixas de grupos diferentes podem se sobrepor; do mesmo grupo, não. "Sem grupo" é implícito (ramal sem nenhum vínculo). `--replace` troca todos os grupos numa transação só. | seções 2.1, 4.6, 8, 9, 10 |
 | D3 | A CLI recusa rodar com euid 0. Uso: `sudo -u painel-ramais painel-ramais ...`. Motivo: root criaria o banco e os arquivos WAL com dono root e o daemon pararia de escrever. | seção 8 |
 | D4 | Mudança de grupo (e de usuário) chega ao daemon por SIGHUP. A CLI manda o sinal sozinha; o daemon relê os grupos (catálogo e atribuições manuais), publica a mudança por delta, **sem epoch novo**, e revalida as sessões dos WebSockets abertos. | seção 8, ADR-001, ADR-005 |
 | D5 | `/debug` e `/api/health` ficam fora do proxy do Apache (`ProxyPass "!"`) e o daemon recusa nessas rotas qualquer requisição com `X-Forwarded-For` ou `X-Forwarded-Host` (o mod_proxy sempre adiciona esses cabeçalhos). Duas barreiras independentes. | seção 1, ADR-003 |
@@ -23,6 +23,7 @@ Valem para todos os agentes. Reabrir só com o usuário.
 | D7 | Histórico por minuto. Minuto sem AMI (ou sem daemon) sai como `gap: true` com contagens `null`, nunca como queda de registros. | seções 4.3, 10 |
 | D8 | Chaves JSON e valores de enum em inglês, `snake_case`. Datas em RFC 3339 UTC com milissegundos (`2026-10-13T14:30:00.000Z`). | todas |
 | D9 | O `instalar.py` orquestra e valida; nunca edita `manager_custom.conf`, Apache, SELinux nem o SQLite. Integração com o sistema é do `%post` do RPM; usuário e grupos, da CLI do daemon. | seção 15, ADR-003 |
+| D10 | Relatório de registro (rc.7, ADR-007): só transição ao vivo conta; janela de 120 s depois de `Shutdown`, `FullyBooted` ou conexão do AMI vira evento do sistema; gravação em lote fora da goroutine do estado; retenção fixa de 30 dias. | seções 4.7, 10, 11 |
 
 ---
 
@@ -49,6 +50,10 @@ O daemon escuta só em loopback. O Apache publica o prefixo `/painel-ramais/` e 
 | POST | `/api/groups/import` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
 | POST | `/api/groups/delete` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
 | GET | `/api/history` | sim | navegador via Apache | envelope, gzip |
+| GET | `/api/registrations/summary` | sim | navegador via Apache | envelope, gzip (seção 4.7) |
+| GET | `/api/registrations` | sim | navegador via Apache | envelope, gzip (seção 4.7) |
+| GET | `/api/registrations/extension` | sim | navegador via Apache | envelope, gzip (seção 4.7) |
+| GET | `/api/registrations/series` | sim | navegador via Apache | envelope, gzip (seção 4.7) |
 | GET | `/ws` | sim (cookie no upgrade) | navegador via Apache (mod_proxy_wstunnel) | mensagens tipadas |
 | GET | `/api/health` | não | só localhost direto | envelope |
 | GET | `/debug` | sim | só localhost direto | HTML |
@@ -83,14 +88,14 @@ Erro:
 | HTTP | `code` | Quando |
 |---|---|---|
 | 400 | `bad_request` | JSON inválido, campo desconhecido, parâmetro fora de faixa |
-| 400 | `invalid_csv` | só em `/api/groups/import`: CSV inválido ou com faixas sobrepostas; `message` é o texto do erro do parser (até 20 linhas `linha N: ...`); também mais de 5.000 linhas de dados por importação ou mais de 1.000 faixas de um mesmo grupo no arquivo (M2, vale para a API e para `painel-ramais group import`). Nada é gravado |
+| 400 | `invalid_csv` | só em `/api/groups/import`: CSV inválido ou com faixas que se cruzam **no mesmo grupo** (no arquivo ou com as que o grupo já tem; faixa igual é ignorada, não é erro); `message` é o texto do erro do parser (até 20 linhas `linha N: ...`); também mais de 5.000 linhas de dados por importação ou mais de 1.000 faixas de um mesmo grupo no arquivo (M2, vale para a API e para `painel-ramais group import`). Nada é gravado |
 | 401 | `unauthorized` | sem sessão ou sessão expirada |
 | 401 | `invalid_credentials` | login com usuário ou senha errados (mesma mensagem para os dois casos) |
 | 401 | `invalid_token` | token com assinatura errada, expirado, já usado ou malformado (mesma mensagem para todos) |
 | 403 | `forbidden` | sessão sem papel de administrador numa rota de administrador: "Apenas administradores do Issabel podem alterar grupos"; ou sessão `issabel:admin:<usuario>` cujo usuário não está mais no grupo `administrator` do `/var/www/db/acl.db` (conferido somente leitura a cada escrita de grupo; acl.db ilegível também dá 403, falha fechada; a sessão e a visualização continuam; M1); ou POST com `Sec-Fetch-Site` diferente de ausente, `same-origin` e `none` (por exemplo `cross-site` ou `same-site`; qualquer rota POST, antes de ler o corpo) |
-| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy; `/api/groups/update`, `/assign` (com `group` nomeado) ou `/delete` de grupo que não existe ("Grupo inexistente") |
+| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy; `/api/groups/update`, `/assign` ou `/delete` de grupo que não existe ("Grupo inexistente") |
 | 405 | `method_not_allowed` | método errado |
-| 409 | `conflict` | só nas rotas de edição de grupo (`create`, `update`): nome de grupo que já existe (sem diferenciar maiúsculas; `message` = `grupo ja existe: "<nome>"`) ou faixa que cruza faixa de **outro** grupo (`message` lista até 20 conflitos `A-B sobrepoe C-D do grupo "X"`, mais `... e mais N`). Nada é gravado |
+| 409 | `conflict` | só nas rotas de edição de grupo (`create`, `update`): nome de grupo que já existe (sem diferenciar maiúsculas; `message` = `grupo ja existe: "<nome>"`). Desde a rc.7 faixa que cruza faixa de **outro** grupo é aceita (ADR-006). Nada é gravado |
 | 413 | `payload_too_large` | corpo acima de 4 KiB (1 MiB em `/api/groups/import`, `create`, `update` e `delete`; 2 MiB em `/api/groups/assign`) |
 | 415 | `unsupported_media_type` | POST sem `application/json` |
 | 429 | `too_many_attempts` | 5 logins errados do mesmo IP do cliente em 5 min, ou 20 do mesmo usuário em 5 min (seção 3.1), ou 4 comparações bcrypt já em andamento (a tentativa recusada por saturação não conta contra o usuário) |
@@ -135,8 +140,9 @@ Fluxo de entrada da tela (frontend, daemon e módulo PHP): o módulo do Issabel 
   "number": "2001",
   "name": "Maria Souza",
   "technology": "pjsip",
-  "group": "Suporte",
-  "group_manual": false,
+  "groups": ["Plantão", "Suporte"],
+  "range_groups": ["Suporte"],
+  "manual_groups": ["Plantão"],
   "registration": "registered",
   "ip": "192.0.2.23",
   "user_agent": "Yealink SIP-T46U 108.86.0.20",
@@ -160,14 +166,17 @@ Fluxo de entrada da tela (frontend, daemon e módulo PHP): o módulo do Issabel 
 | `number` | string | chave do ramal: nome do endpoint/peer, que no Issabel é o número. Igual em SIP e PJSIP (`SIP/2001` e `PJSIP/2001` viram `"2001"`) |
 | `name` | string ou null | callerid configurado no endpoint/peer |
 | `technology` | `"sip"` ou `"pjsip"` | tecnologia ativa da instalação |
-| `group` | string | nome do grupo. Precedência: atribuição manual > faixa > `"Sem grupo"`. `"Sem grupo"` quando nenhuma faixa casa, ou quando o ramal foi fixado em "Sem grupo" à mão |
-| `group_manual` | booleano | `true` quando o grupo vem de atribuição manual (inclusive "Sem grupo" manual), que vence a faixa; `false` quando vem da faixa ou do padrão. Aditivo: cliente antigo ignora |
+| `groups` | array de string | rc.7 (ADR-006): todos os grupos do ramal, a união de `range_groups` e `manual_groups`, sem repetição, ordenada como o catálogo (nome em minúsculas, `strings.ToLower`). **Nunca vazio**: sem nenhum vínculo vem `["Sem grupo"]`. Substitui `group` e `group_manual` (removidos; não há campo de compatibilidade) |
+| `range_groups` | array de string | grupos cuja faixa contém o número (regra numérica da seção 9: só dígitos, sem zero à esquerda, até 18 dígitos). Mesma ordem; `[]` quando nenhum; nunca contém `"Sem grupo"` |
+| `manual_groups` | array de string | grupos onde o número tem vínculo manual (`extension_groups`). Mesma ordem; `[]` quando nenhum; nunca contém `"Sem grupo"`. Um grupo pode estar nas duas listas (faixa e manual) |
 | `registration` | enum | `registered`, `unregistered`, `unreachable`, `unknown`. `unknown` só quando o AMI está fora ou ainda não terminou o snapshot. **Nunca** `unregistered` por falta de AMI |
 | `ip` | string ou null | IP do contato (PJSIP: via/contact; SIP: IP do peer) |
 | `user_agent` | string ou null | `null` quando desconhecido. No PJSIP vem do snapshot (`PJSIPShowContacts`/`ContactList`) e é **mantido**: o `ContactStatus` do Asterisk 18 não traz `UserAgent`, e um evento sem o campo não apaga o valor já conhecido daquele endpoint e IP; evento com valor novo o atualiza; cada releitura do inventário o refaz |
 | `latency_ms` | inteiro ou null | latência do qualify em ms (`RoundtripUsec` arredondado); `null` sem qualify ou com `RoundtripUsec` 0/ausente |
 | `device_state` | enum | `unknown`, `not_inuse`, `inuse`, `busy`, `invalid`, `unavailable`, `ringing`, `ringinuse`, `onhold` (estados do Asterisk em minúsculas) |
 | `calls` | array | chamadas ativas; vazio depois do Hangup e sempre vazio quando o AMI está fora |
+
+Origem por grupo na tela (detalhe do ramal): grupo G em `range_groups` mostra "pela faixa A-B", onde A-B é a primeira faixa de G no catálogo (`groups` do snapshot) com `A <= número <= B`, comparando com `BigInt` (faixas de até 18 dígitos passam do inteiro seguro do JavaScript); G também em `manual_groups` mostra "pela faixa A-B e manual"; G só em `manual_groups` mostra "manual". "Remover deste grupo" fica habilitado só quando o grupo aberto está em `manual_groups` **e não** em `range_groups`.
 
 ### 2.2 Chamada (`Call`)
 
@@ -311,8 +320,9 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
         "number": "2001",
         "name": "Maria Souza",
         "technology": "pjsip",
-        "group": "Suporte",
-        "group_manual": false,
+        "groups": ["Plantão", "Suporte"],
+        "range_groups": ["Suporte"],
+        "manual_groups": ["Plantão"],
         "registration": "registered",
         "ip": "192.0.2.23",
         "user_agent": "Yealink SIP-T46U 108.86.0.20",
@@ -333,8 +343,9 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
         "number": "2002",
         "name": "João Lima",
         "technology": "pjsip",
-        "group": "Suporte",
-        "group_manual": false,
+        "groups": ["Suporte"],
+        "range_groups": ["Suporte"],
+        "manual_groups": [],
         "registration": "unreachable",
         "ip": "192.0.2.24",
         "user_agent": null,
@@ -344,6 +355,7 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
       }
     ],
     "groups": [
+      { "name": "Plantão", "ranges": [] },
       { "name": "Suporte", "ranges": [ { "start": 2000, "end": 2099 } ] },
       { "name": "Vendas", "ranges": [] }
     ]
@@ -362,7 +374,7 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
 
 ### 4.2 GET /api/groups
 
-Grupos do catálogo (inclui grupo sem ramal e sem faixa) e os ramais conhecidos agora, na mesma visão do snapshot (lida da projeção do estado, montada a partir do catálogo, não do banco). `"Sem grupo"` vem por último quando tiver ramal. `extensions` de cada grupo traz os ramais cujo `group` é ele (faixa ou atribuição manual); `ranges` traz só as faixas do grupo.
+Grupos do catálogo (inclui grupo sem ramal e sem faixa) e os ramais conhecidos agora, na mesma visão do snapshot (lida da projeção do estado, montada a partir do catálogo, não do banco). `"Sem grupo"` vem por último quando tiver ramal. `extensions` de cada grupo traz os ramais cujo `groups` contém o grupo (faixa ou vínculo manual; rc.7: o mesmo ramal aparece em cada grupo dele, e só ramal sem nenhum vínculo aparece em "Sem grupo"); `ranges` traz só as faixas do grupo.
 
 ```json
 {
@@ -393,7 +405,6 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
   "success": true,
   "data": {
     "group": "Suporte",
-    "group_manual": false,
     "step_s": 60,
     "points": [
       { "t": "2026-10-13T13:00:00.000Z", "registered": 180, "unregistered": 15, "unreachable": 2, "in_call": 40, "gap": false },
@@ -409,6 +420,7 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
 - Série densa: um ponto por minuto no intervalo. Minuto sem linha no banco (daemon parado) ou com `gap=1` sai como `gap: true` e contagens `null`.
 - `in_call` conta ramais com pelo menos uma chamada, não chamadas.
 - Grupo sem dados (inexistente ou fora da retenção) devolve 200 com todos os pontos em `gap: true`.
+- rc.7: as contagens de cada grupo incluem todo ramal que está no grupo (N:N); a do total conta cada ramal uma vez. As colunas novas de `history` (seção 10, versão 4) **não** saem nesta rota; servem a `/api/registrations/series` (seção 4.7). `group` volta `null` quando ausente na query (o campo `group_manual` dos exemplos antigos nunca existiu no código).
 
 ### 4.4 GET /api/health (só localhost)
 
@@ -437,6 +449,7 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
     "trunks": 4,
     "active_calls": 312,
     "ws_clients": 7,
+    "registrations": { "queue_len": 0, "queue_cap": 16384, "dropped": 0, "write_errors": 0, "suppressed_until": null },
     "deps": [
       { "name": "ami_user", "status": "ok", "detail": "login aceito em 2026-10-13T08:00:01Z", "checked_at": "2026-10-13T14:30:00.000Z" },
       { "name": "manager_custom_include", "status": "ok", "detail": "manager.conf inclui manager_custom.conf e o bloco painel-ramais está presente", "checked_at": "2026-10-13T14:30:00.000Z" },
@@ -465,6 +478,7 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
   `issabel_key` é a fonte única da chave do verificador de tokens (seção 3.3): a cada verificação (na subida, a cada 60 s e após cada Login AMI) o resultado é entregue ao verificador (chave válida ou nenhuma). O daemon só lê o modo do `manager_custom.conf` (`stat`), nunca o altera. Mudança de estado de qualquer item sai no log.
 - `ami_user` vem do resultado do último Login da conexão única (não abre segunda conexão).
 - `events_per_s`: média dos últimos 60 s. `lag_ms`: agora menos a hora de leitura do último evento processado. `queue.overflows`: quantas vezes a fila encheu e forçou ressincronização (seção 11.3); `queue.len` e `queue.cap` são da fila do leitor AMI (a que pode estourar).
+- `registrations` (rc.7, ADR-007): fila do gravador do relatório de registro (seção 11.5). `queue_len` e `queue_cap` (16384, constante); `dropped`: ocorrências descartadas porque a fila estava cheia, desde a subida do daemon; `write_errors`: lotes que falharam ao gravar (o lote é perdido e o erro sai no log Warn); `suppressed_until`: fim da janela de evento do sistema em curso (RFC 3339) ou `null`. Nenhum destes campos muda o `status` (não é `degraded`).
 
 ### 4.5 GET /debug (só localhost, exige sessão)
 
@@ -472,7 +486,7 @@ HTML puro gerado no servidor, com `<meta http-equiv="refresh" content="2">`, sem
 
 ### 4.6 POST /api/groups/create, update, assign, import e delete (só administrador)
 
-Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes de ler o corpo. Todas são `POST` com `Content-Type: application/json`, corpo estrito (campo desconhecido: `400 bad_request`) de até 1 MiB (`413 payload_too_large` acima disso; `assign` aceita até 2 MiB, ver abaixo); o resto da API segue com 4 KiB. Teto de 20.000 linhas no CSV pela tela (a quebra de linha final não conta como linha; 20.001 ou mais dão `400 invalid_csv`; a CLI não tem esse teto). Cada escrita é **uma transação só** no SQLite, junto com a linha de auditoria (`group_audit`: `subject` da sessão, ação, detalhe JSON curto, `at`); falhou, nada foi gravado. Depois de gravar, o daemon relê o catálogo e as atribuições pelo mesmo caminho do SIGHUP (`loadGroups`) e o estado publica a diferença **por delta, sem epoch novo** (seções 5.2 e ADR-005): as telas abertas recebem os ramais afetados em `extensions` (com `group` e `group_manual` novos) e o catálogo em `groups`. Se a recarga falhar, a resposta é `500 internal` (os dados já estão gravados; repetir é seguro). Cada escrita gera log Info com `request_id`, `sub` (quem) e o resumo (`grupo criado`, `grupo alterado`, `ramais atribuidos a grupo`, `grupos importados`, `grupo removido`).
+Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes de ler o corpo. Todas são `POST` com `Content-Type: application/json`, corpo estrito (campo desconhecido: `400 bad_request`) de até 1 MiB (`413 payload_too_large` acima disso; `assign` aceita até 2 MiB, ver abaixo); o resto da API segue com 4 KiB. Teto de 20.000 linhas no CSV pela tela (a quebra de linha final não conta como linha; 20.001 ou mais dão `400 invalid_csv`; a CLI não tem esse teto). Cada escrita é **uma transação só** no SQLite, junto com a linha de auditoria (`group_audit`: `subject` da sessão, ação, detalhe JSON curto, `at`); falhou, nada foi gravado. Depois de gravar, o daemon relê o catálogo e as atribuições pelo mesmo caminho do SIGHUP (`loadGroups`) e o estado publica a diferença **por delta, sem epoch novo** (seções 5.2 e ADR-005): as telas abertas recebem os ramais afetados em `extensions` (com `groups`, `range_groups` e `manual_groups` novos) e o catálogo em `groups`. Toda escrita confere, antes de gravar, se o usuário ainda está no grupo `administrator` do `acl.db` (M1, seção 1.2). Se a recarga falhar, a resposta é `500 internal` (os dados já estão gravados; repetir é seguro). Cada escrita gera log Info com `request_id`, `sub` (quem) e o resumo (`grupo criado`, `grupo alterado`, `ramais atribuidos a grupo`, `grupos importados`, `grupo removido`).
 
 `POST /api/groups/import`:
 
@@ -480,7 +494,7 @@ Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes 
 { "csv": "grupo,ramal\nSuporte,2000-2099\nVendas,3000-3999\n", "replace": true }
 ```
 
-`csv` obrigatório (texto do arquivo, mesmo formato da seção 9); `replace` opcional, padrão `false`; campo desconhecido: `400 bad_request`. Sucesso: `200` com `{"success":true,"data":{"rows":2,"replace":true},"error":null,"meta":null}` e log Info `grupos importados` com `sub`, `rows` e `replace`. CSV inválido ou com sobreposição: `400 invalid_csv`, `message` = o texto do erro do parser (até 20 linhas `linha N: ...`); nada é gravado.
+`csv` obrigatório (texto do arquivo, mesmo formato da seção 9); `replace` opcional, padrão `false`; campo desconhecido: `400 bad_request`. Sucesso: `200` com `{"success":true,"data":{"rows":2,"replace":true,"ignored":0},"error":null,"meta":null}` e log Info `grupos importados` com `sub`, `rows`, `ignored` e `replace`. `rows` = linhas de dados lidas; `ignored` (rc.7) = linhas que não mudaram nada (repetidas no arquivo, faixa ou vínculo que já existia, `Sem grupo,N`). Sem `replace` a importação **só acrescenta** (seção 9). CSV inválido ou com faixas que se cruzam no mesmo grupo: `400 invalid_csv`, `message` = o texto do erro do parser (até 20 linhas `linha N: ...`); nada é gravado.
 
 `POST /api/groups/delete`:
 
@@ -488,7 +502,7 @@ Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes 
 { "name": "Suporte" }
 ```
 
-`name` de 1 a 64 caracteres (senão `400 bad_request`). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}` e log Info `grupo removido`. Inexistente: `404 not_found`, "Grupo inexistente".
+`name` de 1 a 64 caracteres (senão `400 bad_request`). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}` e log Info `grupo removido`. Inexistente: `404 not_found`, "Grupo inexistente". Apagar o grupo apaga as faixas e os vínculos manuais dele (cascade): cada ramal sai só deste grupo e continua nos outros; quem fica sem nenhum vai para "Sem grupo".
 
 `POST /api/groups/create`:
 
@@ -496,7 +510,7 @@ Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes 
 { "name": "Suporte", "ranges": [ { "start": 2000, "end": 2099 }, { "start": 2150, "end": 2150 } ] }
 ```
 
-`name` obrigatório; `ranges` opcional (grupo sem faixa é válido; até 1000 faixas, cada uma com `start` e `end`, `0 <= start <= end`, até 18 dígitos). O nome tem as pontas aparadas e segue a regra única de nome de grupo (seção 9: 1 a 64 caracteres, sem controle/formatação invisível, diferente de `Sem grupo`, sem diferenciar maiúsculas). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}`. Erros: `400 bad_request` (nome inválido ou reservado, faixa inválida, faixas da própria requisição que se cruzam, faixa sem `start` ou `end`); `409 conflict` (nome já existe, sem diferenciar maiúsculas, ou faixa que cruza faixa de outro grupo; a mensagem lista os conflitos).
+`name` obrigatório; `ranges` opcional (grupo sem faixa é válido; até 1000 faixas, cada uma com `start` e `end`, `0 <= start <= end`, até 18 dígitos). O nome tem as pontas aparadas e segue a regra única de nome de grupo (seção 9: 1 a 64 caracteres, sem controle/formatação invisível, diferente de `Sem grupo`, sem diferenciar maiúsculas). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}`. Erros: `400 bad_request` (nome inválido ou reservado, faixa inválida, faixas da própria requisição que se cruzam, faixa sem `start` ou `end`); `409 conflict` (nome já existe, sem diferenciar maiúsculas). rc.7: faixa que cruza faixa de outro grupo é aceita; o `checkRangeConflicts` sai do código.
 
 `POST /api/groups/update`:
 
@@ -504,17 +518,212 @@ Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes 
 { "name": "Suporte", "new_name": "Atendimento", "ranges": [ { "start": 2000, "end": 2199 } ] }
 ```
 
-`name` é o grupo atual (sem diferenciar maiúsculas); `new_name` e `ranges` são opcionais, mas pelo menos um é obrigatório (senão `400 bad_request`, "informe new_name ou ranges"). `ranges` **substitui todas** as faixas do grupo (`[]` deixa o grupo sem faixa): na mesma transação apaga as faixas do grupo e insere as novas (o trigger de sobreposição só enxerga as faixas dos outros grupos; o trigger de imutabilidade proíbe `UPDATE`, por isso apagar e inserir). Renomear leva o histórico junto na mesma transação (`history.group_name`); se o nome novo já tinha histórico no mesmo minuto (grupo apagado antes com esse nome), os minutos com dado dos dois lados são somados e nenhum minuto é perdido. Mesmo nome (ou mesmas faixas) é aceito e não grava nada. Sucesso: `200` com `{"data":{"name":"<nome final>"}}`. Erros: `400 bad_request` (mesmas regras do `create`), `404 not_found` (grupo inexistente), `409 conflict` (nome novo já existe em outro grupo ou faixa cruza outro grupo). Auditoria: `rename` e/ou `ranges`.
+`name` é o grupo atual (sem diferenciar maiúsculas); `new_name` e `ranges` são opcionais, mas pelo menos um é obrigatório (senão `400 bad_request`, "informe new_name ou ranges"). `ranges` **substitui todas** as faixas do grupo (`[]` deixa o grupo sem faixa): na mesma transação apaga as faixas do grupo e insere as novas (o trigger `group_ranges_no_overlap_same_group` só compara faixas do mesmo grupo, já apagadas; o trigger de imutabilidade proíbe `UPDATE`, por isso apagar e inserir). Renomear leva o histórico junto na mesma transação (`history.group_name`); se o nome novo já tinha histórico no mesmo minuto (grupo apagado antes com esse nome), os minutos com dado dos dois lados são somados e nenhum minuto é perdido. Mesmo nome (ou mesmas faixas) é aceito e não grava nada. Sucesso: `200` com `{"data":{"name":"<nome final>"}}`. Erros: `400 bad_request` (mesmas regras do `create`), `404 not_found` (grupo inexistente), `409 conflict` (nome novo já existe em outro grupo). Auditoria: `rename` e/ou `ranges`.
 
 `POST /api/groups/assign`:
 
+rc.7 (ADR-006): vínculo manual em massa com **modo**, **atômico** (tudo ou nada, uma transação). O formato antigo (`{"numbers", "group"}` sem `mode`, inclusive `group: null` e `"Sem grupo"`) deixa de existir e responde `400 bad_request`.
+
+Adicionar (1 ou mais grupos; só acrescenta):
+
 ```json
-{ "numbers": ["2001", "2002", "2150"], "group": "Suporte" }
+{ "mode": "add", "numbers": ["2001", "2002", "2150"], "groups": ["Suporte", "Plantão"] }
 ```
 
-Atribuição manual em massa, **atômica** (tudo ou nada, uma transação). `group`: nome de um grupo existente (sem diferenciar maiúsculas); `"Sem grupo"` (fixa o ramal em "Sem grupo" à mão, e isso também vence a faixa); ou `null` (remove a atribuição manual: o ramal volta para a faixa que casar, ou "Sem grupo"). O campo `group` é obrigatório (ausente: `400`). `numbers`: de 1 a 20.000 textos, cada um de 1 a 64 caracteres sem controle/formatação invisível (Cc, Cf, Zl, Zp), sem repetição (repetido: `400 bad_request`). O vínculo é pelo **número do ramal como texto**, não exige que o ramal exista agora e sobrevive a ramal apagado e recriado. Corpo até 2 MiB (`maxAssignBodyBytes`): 20.000 números de 64 caracteres ocupam cerca de 1,34 MB; 10.000 ramais de 4 a 6 dígitos, cerca de 90 KB. Sucesso: `200` com `{"success":true,"data":{"changed":N},"error":null,"meta":null}`; `changed` conta só os ramais cuja atribuição mudou de fato (repetir o mesmo pedido dá `0`, sem escrita nem auditoria nem recarga). Erros: `400 bad_request` (número inválido ou repetido, lista vazia ou acima de 20.000, `group` com nome fora de 1 a 64 caracteres); `404 not_found` (grupo nomeado inexistente: nada é aplicado). Auditoria: `assign` (grupo, pedidos, alterados e até 20 números de amostra).
+Resposta `200`: `{"success":true,"data":{"changed":5},"error":null,"meta":null}`. `changed` = pares (ramal, grupo) gravados agora; par que já existia não conta e não é regravado. Ramal que já está no grupo pela faixa recebe o vínculo manual mesmo assim (redundante, inofensivo; passa a valer se a faixa mudar).
+
+Remover (de um grupo; só vínculo manual):
+
+```json
+{ "mode": "remove", "numbers": ["2001", "2002"], "group": "Suporte" }
+```
+
+Resposta `200`: `{"success":true,"data":{"changed":1,"not_manual":1},"error":null,"meta":null}`. `changed` = vínculos manuais apagados; `not_manual` = números do pedido sem vínculo manual com o grupo (estão pela faixa ou nem estão no grupo): nada é criado para eles, não existe exclusão de faixa.
+
+Regras:
+- `mode` obrigatório, `add` ou `remove`. No `add`, `groups` obrigatório e `group` proibido; no `remove`, `group` obrigatório e `groups` proibido. Combinação errada, campo ausente ou desconhecido: `400 bad_request`.
+- `groups`: de 1 a 20 nomes, cada um de 1 a 64 caracteres depois do trim, sem repetição (sem diferenciar maiúsculas). `group` e cada item de `groups`: nome de grupo existente (sem diferenciar maiúsculas); `"Sem grupo"` dá `400 bad_request` ("Sem grupo não é grupo: é onde fica o ramal sem nenhum vínculo"); grupo inexistente dá `404 not_found` e nada é aplicado.
+- `numbers`: de 1 a 20.000 textos, cada um de 1 a 64 caracteres sem controle/formatação invisível (Cc, Cf, Zl, Zp), sem repetição (repetido: `400 bad_request`). `len(numbers) x len(groups)` até 100.000 (acima: `400 bad_request`). O vínculo é pelo **número do ramal como texto**, não exige que o ramal exista agora e sobrevive a ramal apagado e recriado.
+- Corpo até 2 MiB (`maxAssignBodyBytes`): 20.000 números de 64 caracteres ocupam cerca de 1,34 MB; 10.000 ramais de 4 a 6 dígitos, cerca de 90 KB.
+- `changed` igual a 0: sem escrita, sem auditoria e sem recarga. Auditoria: ação `assign`, detalhe `{"mode","groups","requested","changed","numbers"}` (até 20 números de amostra).
+- Log Info `ramais atribuidos a grupo` (`add`) ou `ramais retirados de grupo` (`remove`), com `sub`, grupos, pedidos e alterados.
 
 Leitura: `GET /api/groups` (seção 4.2). Ele lê a projeção do estado, não o banco: logo depois de uma escrita pode ficar defasado por até ~250 ms (um lote), até o estado publicar o delta; a tela usa o `groups` e os ramais do delta do WebSocket para atualizar sem reler.
+
+### 4.7 Relatório de registro (rc.7, ADR-007)
+
+Quatro rotas `GET`, só leitura, com sessão obrigatória de **qualquer papel** (administrador, operador do Issabel e emergência: a mesma permissão da tela), gzip e envelope. Parâmetro de query desconhecido é ignorado. Parâmetro inválido: `400 bad_request` com a mensagem em português. Nenhuma rota nova de escrita.
+
+**Período.** `period` vale para `/api/registrations`, `/extension` e `/series` (o `summary` é sempre `24h`):
+
+| `period` | `from` | Pontos da série (`step`) |
+|---|---|---|
+| `24h` (padrão) | início da hora atual menos 23 h | 24, `hour` |
+| `7d` | meia-noite de hoje, no fuso do servidor (`time.Local`), menos 6 dias | 7, `day` |
+| `30d` | meia-noite de hoje menos 29 dias | 30, `day` |
+
+`to` = agora. Outro valor: `400 bad_request` ("period deve ser 24h, 7d ou 30d"). Todo `data` traz `period`, `from`, `to` e `since` (RFC 3339 UTC com ms). `since` é `reg_meta.since` (seção 10): quando a versão com o relatório foi instalada. A tela mostra "Dados desde <since>" e, se `since > from`, deixa claro que o período está incompleto.
+
+**Linha de ramal** (`row`): o mesmo objeto em `/api/registrations` e em `/api/registrations/extension`.
+
+```json
+{
+  "number": "2001",
+  "name": "Maria Souza",
+  "groups": ["Plantão", "Suporte"],
+  "removed": false,
+  "lost_registration": 5,
+  "became_unreachable": 3,
+  "registered": 5,
+  "reachable_again": 3,
+  "system_events": 2,
+  "last_drop_at": "2026-10-19T13:42:10.000Z",
+  "last_ip": "192.0.2.23",
+  "last_port": 5060,
+  "down_s": 7260,
+  "down_open_since": null
+}
+```
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `number` | string | número do ramal |
+| `name` | string ou null | nome atual do ramal no estado; se o ramal não existe mais, o último nome gravado em `reg_hourly.name`; `null` se nenhum |
+| `groups` | array de string | grupos **atuais** do ramal (mesma regra do `groups` da seção 2.1); `[]` quando `removed` |
+| `removed` | booleano | `true` quando o número não está mais no estado (apagado no Issabel); a linha fica até expirar (30 dias) |
+| `lost_registration`, `became_unreachable`, `registered`, `reachable_again` | inteiro | soma no período, só ocorrências fora da janela de sistema (`system = 0`) |
+| `system_events` | inteiro | transições do ramal dentro da janela de sistema, no período (informativo, fora do ranking) |
+| `last_drop_at` | data ou null | última `lost_registration` ou `became_unreachable` (não sistema) no período |
+| `last_ip`, `last_port` | string ou null, inteiro ou null | IPv4 e porta da ocorrência mais recente do período que tinha endereço; endereço que não é IPv4 nunca é gravado |
+| `down_s` | inteiro | segundos fora do ar **já fechados** dentro do período (o fechamento distribui os segundos pelas horas do intervalo, então o valor nunca passa do tamanho do período) |
+| `down_open_since` | data ou null | início do intervalo fora do ar ainda aberto (ramal caído agora); `null` se não está caído, se o intervalo não foi aberto por queda contada, ou se `removed` |
+
+Tempo total fora do ar mostrado na tela = `down_s + (down_open_since ? agora - max(down_open_since, from) : 0)`, recalculado a cada atualização. Linha sai na lista só se tiver algum dos quatro contadores maior que zero, `down_s > 0` ou `down_open_since` diferente de `null` (ramal só com `system_events` não aparece).
+
+Rótulos na tela: `lost_registration` "Perdeu registro"; `registered` "Registrou"; `became_unreachable` "Ficou inalcançável"; `reachable_again` "Voltou a ser alcançável"; sinais `shutdown` "Asterisk desligando", `fully_booted` "Asterisk iniciado", `ami_connected` "Painel reconectado ao Asterisk".
+
+#### 4.7.1 GET /api/registrations/summary
+
+Bloco "Instabilidade de registro (24 h)" da tela principal. Query: `group` opcional (até 64 caracteres; ausente = todos os ramais; `"Sem grupo"` aceito; grupo inexistente devolve `items: []`). Pertença **atual** ao grupo.
+
+```json
+{
+  "success": true,
+  "data": {
+    "period": "24h",
+    "from": "2026-10-18T14:00:00.000Z",
+    "to": "2026-10-19T13:47:05.120Z",
+    "since": "2026-10-19T09:12:44.000Z",
+    "group": "Suporte",
+    "items": [
+      { "number": "2001", "name": "Maria Souza", "removed": false, "lost_registration": 5, "became_unreachable": 3 },
+      { "number": "2044", "name": null, "removed": false, "lost_registration": 0, "became_unreachable": 2 }
+    ]
+  },
+  "error": null,
+  "meta": { "count": 2 }
+}
+```
+
+`items`: até 10, só com `lost_registration + became_unreachable > 0`, ordenados por essa soma (maior primeiro), depois `lost_registration` (maior primeiro), depois `number`. `group` volta `null` quando ausente.
+
+#### 4.7.2 GET /api/registrations
+
+Tabela da aba Registros. Query: `period`; `cursor` opcional (texto opaco devolvido pela chamada anterior, até 64 caracteres). **Sem** filtro de grupo nem busca no servidor: a tela filtra e ordena (grupo: linha cujo `groups` contém o grupo; "Todos os ramais": todas, inclusive `removed`; "Sem grupo": `groups` igual a `["Sem grupo"]`; busca: número ou nome contendo o texto, sem diferenciar maiúsculas e acentos, a mesma regra da busca da tela de ramais).
+
+```json
+{
+  "success": true,
+  "data": {
+    "period": "24h",
+    "from": "2026-10-18T14:00:00.000Z",
+    "to": "2026-10-19T13:47:05.120Z",
+    "since": "2026-10-19T09:12:44.000Z",
+    "cursor": "1792414800.1532",
+    "full": true,
+    "rows": [
+      { "number": "2001", "name": "Maria Souza", "groups": ["Plantão", "Suporte"], "removed": false, "lost_registration": 5, "became_unreachable": 3, "registered": 5, "reachable_again": 3, "system_events": 2, "last_drop_at": "2026-10-19T13:42:10.000Z", "last_ip": "192.0.2.23", "last_port": 5060, "down_s": 7260, "down_open_since": null }
+    ]
+  },
+  "error": null,
+  "meta": { "count": 1 }
+}
+```
+
+- `full: true`: `rows` é a tabela inteira do período, ordenada por `number`; a tela **substitui** a dela. Acontece sem `cursor`, com cursor inválido, quando a hora atual mudou desde o cursor (a janela andou) ou quando a revisão do cursor é maior que a maior revisão gravada (banco limpo ou restaurado).
+- `full: false`: `rows` traz só os ramais com alguma linha de `reg_hourly` gravada depois do cursor (coluna `rev`, seção 10), já com os valores do período inteiro; a tela **substitui ou insere** pelo `number` e não remove nada. Sem mudança: `rows: []`.
+- `cursor`: sempre presente; a tela manda de volta exatamente o que recebeu. Formato interno (não depender dele): `<início da hora em unix>.<rev>`.
+- **Atualização automática**: com a aba Registros visível e `document.visibilityState == "visible"`, uma chamada a cada 5 s com o último `cursor` (nunca duas ao mesmo tempo; a próxima só começa 5 s depois que a anterior terminou). Trocar o período descarta o cursor. Nunca por evento individual do WebSocket.
+
+#### 4.7.3 GET /api/registrations/extension
+
+Linha do tempo de um ramal. Query: `number` obrigatório (regra do `numbers` do assign: 1 a 64 caracteres, sem controle/formatação; senão `400 bad_request`); `period`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "period": "7d",
+    "from": "2026-10-13T03:00:00.000Z",
+    "to": "2026-10-19T13:47:05.120Z",
+    "since": "2026-10-19T09:12:44.000Z",
+    "extension": { "number": "2001", "name": "Maria Souza", "groups": ["Plantão", "Suporte"], "removed": false, "lost_registration": 1, "became_unreachable": 0, "registered": 1, "reachable_again": 0, "system_events": 1, "last_drop_at": "2026-10-19T13:42:10.000Z", "last_ip": "192.0.2.23", "last_port": 5060, "down_s": 95, "down_open_since": null },
+    "events": [
+      { "at": "2026-10-19T13:43:45.000Z", "kind": "registered", "system": false, "ip": "192.0.2.23", "port": 5060, "user_agent": "Yealink SIP-T46U 108.86.0.20" },
+      { "at": "2026-10-19T13:42:10.000Z", "kind": "lost_registration", "system": false, "ip": "192.0.2.23", "port": 5060, "user_agent": null },
+      { "at": "2026-10-19T09:13:02.000Z", "kind": "registered", "system": true, "ip": "192.0.2.23", "port": 5060, "user_agent": "Yealink SIP-T46U 108.86.0.20" }
+    ],
+    "events_limit": 200
+  },
+  "error": null,
+  "meta": { "count": 3 }
+}
+```
+
+- `extension`: sempre presente (contadores zerados, `groups` atuais, `removed` conforme o estado, quando não há nada no período); número nunca visto também dá `200`.
+- `events`: as ocorrências brutas guardadas com `at >= from`, mais nova primeiro, inclusive as de sistema (`system: true`); no máximo `events_limit` (200 por ramal, seção 10). Com 200 itens a tela avisa "mostrando as 200 ocorrências mais recentes guardadas".
+- A tela relê esta rota ao abrir o ramal, ao trocar o período e quando a linha do ramal chega num `full: false` da 4.7.2.
+
+#### 4.7.4 GET /api/registrations/series
+
+Gráfico da aba Registros. Query: `period`; `group` opcional (até 64 caracteres; ausente = total da instalação; `"Sem grupo"` aceito). Fonte: colunas `lost_registration` e `became_unreachable` de `history` (seção 10), com a pertença ao grupo **no minuto** em que aconteceu.
+
+```json
+{
+  "success": true,
+  "data": {
+    "period": "24h",
+    "from": "2026-10-18T14:00:00.000Z",
+    "to": "2026-10-19T13:47:05.120Z",
+    "since": "2026-10-19T09:12:44.000Z",
+    "group": null,
+    "step": "hour",
+    "points": [
+      { "t": "2026-10-18T14:00:00.000Z", "lost_registration": null, "became_unreachable": null },
+      { "t": "2026-10-19T13:00:00.000Z", "lost_registration": 4, "became_unreachable": 1 }
+    ],
+    "system_events": [
+      { "at": "2026-10-19T09:12:58.000Z", "kind": "ami_connected" }
+    ]
+  },
+  "error": null,
+  "meta": { "count": 24 }
+}
+```
+
+- `points`: série densa (24, 7 ou 30 pontos, o exemplo mostra dois), `t` = início do intervalo. Valor = soma dos minutos do intervalo com coluna não nula; `null` quando nenhum minuto do intervalo tem dado (antes do `since`, daemon parado, AMI fora).
+- `system_events`: sinais de `reg_system_events` no período, mais novo primeiro, até 100. A tela mostra a contagem e o último abaixo do gráfico ("Eventos do sistema no período: N; último: Asterisk iniciado em ...").
+- A tela relê ao abrir a aba, ao trocar período ou grupo e a cada 60 s com a aba visível.
+
+#### 4.7.5 Exportação CSV (montada no navegador)
+
+Decisão do ADR-007: o servidor não gera CSV. O botão "Exportar CSV" da aba Registros gera o arquivo da tabela **filtrada e ordenada** que está na tela.
+
+- Nome: `registros-<period>-<AAAAMMDD-HHMM>.csv` (hora local do navegador).
+- UTF-8 com BOM, separador `;`, fim de linha CRLF. Célula com `;`, `"`, CR ou LF vai entre aspas, com `"` dobrada.
+- **Injeção de fórmula**: toda célula de texto que começa com `=`, `+`, `-`, `@`, TAB ou CR recebe `'` na frente (antes das aspas).
+- Cabeçalho e colunas, nesta ordem: `Ramal;Nome;Grupos;Perdeu registro;Ficou inalcançável;Registrou;Voltou a ser alcançável;Última queda;Último IP;Tempo fora do ar (s);Removido`. `Grupos` separados por `, `; `Última queda` em hora local `AAAA-MM-DD HH:MM:SS` ou vazio; `Último IP` como `ip:porta` (ou só `ip`, ou vazio); `Tempo fora do ar (s)` inteiro, calculado como na tela; `Removido` `sim` ou `não`.
+- Download por `Blob` + `URL.createObjectURL` + `<a download>` criado por script (sem `innerHTML`; nada muda na CSP).
 
 ---
 
@@ -554,8 +763,9 @@ Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes 
       "number": "2002",
       "name": "João Lima",
       "technology": "pjsip",
-      "group": "Suporte",
-      "group_manual": false,
+      "groups": ["Suporte"],
+      "range_groups": ["Suporte"],
+      "manual_groups": [],
       "registration": "registered",
       "ip": "192.0.2.24",
       "user_agent": "Grandstream GXP1625 1.0.11.23",
@@ -584,7 +794,7 @@ Regra de aplicação no cliente (com `v` = versão local):
 
 Ramal criado ou apagado no Issabel **não** muda o epoch: o novo chega em `extensions` (não registrado, com o grupo calculado pelas faixas) e o apagado em `removed` (seção 7.4). Apagado com chamada ativa continua em `extensions` até o `Hangup` da última chamada e só então vai para `removed`. O epoch novo continua só para queda do AMI e ressincronização.
 
-**Mudança de grupo não muda o epoch** (ADR-005). Criar, renomear, editar faixas, apagar grupo, atribuir ramais (tela, CLI/SIGHUP ou importação de CSV) chega assim: cada ramal cujo `group` ou `group_manual` mudou vem em `extensions` com o estado completo (versão avança, como em qualquer delta), e, **só quando o catálogo mudou**, o lote traz `"groups"`: o catálogo **completo** (`[{"name","ranges":[{"start","end"}]}]`, inclui grupo sem ramal e sem faixa, sem `Sem grupo`), que o cliente usa para **substituir** o catálogo local inteiro. Sem a chave `groups` o catálogo não mudou. Pode haver lote com `groups` e `extensions: []` (grupo novo vazio, ou faixa sem ramal): a versão avança mesmo assim, então quem reconecta recebe o lote no replay. Atribuir 10.000 ramais de uma vez produz um lote com 10.000 ramais (cerca de 3 MB de JSON, uma vez, sem epoch novo).
+**Mudança de grupo não muda o epoch** (ADR-005). Criar, renomear, editar faixas, apagar grupo, atribuir ou retirar ramais (tela, CLI/SIGHUP ou importação de CSV) chega assim: cada ramal cujo `groups`, `range_groups` ou `manual_groups` mudou vem em `extensions` com o estado completo (versão avança, como em qualquer delta), e, **só quando o catálogo mudou**, o lote traz `"groups"`: o catálogo **completo** (`[{"name","ranges":[{"start","end"}]}]`, inclui grupo sem ramal e sem faixa, sem `Sem grupo`), que o cliente usa para **substituir** o catálogo local inteiro. Sem a chave `groups` o catálogo não mudou. Pode haver lote com `groups` e `extensions: []` (grupo novo vazio, ou faixa sem ramal): a versão avança mesmo assim, então quem reconecta recebe o lote no replay. Atribuir 10.000 ramais de uma vez produz um lote com 10.000 ramais (cerca de 3 MB de JSON, uma vez, sem epoch novo).
 
 ### 5.3 reload (servidor para cliente)
 
@@ -667,7 +877,7 @@ history:
 | `ami.inventory_refresh` | duração Go | `10m` | entre `1m` e `24h`; intervalo da releitura completa dos ramais do PBX (seção 7.4), rede de segurança para recarga que o Asterisk não anunciou. A releitura por evento de recarga não depende dela |
 | `history.retention_days` | inteiro | `30` | entre 1 e 365 |
 
-Constantes (não configuráveis, de propósito): lote WS 250 ms; ring buffer 40 lotes; fila de envio por cliente 64 mensagens; TTL máximo do token 60 s; backoff de reconexão AMI de 1 s a 30 s; verificação de dependências a cada 60 s; fila interna AMI para estado 65536 eventos; ReadTimeout HTTP 15 s; no máximo 4 bcrypt simultâneos no login. Viram configuração só com medição que justifique.
+Constantes (não configuráveis, de propósito): lote WS 250 ms; ring buffer 40 lotes; fila de envio por cliente 64 mensagens; TTL máximo do token 60 s; backoff de reconexão AMI de 1 s a 30 s; verificação de dependências a cada 60 s; fila interna AMI para estado 65536 eventos; ReadTimeout HTTP 15 s; no máximo 4 bcrypt simultâneos no login; rc.7: janela de evento do sistema 120 s, fila do gravador de registro 16.384, lote de registro a cada 2 s ou 500 itens, 200 ocorrências brutas por ramal, retenção do relatório 30 dias, atualização da aba Registros a cada 5 s. Viram configuração só com medição que justifique.
 
 Não há variáveis de ambiente no binário de release. O único "ambiente" é este arquivo e os dois segredos, todos validados na subida (a chave do Issabel é a exceção deliberada: opcional e vigiada pela verificação de dependências). O endpoint de heap/pprof do teste de carga (`PAINEL_DEBUG_ADDR`) só existe no binário compilado com `-tags debug` e não faz parte da release.
 
@@ -701,7 +911,7 @@ Todas marcadas "a confirmar no Asterisk real com `manager show command <Action>`
 
 ### 7.2 Eventos (eventfilter estático, união SIP e PJSIP)
 
-`ContactStatus`, `PeerStatus`, `DeviceStateChange`, `Newchannel`, `Newstate`, `NewCallerid`, `NewConnectedLine`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, `Hangup`, `Hold`, `Unhold`, `Reload`, `ModuleLoadReport`, `FullyBooted` (recarga do Asterisk: o inventário de ramais e os nomes são refeitos 3 s depois do último desses eventos, seção 7.4; classe de leitura `system`). O bloco de `manager_custom.conf` do ADR-003 precisa de um `eventfilter` para cada um (`Event: Reload`, `Event: ModuleLoadReport`, `Event: FullyBooted`); os nomes exatos no Asterisk 18 do Issabel são confirmados na captura da homologação (S10).
+`ContactStatus`, `PeerStatus`, `DeviceStateChange`, `Newchannel`, `Newstate`, `NewCallerid`, `NewConnectedLine`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, `Hangup`, `Hold`, `Unhold`, `Reload`, `ModuleLoadReport`, `FullyBooted` (recarga do Asterisk: o inventário de ramais e os nomes são refeitos 3 s depois do último desses eventos, seção 7.4; classe de leitura `system`) e, desde a rc.7, `Shutdown` (Asterisk desligando: abre a janela de evento do sistema do relatório de registro, seção 11.5; classe `system`). O `%post` acrescenta `eventfilter = Event: Shutdown` **só** no bloco do painel em `manager_custom.conf` (o bloco é regerado no upgrade, seguido de `manager reload`); o simulador (`internal/amisim/proto.go`, `filterSet`) ganha o mesmo nome. `FullyBooted` e `Shutdown` são lidos no laço ao vivo do supervisor e viram `model.AsteriskSignal` (seção 11.1) sem passar pelos adaptadores. O bloco de `manager_custom.conf` do ADR-003 precisa de um `eventfilter` para cada um (`Event: Reload`, `Event: ModuleLoadReport`, `Event: FullyBooted`); os nomes exatos no Asterisk 18 do Issabel são confirmados na captura da homologação (S10).
 
 Os eventos da tecnologia inativa nunca chegam (o módulo não está carregado), então a união não custa nada. Motivo de não montar o filtro por tecnologia: ADR-003. As respostas de action em lista (`EndpointList`, `ContactList`, `PeerEntry`, `DeviceStateChange` de lista, `CoreShowChannel`) não passam pelo eventfilter.
 
@@ -779,9 +989,9 @@ painel-ramais version
 - Códigos de saída: 0 sucesso; 1 erro de uso ou validação (mensagem cita a linha do CSV); 2 erro de ambiente (banco, arquivo, permissão); 3 `user add` de usuário que já existe (nada alterado). O 3 existe para o `instalar.py` ser idempotente sem ler o banco. Só no `serve`: 4 = Asterisk abaixo da versão mínima (13); a unit deve ter `RestartPreventExitStatus=4` para não reiniciar em laço.
 - `version` imprime uma linha `painel-ramais <versao> schema <user_version que o binário conhece>` (exemplo: `painel-ramais 0.1.1 schema 3`). O `instalar.py` usa o `schema` para decidir o rollback (seção 15.5).
 - Root (o instalador) chama a CLI com `runuser -u painel-ramais -- painel-ramais ...`; pessoa usa `sudo -u painel-ramais painel-ramais ...`.
-- `group list` imprime `grupo<TAB>faixas` (faixas separadas por vírgula; vazio se o grupo não tem faixa), uma linha por grupo, ordenado por nome. Quando o grupo tem ramais atribuídos à mão, vem uma **terceira coluna** (`<TAB>2150,2151`, números separados por vírgula, ordenados). Se algum ramal foi fixado em "Sem grupo" à mão, vem no fim uma linha `Sem grupo<TAB><TAB>2160`. Linhas sem terceira coluna têm o formato antigo.
+- `group list` imprime `grupo<TAB>faixas` (faixas separadas por vírgula; vazio se o grupo não tem faixa), uma linha por grupo, ordenado por nome. Quando o grupo tem ramais com vínculo manual, vem uma **terceira coluna** (`<TAB>2150,2151`, números separados por vírgula, ordenados). rc.7: o mesmo número pode aparecer na terceira coluna de vários grupos; a linha final `Sem grupo<TAB><TAB>...` deixa de existir (não há "Sem grupo" manual). Linhas sem terceira coluna têm o formato antigo.
 - `group list` e `group audit` escapam como `\uXXXX` (ou `\UXXXXXXXX`; `\xNN` para byte inválido) os caracteres de controle (Cc, inclui DEL e C1), de formatação (Cf) e separadores de linha/parágrafo (Zl, Zp) de nomes, ramais, `quem` e detalhe, para texto vindo da tela não enganar o terminal.
-- `group audit [--limit N]` imprime as últimas N linhas (padrão 50, de 1 a 1000, mais nova primeiro) de `group_audit`: `data RFC 3339 UTC<TAB>quem<TAB>ação<TAB>detalhe JSON`. Só leitura (não manda SIGHUP). `group import` e `group del` gravam a auditoria com `quem = cli`; `group import` imprime `N linha(s) importada(s)` (faixas e atribuições). `--limit` fora do `audit` é erro de uso (código 1).
+- `group audit [--limit N]` imprime as últimas N linhas (padrão 50, de 1 a 1000, mais nova primeiro) de `group_audit`: `data RFC 3339 UTC<TAB>quem<TAB>ação<TAB>detalhe JSON`. Só leitura (não manda SIGHUP). `group import` e `group del` gravam a auditoria com `quem = cli`; `group import` imprime `N linha(s) importada(s)` (faixas e vínculos) e, desde a rc.7, `M linha(s) ignorada(s)` quando houver (repetidas, já existentes ou `Sem grupo,N`). `--limit` fora do `audit` é erro de uso (código 1).
 
 ---
 
@@ -794,20 +1004,24 @@ Suporte,2000-2099
 Suporte,2150
 Vendas,3000-3999
 Diretoria,4000
-Sem grupo,2160
+Plantão,2150
+Andar 2,2000-2299
 ```
+
+rc.7 (ADR-006): `2150` está em Suporte (manual), Plantão (manual) e Andar 2 (faixa); os ramais 2000 a 2099 estão em Suporte e em Andar 2.
 
 O mesmo arquivo com `;` (`Suporte;2000-2099`) também é aceito, desde que o arquivo inteiro use `;`. Este formato também é o do `grupos-exemplo.csv` que vai no bundle.
 
 - UTF-8, BOM aceito. Delimitador `,` ou `;`, detectado na primeira linha de dados e fixo para o arquivo (Excel em português exporta com `;`).
 - Linhas vazias e linhas que começam com `#` são ignoradas. Cabeçalho opcional: só é pulado se a primeira linha de dados for exatamente `grupo<delim>ramal` (sem diferenciar maiúsculas). Qualquer outra linha é dado.
-- `grupo`: 1 a 64 caracteres depois do trim (`store.MaxGroupNameRunes`, a mesma constante que as rotas `create` e `update` validam), diferente de `Sem grupo` (exceto em linha de um ramal, ver abaixo), só com o espaço comum U+0020 (NBSP U+00A0, U+3000 e os outros separadores Zs são recusados; nas pontas o trim os remove), sem caractere de controle (Cc, inclui C1), de formatação (Cf: marcas bidirecionais U+202A a U+202E e U+2066 a U+2069, largura zero U+200B/E/F, U+061C, U+FEFF) nem separador de linha ou de parágrafo (Zl, Zp: U+2028/2029); é a mesma regra do `<usuario>` do `sub` (seção 3.3). Grupo que não existe é criado.
+- `grupo`: 1 a 64 caracteres depois do trim (`store.MaxGroupNameRunes`, a mesma constante que as rotas `create` e `update` validam), diferente de `Sem grupo` (exceto em linha de um ramal, que é ignorada, ver abaixo), só com o espaço comum U+0020 (NBSP U+00A0, U+3000 e os outros separadores Zs são recusados; nas pontas o trim os remove), sem caractere de controle (Cc, inclui C1), de formatação (Cf: marcas bidirecionais U+202A a U+202E e U+2066 a U+2069, largura zero U+200B/E/F, U+061C, U+FEFF) nem separador de linha ou de parágrafo (Zl, Zp: U+2028/2029); é a mesma regra do `<usuario>` do `sub` (seção 3.3). Grupo que não existe é criado.
 - `ramal_ou_faixa`: só dígitos (`2150`, **um ramal**) ou `inicio-fim` com `inicio <= fim` (**faixa**). Comparação numérica nas faixas.
-- **Um ramal por linha (`Suporte,2150`) é atribuição manual**: grava o número como texto em `extension_groups` e vence a faixa. Faixa `N-M` continua sendo faixa do grupo (para uma faixa de um número só use `2150-2150`). Como o vínculo é pelo texto digitado, `02150` (zero à esquerda) vira atribuição manual de `02150` e passa a poder ter grupo; ramal com zero à esquerda ou nome não numérico só cai numa faixa se não houver atribuição manual, e então fica em `"Sem grupo"` (seção 13).
-- **`Sem grupo,2150`**: aceito **só em linha de um ramal** (atribuição manual a "Sem grupo", que também vence a faixa). `Sem grupo,2000-2999` é erro: faixa só existe para grupo real. A linha não cria grupo nenhum.
-- **Precedência** (CSV, CLI, API e tela): atribuição manual > faixa > `"Sem grupo"`.
-- O mesmo ramal em duas linhas do arquivo: igual (mesmo grupo) é aceito; em grupos diferentes é erro (`linhas N e M: ramal X em dois grupos`). Atribuição manual não conflita com faixa (a manual vence).
-- Tudo ou nada: qualquer erro ou sobreposição de **faixas** (dentro do arquivo ou com faixas já gravadas) rejeita o arquivo inteiro e lista as linhas em conflito. Com `--replace`, apaga todos os grupos **e todas as atribuições manuais** (inclusive as de "Sem grupo") e importa na mesma transação; a sobreposição é checada só dentro do arquivo. **Sem `--replace`, uma atribuição manual do arquivo sobrescreve a atribuição manual que o ramal já tinha** (não é conflito) e grupo citado que não existe é criado. A importação grava uma linha de auditoria (`import`: linhas, `replace`, quantas faixas e quantas atribuições).
+- **Um ramal por linha (`Suporte,2150`) é vínculo manual**: grava o par (número como texto, grupo) em `extension_groups`. Desde a rc.7 ele **soma** à faixa (ADR-006): o ramal fica no grupo da linha e continua nos grupos das faixas que o contêm. Faixa `N-M` continua sendo faixa do grupo (para uma faixa de um número só use `2150-2150`). Como o vínculo é pelo texto digitado, `02150` (zero à esquerda) vira vínculo manual de `02150`; ramal com zero à esquerda ou nome não numérico nunca cai numa faixa (seção 13).
+- **`Sem grupo,2150`**: aceito e **ignorado** (conta em `ignored`), para arquivos antigos continuarem importando; "Sem grupo" é implícito e não tem vínculo. `Sem grupo,2000-2999` continua erro. A linha não cria grupo nenhum.
+- **Pertença** (CSV, CLI, API e tela): o ramal está em todo grupo de faixa que o contém mais todo grupo de vínculo manual; sem nenhum, em `"Sem grupo"`.
+- **O mesmo ramal em várias linhas** é aceito (um vínculo por grupo). Linha repetida (mesmo grupo sem diferenciar maiúsculas e mesmo valor) é ignorada sem erro, e também a linha cujo vínculo ou faixa idêntica já existe no banco.
+- **Faixas**: faixas de grupos diferentes podem se sobrepor. Faixas do **mesmo grupo** que se cruzam (no arquivo, ou com as faixas que o grupo já tem quando não há `--replace`) são erro, exceto a faixa idêntica, que é ignorada: `linhas N e M: faixas A-B e C-D do grupo "X" se sobrepoem` ou `linha N: faixa A-B cruza a faixa C-D ja gravada no grupo "X"`. Total de faixas por grupo depois da importação até 1.000 (contando as que já existiam).
+- Tudo ou nada: qualquer erro rejeita o arquivo inteiro e lista até 20 linhas. Com `--replace`, apaga todos os grupos (faixas e vínculos manuais saem por cascade) e importa na mesma transação. **Sem `--replace` a importação só acrescenta**: nunca apaga nem troca vínculo ou faixa existente; grupo citado que não existe é criado. A importação grava uma linha de auditoria (`import`: linhas, `replace`, faixas, vínculos e ignoradas).
 
 ---
 
@@ -860,7 +1074,7 @@ CREATE TABLE group_ranges (
 CREATE INDEX group_ranges_group_id ON group_ranges(group_id);
 CREATE INDEX group_ranges_start    ON group_ranges(range_start);
 
--- Um grupo por ramal garantido pelo banco, não só pela CLI
+-- Um grupo por ramal garantido pelo banco, não só pela CLI (até a v3; a v4 troca por group_ranges_no_overlap_same_group)
 CREATE TRIGGER group_ranges_no_overlap BEFORE INSERT ON group_ranges
 WHEN EXISTS (SELECT 1 FROM group_ranges r
              WHERE NEW.range_start <= r.range_end AND r.range_start <= NEW.range_end)
@@ -904,7 +1118,7 @@ Versão 3 (grupos editáveis pela tela e atribuição manual de ramal; `PRAGMA u
 
 ```sql
 -- Vínculo MANUAL ramal -> grupo, por número do ramal (texto): sobrevive a ramal apagado e recriado.
--- group_id NULL = "Sem grupo" manual (também vence a faixa). Apagar o grupo apaga as atribuições dele
+-- (Até a v3; a v4 reconstrói esta tabela, ver abaixo.) group_id NULL = "Sem grupo" manual (também vence a faixa). Apagar o grupo apaga as atribuições dele
 -- (CASCADE): os ramais voltam para a faixa que casar ou para "Sem grupo".
 CREATE TABLE extension_groups (
   number     TEXT    PRIMARY KEY CHECK (length(number) BETWEEN 1 AND 64),
@@ -932,16 +1146,107 @@ BEGIN SELECT RAISE(ABORT, 'auditoria imutavel'); END;
 
 `subject` é o `subject` da sessão (`issabel:admin:<usuario>` na tela) ou `cli`. Mudança só aditiva (expand): nenhuma tabela antiga muda, então o upgrade é seguro e o binário antigo ignoraria as tabelas novas; mas o binário antigo **recusa abrir** banco com `user_version` 3 (downgrade não suportado), então o rollback do instalador (15.7) precisa do backup `painel.db.bak-v2`: voltar da rc.5 para a rc.4 **descarta** as atribuições manuais, a auditoria de grupos e qualquer grupo/faixa/usuário/histórico criado depois do upgrade (ver 15.5 e 15.7).
 
+Versão 4 (rc.7: ramal em N grupos, ADR-006, e relatório de registro, ADR-007; `PRAGMA user_version = 4`, **uma** migração sobre a v3, com o backup `painel.db.bak-v3` antes, no mesmo `VACUUM INTO` de sempre). Antes de rodar o DDL, na mesma transação, o daemon lê `SELECT number FROM extension_groups WHERE group_id IS NULL` e, se houver linhas, registra em log Warn `vinculos "Sem grupo" manual descartados na migracao` com a contagem e até 20 números (o ramal volta a seguir as faixas).
+
+```sql
+-- 1) N:N. Chave (number, group_id), sem NULL: "Sem grupo" manual deixa de existir.
+CREATE TABLE extension_groups_v4 (
+  number     TEXT    NOT NULL CHECK (length(number) BETWEEN 1 AND 64),
+  group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT    NOT NULL CHECK (length(updated_by) BETWEEN 1 AND 128),
+  PRIMARY KEY (number, group_id)
+) STRICT, WITHOUT ROWID;
+INSERT INTO extension_groups_v4 (number, group_id, updated_at, updated_by)
+  SELECT number, group_id, updated_at, updated_by FROM extension_groups WHERE group_id IS NOT NULL;
+DROP TABLE extension_groups;
+ALTER TABLE extension_groups_v4 RENAME TO extension_groups;
+CREATE INDEX extension_groups_group_id ON extension_groups(group_id);
+
+-- 2) Faixas de grupos diferentes podem se sobrepor; do mesmo grupo, nao.
+--    A mensagem continua contendo "faixa sobreposta" (o codigo procura esse texto).
+DROP TRIGGER group_ranges_no_overlap;
+CREATE TRIGGER group_ranges_no_overlap_same_group BEFORE INSERT ON group_ranges
+WHEN EXISTS (SELECT 1 FROM group_ranges r
+             WHERE r.group_id = NEW.group_id
+               AND NEW.range_start <= r.range_end AND r.range_start <= NEW.range_end)
+BEGIN SELECT RAISE(ABORT, 'faixa sobreposta no mesmo grupo'); END;
+
+-- 3) history: quedas por minuto (grupo e total '') para o grafico da aba Registros.
+--    NULL nas linhas anteriores a v4 e em minuto de lacuna (gap = 1); >= 0 nos demais.
+ALTER TABLE history ADD COLUMN lost_registration  INTEGER CHECK (lost_registration  IS NULL OR lost_registration  >= 0);
+ALTER TABLE history ADD COLUMN became_unreachable INTEGER CHECK (became_unreachable IS NULL OR became_unreachable >= 0);
+
+-- 4) Relatorio de registro.
+-- Data de instalacao da versao com relatorio ("Dados desde ..."), gravada uma vez pela migracao.
+CREATE TABLE reg_meta (
+  id    INTEGER PRIMARY KEY CHECK (id = 1),
+  since INTEGER NOT NULL
+) STRICT;
+INSERT INTO reg_meta (id, since) VALUES (1, CAST(strftime('%s', 'now') AS INTEGER));
+
+-- Ocorrencia bruta. No maximo 200 por ramal (o gravador apaga as mais antigas a cada lote).
+-- system = 1: transicao dentro da janela de 120 s apos Shutdown, FullyBooted ou conexao do AMI.
+CREATE TABLE reg_events (
+  id         INTEGER PRIMARY KEY,
+  at         INTEGER NOT NULL,
+  number     TEXT    NOT NULL CHECK (length(number) BETWEEN 1 AND 64),
+  kind       TEXT    NOT NULL CHECK (kind IN ('lost_registration', 'registered', 'became_unreachable', 'reachable_again')),
+  system     INTEGER NOT NULL CHECK (system IN (0, 1)),
+  ip         TEXT    CHECK (ip IS NULL OR length(ip) BETWEEN 7 AND 15),
+  port       INTEGER CHECK (port IS NULL OR port BETWEEN 1 AND 65535),
+  user_agent TEXT    CHECK (user_agent IS NULL OR length(user_agent) BETWEEN 1 AND 256)
+) STRICT;
+CREATE INDEX reg_events_number_id ON reg_events(number, id);
+CREATE INDEX reg_events_at        ON reg_events(at);
+
+-- Agregado por hora e ramal. Contadores so de system = 0; system_events conta os de sistema.
+-- name: ultimo nome conhecido (o relatorio nao depende do cache extension_names, que o pruneNames apaga).
+-- rev: lote de gravacao que tocou a linha por ultimo (cursor da secao 4.7.2).
+CREATE TABLE reg_hourly (
+  number             TEXT    NOT NULL CHECK (length(number) BETWEEN 1 AND 64),
+  hour               INTEGER NOT NULL CHECK (hour % 3600 = 0),
+  name               TEXT    CHECK (name IS NULL OR length(name) BETWEEN 1 AND 128),
+  lost_registration  INTEGER NOT NULL DEFAULT 0 CHECK (lost_registration  >= 0),
+  registered         INTEGER NOT NULL DEFAULT 0 CHECK (registered         >= 0),
+  became_unreachable INTEGER NOT NULL DEFAULT 0 CHECK (became_unreachable >= 0),
+  reachable_again    INTEGER NOT NULL DEFAULT 0 CHECK (reachable_again    >= 0),
+  system_events      INTEGER NOT NULL DEFAULT 0 CHECK (system_events      >= 0),
+  down_s             INTEGER NOT NULL DEFAULT 0 CHECK (down_s BETWEEN 0 AND 3600),
+  last_drop_at       INTEGER,
+  last_ip            TEXT    CHECK (last_ip IS NULL OR length(last_ip) BETWEEN 7 AND 15),
+  last_port          INTEGER CHECK (last_port IS NULL OR last_port BETWEEN 1 AND 65535),
+  rev                INTEGER NOT NULL CHECK (rev >= 1),
+  PRIMARY KEY (number, hour)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX reg_hourly_hour ON reg_hourly(hour);
+CREATE INDEX reg_hourly_rev  ON reg_hourly(rev);
+
+-- Sinais do sistema que abrem a janela de supressao.
+CREATE TABLE reg_system_events (
+  id   INTEGER PRIMARY KEY,
+  at   INTEGER NOT NULL,
+  kind TEXT    NOT NULL CHECK (kind IN ('shutdown', 'fully_booted', 'ami_connected'))
+) STRICT;
+CREATE INDEX reg_system_events_at ON reg_system_events(at);
+```
+
+Notas da versão 4:
+- **Expand e contract na mesma versão, de propósito.** `extension_groups` é reconstruída (contract) porque a chave muda; não existe janela em que dois binários usem o mesmo banco (o serviço para no `rpm -U`). O rollback depende do `painel.db.bak-v3` (seção 15.7).
+- **Retenção fixa de 30 dias** para `reg_events`, `reg_hourly` e `reg_system_events` (constante, não segue `history.retention_days`): uma vez por dia (e na subida), `DELETE ... WHERE at < agora - 30 d` (`hour <` no agregado). Não há tabela de intervalo aberto: o intervalo fora do ar aberto vive no estado e se perde num restart do **daemon** (ADR-007, alternativa E).
+- **Gravação de um lote** (uma transação, a cada 2 s ou 500 ocorrências, o que vier antes; `rev` = maior `rev` gravada + 1, lida na subida): (1) `INSERT` em `reg_events`; (2) upsert em `reg_hourly` da hora de cada ocorrência (`ON CONFLICT(number, hour) DO UPDATE` somando o contador do tipo ou `system_events`, `last_drop_at = max(...)` para queda contada, `last_ip`/`last_port` quando a ocorrência tem endereço, `name` quando conhecido, `rev`); (3) para cada fechamento de intervalo fora do ar, upsert de `down_s` em cada hora entre o início e o fim (só os segundos daquela hora, no máximo as últimas 720 horas; soma com teto, `min(3600, down_s + excluded.down_s)`, para um erro de conta nunca derrubar o lote no `CHECK`); (4) `INSERT` em `reg_system_events` dos sinais; (5) para cada ramal do lote, `DELETE FROM reg_events WHERE number = ? AND id < (SELECT id FROM reg_events WHERE number = ? ORDER BY id DESC LIMIT 1 OFFSET 199)` (fica com as 200 mais novas). Falha: rollback, `write_errors++`, log Warn, o lote é descartado.
+- **Tamanho esperado** com 10.000 ramais e 30 dias: `reg_events` até 2 milhões de linhas (teto de 200 por ramal); `reg_hourly` proporcional a ramal x hora com ocorrência (dezenas de milhares em operação normal).
+
 Todo nome que entra (callerid do Asterisk, display name do telefone, cache antigo, nome do outro lado da chamada) passa por `model.CleanName`: sem caracteres de controle ou de formatação (categorias Unicode `C*`: C0/C1, bidi U+202A..202E e U+2066..2069, largura zero, BOM), espaços colapsados e no máximo 64 caracteres. A tela da fase 2 deve mostrar nomes só como texto (nunca `innerHTML`) e com CSP estrita. Ao fim de cada sincronização completa o daemon expurga do cache os ramais que não existem mais no PBX (lista vazia não expurga).
 
 O daemon grava em lote (a cada 5 s e no desligamento) todo nome aprendido ao vivo (consulta de nome ou `CallerIDName` de quem origina uma chamada) e o lê na subida: o nome aparece já no primeiro snapshot, e o nome real do Asterisk sempre vence o do cache. Preenchimento em segundo plano: depois de cada sincronização, a 20 consultas/s no máximo (`ami.name_fill_per_second`), de novo a cada 6 h e depois de um evento `Reload`; o painel funciona com o nome vazio enquanto isso. Limite: nome apagado no Asterisk (callerid vazio) não limpa o nome já conhecido do ramal.
 
 Regras de uso:
-- **Amostra de histórico**: na virada de cada minuto, o daemon grava uma linha para o total (`''`) e uma por grupo (inclui `Sem grupo`), com as contagens daquele instante. Se o AMI estava fora em qualquer momento do minuto, grava `gap=1`. Tamanho esperado com 100 grupos: cerca de 4,4 milhões de linhas em 30 dias.
+- **Amostra de histórico**: na virada de cada minuto, o daemon grava uma linha para o total (`''`) e uma por grupo (inclui `Sem grupo`), com as contagens daquele instante. Se o AMI estava fora em qualquer momento do minuto, grava `gap=1`. rc.7: o ramal conta em cada grupo dele (N:N) e uma vez no total; `lost_registration` e `became_unreachable` da linha são a diferença, desde a amostra anterior, dos contadores acumulados do estado (`Stats.RegTotal` e `Stats.RegByGroup`, seção 11.4; grupo sem amostra anterior conta a partir de 0; diferença negativa vira 0); em `gap=1` as duas ficam `NULL`. Tamanho esperado com 100 grupos: cerca de 4,4 milhões de linhas em 30 dias.
 - **Retenção**: a cada hora, `DELETE FROM history WHERE minute < agora - retention_days`. Usa `history_minute`.
 - **Sessões vencidas**: a cada hora, `DELETE FROM sessions WHERE expires_at <= agora`.
 - **Auditoria de grupos**: a cada hora, `DELETE FROM group_audit WHERE at < agora - retention_days` (a mesma retenção do histórico).
-- **Grupos no daemon**: catálogo (grupos com ou sem faixa) e atribuições manuais lidos juntos, numa transação de leitura, na subida, a cada SIGHUP e depois de cada escrita pela tela (`loadGroups`). Resolução do grupo de um ramal: atribuição manual (`extension_groups`, inclusive "Sem grupo" manual) > faixa (ordenadas por `range_start`, busca binária) > `"Sem grupo"`.
+- **Grupos no daemon**: catálogo (grupos com ou sem faixa) e vínculos manuais lidos juntos, numa transação de leitura, na subida, a cada SIGHUP e depois de cada escrita pela tela (`loadGroups`). Resolução dos grupos de um ramal (rc.7): `range_groups` = todo grupo com faixa que contém o número (faixas de grupos diferentes se sobrepõem, então a busca binária única deixa de servir; dentro de um grupo elas não se sobrepõem, então vale **uma busca binária por grupo**, nas faixas do próprio grupo ordenadas por `range_start`: custo grupos x log(faixas) por ramal; ponytail: árvore de intervalos só com medição); `manual_groups` = grupos de `extension_groups` do número; `groups` = união ordenada, ou `["Sem grupo"]`.
 
 ---
 
@@ -957,7 +1262,8 @@ Os adaptadores `sip` e `pjsip` traduzem mensagens AMI nestes tipos. O supervisor
 | `SyncStarted` | `Technology`, `AsteriskVersion`, `Reason` (`connect` ou `overflow`) | começa estado de montagem separado; a visão publicada continua a anterior |
 | `SyncFinished` | (nenhum) | troca a visão pela montada, `ami_connected=true`, epoch novo |
 | `NamesLoaded` | `Names map[string]string` | cache de nomes (número para callerid); só preenche ramal sem nome; sem epoch novo (emitido pelo `cmd` na subida) |
-| `GroupsLoaded` | `Groups []Group{Name, Ranges []Range{Start, End}}` (catálogo completo, inclui grupo sem faixa), `Manual map[número]grupo` (`"Sem grupo"` = manual sem grupo; ausente = sem atribuição manual) | recalcula o grupo de cada ramal (manual > faixa > `Sem grupo`), marca como sujos só os que mudaram (`group` ou `group_manual`) e liga a bandeira de catálogo mudado; **sem epoch novo** (emitido pelo `cmd` na subida, no SIGHUP e depois de cada escrita pela tela) |
+| `GroupsLoaded` | `Groups []Group{Name, Ranges []Range{Start, End}}` (catálogo completo, inclui grupo sem faixa), `Manual map[string][]string` (rc.7: número para a lista de grupos com vínculo manual; ausente = nenhum) | recalcula os grupos de cada ramal (seção 10, "Grupos no daemon"), marca como sujos só os que mudaram (`groups`, `range_groups` ou `manual_groups`) e liga a bandeira de catálogo mudado; **sem epoch novo** (emitido pelo `cmd` na subida, no SIGHUP e depois de cada escrita pela tela) |
+| `AsteriskSignal` | `Kind` (`shutdown` ou `fully_booted`) | rc.7, emitido pelo supervisor no laço ao vivo ao ler `Event: Shutdown` ou `Event: FullyBooted` (inclusive o `FullyBooted` logo após o Login). Abre a janela de evento do sistema de 120 s a partir de `At` e gera o sinal para `reg_system_events` (seção 11.5). Não muda epoch nem versão |
 | `InventoryListed` | `Reason`, `Names []string` (todos os endpoints/peers do PBX, troncos inclusos) | releitura do inventário (seção 7.4): remove do estado os ramais que não estão na lista (ou os mantém até o fim da chamada), **sem epoch novo**; ignorado durante sincronização ou com o AMI fora. Vem antes dos `EndpointSeen`/`RegistrationChanged` da mesma leitura |
 
 Regra do epoch: mudança em massa (queda do AMI, fim de sincronização) gera epoch novo e `reload`; mudança de grupo (catálogo ou atribuição) e inventário vão por delta; mudança de um ramal, inclusive ramal criado ou apagado no PBX (`InventoryListed`), gera delta.
@@ -967,7 +1273,7 @@ Regra do epoch: mudança em massa (queda do AMI, fim de sincronização) gera ep
 | Tipo | Campos | Origem |
 |---|---|---|
 | `EndpointSeen` | `Name`, `CallerIDName`, `Technology` | `PJSIPShowEndpoints` / `SIPpeers` durante a sincronização |
-| `RegistrationChanged` | `Name`, `State` (enum de `registration`), `IP`, `UserAgent`, `LatencyMs *int` | `ContactStatus` agregado / `PeerStatus` / listas de contato |
+| `RegistrationChanged` | `Name`, `State` (enum de `registration`), `IP`, `Port int` (rc.7; 0 = desconhecida), `UserAgent`, `LatencyMs *int`, `Live bool` (rc.7) | `ContactStatus` agregado / `PeerStatus` / listas de contato. `Live = true` **só** em `pjsip.contactStatus` e `sip.peerStatus` (evento ao vivo); snapshot, releitura (`load`) e qualquer outro caminho deixam `false`. `Port`: pjsip, do `ViaAddress` ou do host do `URI`; sip, do `Address` (`ip:porta`) |
 | `DeviceStateChanged` | `Name`, `State` (enum de `device_state`) | `DeviceStateChange`, `DeviceStateList` |
 
 `Name` é o nome do endpoint/peer, sem prefixo de tecnologia. O `state` decide ramal ou tronco com `extension_pattern` (D1). Evento de endpoint desconhecido cria o registro dentro do epoch atual.
@@ -1000,7 +1306,25 @@ Fila entre leitor AMI e estado: canal com capacidade 65536. A goroutine leitora 
 | `Batch` | `Epoch`, `FromVersion`, `ToVersion`, `AMIConnected`, `Extensions []Extension`, `Removed []string` (números que saíram, ordenados, disjuntos de `Extensions`; cada remoção conta uma mudança na versão), `Groups []Group` (catálogo completo, só quando mudou; `nil` = não mudou; a versão avança pelo menos 1 mesmo sem ramal afetado) | a cada 250 ms com mudança |
 | `Reset` | `Epoch`, `Version`, `AMIConnected`, `Technology`, `Extensions []Extension` (todos), `Groups []Group` (catálogo, para o hub servir `/api/groups` e o `groups` do snapshot) | a cada epoch novo |
 
-`Extension` e `Call` do `model` têm as tags JSON da seção 2: o formato da seção 2 é o próprio `json.Marshal` desses tipos.
+`Extension` e `Call` do `model` têm as tags JSON da seção 2: o formato da seção 2 é o próprio `json.Marshal` desses tipos. rc.7: `Extension` troca `Group`/`GroupManual` por `Groups`, `RangeGroups`, `ManualGroups []string` (tags `groups`, `range_groups`, `manual_groups`, nunca `nil` no JSON) e ganha `DownSince *time.Time` com tag `json:"-"` (fora do snapshot e do delta; o hub o guarda para a seção 4.7 montar `down_open_since`).
+
+`state.Stats` (rc.7) ganha: `RegTotal model.RegCounts` e `RegByGroup map[string]model.RegCounts` (`RegCounts{Lost, Unreachable uint64}`, acumulados desde a subida, só ocorrências contadas, `system = 0`; o ramal soma em cada grupo dele no momento da ocorrência, inclusive `Sem grupo`) e `SuppressedUntil time.Time` (zero = sem janela). `ByGroup` passa a contar o ramal em cada grupo dele.
+
+### 11.5 Relatório de registro no estado e no gravador (rc.7, ADR-007)
+
+**No estado** (`view.onRegistration`, goroutine do estado, nunca bloqueia):
+1. Só quando `e.Live`, a visão é a publicada (`!isBuilding`) e `x.reg != e.State`: aplica a tabela de transições do ADR-007 (estado anterior `x.reg`, novo `e.State`; `unknown` dos dois lados não conta).
+2. `system = e.At < suppressedUntil`. A janela é `max(suppressedUntil, At + 120 s)` e abre em `AsteriskSignal` e no `SyncFinished` de uma sincronização com `Reason = connect` (o estado guarda o `Reason` do `SyncStarted`; inclusive a primeira conexão depois da subida; `overflow` não abre). Cada abertura também gera um sinal (`shutdown`, `fully_booted` ou `ami_connected`).
+3. Intervalo fora do ar (`extState.downSince`): abre na queda contada (`lost_registration` ou `became_unreachable`, `system = false`) se estiver fechado; fecha em `registered` ou `reachable_again` (de sistema ou não). No `SyncFinished`, o `downSince` de cada ramal da visão antiga passa para a nova; se o ramal voltou `registered`, fecha ali (fechamento sem ocorrência). Ramal removido do estado (`removeExt`) fecha o intervalo na hora da remoção.
+4. Endereço da ocorrência: IP e porta do estado novo; se vazio (queda), os do estado anterior. Só IPv4 (`net.ParseIP(ip).To4() != nil`); senão vazio. User agent passa por `model.CleanName` com teto de 256 caracteres (não 64).
+5. Contadores acumulados de `Stats.RegTotal`/`RegByGroup` somam só `lost_registration` e `became_unreachable` não sistema.
+6. Entrega: `Options.OnReg func(model.RegNote)`, chamada na goroutine do estado. `RegNote{At, Number, Name, Kind, System, IP, Port, UserAgent, DownFrom time.Time, Signal string}`: ocorrência (`Kind` preenchido), fechamento de intervalo (`Kind` vazio, `DownFrom` não zero, `At` = fim) ou sinal (`Signal` preenchido, `Number` vazio). Uma ocorrência que fecha intervalo leva o `DownFrom` junto.
+
+**No gravador** (`internal/reglog`, goroutine própria, criado e ligado pelo `cmd`):
+- O `cmd` implementa `OnReg` como envio **sem bloqueio** (`select` com `default`) num canal de 16.384 `RegNote`; cheio, descarta e soma `dropped`. Constante, não configurável.
+- Lote a cada 2 s ou 500 itens, o que vier antes, numa transação (seção 10, "Gravação de um lote"); no desligamento grava o que sobrou. Limpeza da retenção de 30 dias uma vez por dia e na subida.
+- Expõe `model.RegStatus{QueueLen, QueueCap int; Dropped, WriteErrors uint64}`, injetado no `api.Server` como `RegStatus func() model.RegStatus` (o `api` não importa `reglog`); `suppressed_until` vem de `Stats.SuppressedUntil`.
+- As rotas da seção 4.7 leem do `store` (consultas novas) e da projeção do hub (nome, grupos, presença e `DownSince` atuais).
 
 ---
 
@@ -1020,6 +1344,7 @@ internal/ami/calls/    tradução dos eventos de chamada (comum a sip e pjsip)
 internal/ami/sip/      adaptador chan_sip
 internal/ami/pjsip/    adaptador chan_pjsip
 internal/history/      amostrador por minuto (gap, retenção); importa model e store
+internal/reglog/       rc.7: gravador do relatório de registro (fila, lote, retenção de 30 dias); importa model e store
 internal/store/        SQLite: usuários, sessões, grupos, histórico, migrações
 internal/auth/         bcrypt, token HMAC, cache de jti, geração de id de sessão
 internal/config/       leitura e validação do config.yaml
@@ -1033,7 +1358,7 @@ packaging/             nfpm.yaml, unit, scripts do RPM, httpd.conf.tmpl, config.
 Grafo de importação interna (uma linha por pacote; `->` lista o que ele importa). Verificado sem ciclo por script (seção 14).
 
 ```deps
-cmd/painel-ramais -> internal/api, internal/state, internal/model, internal/ami, internal/ami/sip, internal/ami/pjsip, internal/store, internal/auth, internal/config, internal/depcheck, internal/history, internal/web
+cmd/painel-ramais -> internal/api, internal/state, internal/model, internal/ami, internal/ami/sip, internal/ami/pjsip, internal/store, internal/auth, internal/config, internal/depcheck, internal/history, internal/reglog, internal/web
 internal/api -> internal/state, internal/model, internal/store, internal/auth, internal/depcheck
 internal/state -> internal/model
 internal/ami/sip -> internal/ami, internal/ami/calls, internal/model
@@ -1042,6 +1367,7 @@ internal/ami/calls -> internal/ami, internal/model
 internal/ami ->
 internal/model ->
 internal/history -> internal/model, internal/store
+internal/reglog -> internal/model, internal/store
 internal/store ->
 internal/auth ->
 internal/config ->
@@ -1077,6 +1403,8 @@ Regras:
 | S6 | eventfilter no formato de regex (`Event: X`) é aceito pela versão do Asterisk do Issabel 5 | spike do ADR-003 | backend |
 | S7 | O daemon consegue ler `/etc/asterisk/manager.conf` para a checagem do include; se não conseguir, o item fica `unknown` e o README explica | `verificar` registra `ls -l /etc/asterisk/manager*.conf` no relatório | backend |
 | S8 | Hora dos eventos ao vivo = hora de leitura no daemon (o Asterisk não manda timestamp sem `timestampevents`, que fica no `[general]` do manager.conf, que não editamos) | aceito; erro esperado abaixo de 1 s | nenhum |
+| S11 | rc.7: o Asterisk 18 do Issabel manda `Event: Shutdown` (privilégio `system`) antes de parar e o `eventfilter = Event: Shutdown` o deixa passar; `FullyBooted` chega depois do Login e depois do boot | no servidor: `asterisk -rx "core restart gracefully"` com o painel ligado; `reg_system_events` deve ganhar `shutdown`, `ami_connected` e `fully_booted` | backend |
+| S12 | rc.7: `ContactStatus` traz a porta no `ViaAddress` (ou no `URI`) e `PeerStatus` no `Address` (`ip:porta`) | no servidor: `reg_events.port` preenchido depois de um telefone re-registrar; vazio não quebra nada | backend |
 | S10 | Nomes dos eventos AMI de recarga no Asterisk 18 do Issabel (`Reload`, `ModuleLoadReport`, `FullyBooted`, outro?) e se passam pelo `eventfilter`; se criar ou apagar ramal no IssabelPBX (Apply Config) gera `Reload` e quantos; texto exato da resposta de lista vazia (`No endpoints found`, `No AORs found`, `No contacts found`); se `EndpointList` traz `Callerid`; outros endpoints internos além de `dummy_endpoint` | captura da homologação: criar, renomear e apagar um ramal e aplicar a configuração com `capturar` rodando | backend |
 
 ---
@@ -1084,6 +1412,8 @@ Regras:
 ## 14. Verificação deste documento
 
 Script de conferência (rodado no scratchpad, fora do repositório): extrai os blocos `json`, `sql` e `deps` deste arquivo e confere que (a) todo bloco JSON faz parse, (b) cada endpoint e mensagem (snapshot, delta, hello, reload, health, history, groups, login, logout, token) tem exemplo, (c) a DDL roda num SQLite em memória e o trigger rejeita faixa sobreposta, (d) o grafo não tem ciclo e as folhas não importam pacote interno (o bundle agora é `tools/bundle.py`, fora do grafo Go). As seções 15 a 17 (instalador, critérios, documentação) são texto e tabela; a conferência delas é a leitura contra o adendo. Resultado registrado no retorno do tech-lead de 2026-10-13.
+
+rc.7 (2026-10-19): as seções 2.1, 4.6, 4.7, 9, 10 (versão 4), 11.5 e 12 foram conferidas **só por leitura**, sem executar nada (regra do usuário: nenhum teste no PC dele; a validação é ao vivo no servidor). A DDL da versão 4 não foi rodada em SQLite; o @revisor a confere por leitura contra a `ddlV4` do código, e a primeira subida no servidor é a prova (se falhar, a migração é uma transação: o banco continua na versão 3, o daemon não sobe e o `instalar.py rollback` reinstala a rc.6 sem precisar do `.bak-v3`).
 
 ---
 
@@ -1180,6 +1510,8 @@ Não altera nada no sistema. A única escrita é o relatório em `/var/log/paine
 
 Upgrade que muda o esquema do banco (rc.4 para rc.5: schema 2 para 3, tabelas `extension_groups` e `group_audit`, seção 10): o daemon faz a migração na primeira subida, com o backup `painel.db.bak-v2` antes; `grupos`, usuários, sessões e histórico existentes são preservados e `group import --replace` do instalador continua valendo (a rc.5 também apaga as atribuições manuais no replace, seção 9). O `versao.txt` do RPM instalado registra `schema 3`.
 
+Upgrade rc.6 para rc.7 (schema 3 para 4, seção 10, versão 4): uma migração só, com o backup `painel.db.bak-v3` antes; vínculos manuais com grupo migram sem perda, "Sem grupo" manual é descartado (log Warn com a lista), `reg_meta.since` recebe a hora do upgrade. O `%post` regrava o bloco AMI com `eventfilter = Event: Shutdown` e faz `manager reload`. O `group import --replace` do instalador continua valendo (CSV antigo com `Sem grupo,N` é aceito e a linha ignorada). O `versao.txt` registra `schema 4`.
+
 Falha do passo 3 em diante: não desfaz nada, mostra o passo, o erro e o comando para diagnosticar (`journalctl -u painel-ramais -n 50`, `./instalar.py status`, `httpd -t`), sai com 2.
 
 Idempotência:
@@ -1202,6 +1534,8 @@ Lê `GET http://127.0.0.1:<porta>/api/health` (porta do `config.yaml`) e `system
 4. Confere `rpm -qp --qf %{NAME}` = `painel-ramais` e o SHA-256 registrado na instalação; `systemctl stop painel-ramais`; `rpm -U --oldpackage <rpm-anterior>`.
 5. Se precisou: guarda `painel.db` (e `-wal`, `-shm`) como `painel.db.rollback-<data>` e copia o backup para `painel.db`, dono painel-ramais.
 6. `systemctl start painel-ramais`, espera o health como no passo 8 do `instalar`, troca `rpm-instalado/` e `rpm-anterior/`.
+
+Rollback da rc.7 (schema 4) para a rc.6 (schema 3): o passo 2 detecta o banco mais novo e o passo 5 restaura **automaticamente** o `painel.db.bak-v3` (o banco 4 fica guardado como `painel.db.rollback-<data>`). Antes da confirmação o plano mostra, com todas as letras: "o banco volta ao estado de antes da atualização; vínculos de ramal em vários grupos, o relatório de registros, e todo histórico, sessão, usuário e grupo gravados depois da atualização serão PERDIDOS". A rc.6 nunca abre banco 4: `store.migrate` recusa iniciar com "banco com esquema 4, este binario conhece ate 3 (downgrade nao suportado)" (conferido por leitura na tag `v0.1.2-rc.6`, `internal/store/store.go:66-67`). Sem o `.bak-v3`, o rollback sai com 2 sem mexer em nada (regra já existente).
 
 Um nível só de rollback. Voltar da rc.5 (schema 3) para a rc.4 (schema 2) restaura `painel.db.bak-v2`: as atribuições manuais de ramal, a auditoria de grupos e todas as alterações de grupo, usuário e histórico feitas depois do upgrade são **perdidas** (o binário da rc.4 recusa abrir banco schema 3). O plano do rollback avisa isso quando detecta schema mais novo.
 
