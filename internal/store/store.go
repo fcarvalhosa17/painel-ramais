@@ -67,7 +67,7 @@ func Open(ctx context.Context, dataDir string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 // migrations[i] leva o banco da versao i para i+1. So para frente.
-var migrations = []string{ddlV1, ddlV2, ddlV3, ddlV4}
+var migrations = []string{ddlV1, ddlV2, ddlV3, ddlV4, ddlV5}
 
 // SchemaVersion e o PRAGMA user_version que este binario conhece (uma migracao por versao).
 var SchemaVersion = len(migrations)
@@ -340,4 +340,16 @@ CREATE TABLE reg_system_events (
   kind TEXT    NOT NULL CHECK (kind IN ('shutdown', 'fully_booted', 'ami_connected'))
 ) STRICT;
 CREATE INDEX reg_system_events_at ON reg_system_events(at);
+`
+
+// v5 (rc.8): nome da fila dado pelo painel (ADR-009). So aditiva. Identica ao bloco SQL da versao 5 da secao 10 do CONTRATOS.
+const ddlV5 = `
+-- Nome dado pelo painel a uma fila do Asterisk (a chave e o identificador do AMI, ex.: '600').
+-- Sem linha = sem nome (a tela mostra "Fila 600"). updated_by = subject da sessao que gravou.
+CREATE TABLE queue_names (
+  queue      TEXT    PRIMARY KEY CHECK (length(queue) BETWEEN 1 AND 64),
+  name       TEXT    NOT NULL CHECK (length(name) BETWEEN 1 AND 64 AND name = trim(name)),
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT    NOT NULL CHECK (length(updated_by) BETWEEN 1 AND 128)
+) STRICT, WITHOUT ROWID;
 `

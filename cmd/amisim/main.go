@@ -27,7 +27,7 @@ func main() {
 		trunks  = flag.Int("trunks", 4, "quantidade de troncos")
 		user    = flag.String("user", "painel-ramais", "usuario AMI")
 		secret  = flag.String("secret", "segredo-de-teste", "senha AMI")
-		read    = flag.String("read", "system,call", "classes de leitura do usuario AMI")
+		read    = flag.String("read", "system,call,agent", "classes de leitura do usuario AMI")
 		write   = flag.String("write", "system,reporting", "classes de escrita do usuario AMI")
 		ast     = flag.String("asterisk", "18.20.0", "versao do Asterisk reportada no CoreSettings")
 		modules = flag.String("modules", "", "modulos carregados, separados por virgula (padrao: o da tecnologia)")

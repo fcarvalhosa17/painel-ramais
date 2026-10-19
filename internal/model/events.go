@@ -63,6 +63,13 @@ type (
 		At   time.Time
 		Kind string
 	}
+	// QueueNamesLoaded entrega os nomes das filas dados pelo painel (fila -> nome; ausente = sem nome), lidos
+	// de queue_names na subida e depois de cada POST /api/queues/rename. Quem envia nao pode alterar Names
+	// depois. Nao muda o epoch: a fila renomeada vai no proximo delta.
+	QueueNamesLoaded struct {
+		At    time.Time
+		Names map[string]string
+	}
 	// InventoryListed e a lista COMPLETA de endpoints/peers do PBX numa releitura (recarga do
 	// Asterisk ou ciclo periodico). Vem ANTES dos EndpointSeen/RegistrationChanged da mesma
 	// leitura. O estado remove os ramais que nao estao na lista (sem mudar o epoch); os que entram
@@ -116,33 +123,44 @@ type (
 		CallerName string
 		Exten      string
 		Up         bool
-		BridgeID   string        // so no snapshot (CoreShowChannel)
-		Duration   time.Duration // so no snapshot (CoreShowChannel)
+		BridgeID   string // so no snapshot (CoreShowChannel)
+		// Queue (rc.8): so no snapshot, o primeiro argumento do ApplicationData quando Application=Queue
+		// (o canal ainda esta na aplicacao Queue: aguardando ou ja atendido pela fila).
+		Queue    string
+		Duration time.Duration // so no snapshot (CoreShowChannel)
 		// So no snapshot: o Asterisk marca o canal destino de um Dial com Application=AppDial
 		// ("(Outgoing Line)") e o canal que executa o Dial com Application=Dial + os argumentos.
 		Dialed   bool
 		DialData string
 	}
+	// Linkedid (rc.8, ADR-008): o do evento; vazio = sem mudanca. O estado move o canal de grupo quando ele muda.
 	ChannelStateChanged struct {
 		At       time.Time
 		Uniqueid string
+		Linkedid string
 		State    ChannelState
 	}
 	CallerIDChanged struct {
 		At       time.Time
 		Uniqueid string
+		Linkedid string
 		Num      string
 		Name     string
 	}
 	ConnectedLineChanged struct {
 		At       time.Time
 		Uniqueid string
+		Linkedid string
 		Num      string
 		Name     string
 	}
+	// DialStarted: SrcLinkedid e DstLinkedid (rc.8) valem para o canal de origem e o de destino; DialString
+	// e o destino do Dial ("011987654321@operadora_x", "operadora_x/0119...", "g0/0119...").
 	DialStarted struct {
 		At                       time.Time
 		SrcUniqueid, DstUniqueid string
+		SrcLinkedid, DstLinkedid string
+		DialString               string
 	}
 	DialEnded struct {
 		At                       time.Time
@@ -153,15 +171,18 @@ type (
 		At       time.Time
 		BridgeID string
 		Uniqueid string
+		Linkedid string
 	}
 	BridgeLeft struct {
 		At       time.Time
 		BridgeID string
 		Uniqueid string
+		Linkedid string
 	}
 	HoldChanged struct {
 		At       time.Time
 		Uniqueid string
+		Linkedid string
 		OnHold   bool
 	}
 	ChannelHungup struct {
@@ -192,6 +213,8 @@ func (e BridgeLeft) EventTime() time.Time           { return e.At }
 func (e HoldChanged) EventTime() time.Time          { return e.At }
 func (e ChannelHungup) EventTime() time.Time        { return e.At }
 
+func (e QueueNamesLoaded) EventTime() time.Time { return e.At }
+
 // Output e o que o estado entrega ao hub: Batch ou Reset.
 type Output interface{ isOutput() }
 
@@ -206,6 +229,11 @@ type Batch struct {
 	Removed      []string
 	// Groups e o catalogo completo, so quando ele mudou neste lote (nil = nao mudou).
 	Groups []Group
+	// rc.8 (ADR-008): chamadas e filas mudadas (estado completo) e as que sairam; vazio = nada daquele tipo.
+	Calls         []LiveCall
+	CallsRemoved  []string
+	Queues        []Queue
+	QueuesRemoved []string
 }
 
 // Reset e o estado inteiro, emitido a cada epoch novo. Groups acompanha o
@@ -217,6 +245,9 @@ type Reset struct {
 	Technology   Technology
 	Extensions   []Extension
 	Groups       []Group
+	// rc.8: todas as chamadas ao vivo e todas as filas (nunca nil).
+	Calls  []LiveCall
+	Queues []Queue
 }
 
 func (Batch) isOutput() {}

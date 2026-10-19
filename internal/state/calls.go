@@ -244,16 +244,22 @@ func better(a, b *channel) bool {
 	return a.uid < b.uid
 }
 
-// describe resolve direcao e "com quem fala". A direcao olha o canal do tronco:
-// destino de Dial = saida; nasceu fora = entrada (sobrevive a transferencia).
+// isInventoryExt diz se o canal e de um ramal: endpoint presente no inventario do estado (rc.8, ADR-008
+// item 3). Canal Local nunca e ramal; qualquer outro (tronco, DAHDI, IAX2, Khomp, SIP/ com a tecnologia
+// pjsip) e externo.
+func (v *view) isInventoryExt(c *channel) bool {
+	return c != nil && !c.isLocal && c.endpoint != "" && v.exts[c.endpoint] != nil
+}
+
+// describe resolve direcao e "com quem fala". A direcao olha o canal externo:
+// destino de Dial = saida; nasceu fora = entrada (sobrevive a transferencia). Ramal e quem esta no
+// inventario; o resto (que nao e Local) e externo.
 func (v *view) describe(c, peer *channel) (model.Direction, model.Peer) {
 	switch {
 	case peer == nil:
 		return model.DirInternal, model.Peer{Kind: model.PeerUnknown, Number: model.StrPtr(dialedNumber(c))}
-	case v.isExtension(peer.endpoint):
+	case v.isInventoryExt(peer):
 		return model.DirInternal, model.Peer{Kind: model.PeerExtension, Number: model.StrPtr(peer.endpoint), Name: model.StrPtr(v.extName(peer))}
-	case peer.endpoint == "":
-		return model.DirInternal, model.Peer{Kind: model.PeerUnknown, Number: model.StrPtr(first(peer.callerNum, dialedNumber(c)))}
 	case peer.dialed:
 		return model.DirOutbound, model.Peer{
 			Kind:   model.PeerExternal,

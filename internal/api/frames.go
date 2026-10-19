@@ -69,6 +69,23 @@ func deltaFrame(b model.Batch, raws [][]byte, now time.Time) []byte {
 		buf.WriteString(`,"groups":`)
 		buf.Write(catalogJSON(b.Groups))
 	}
+	// rc.8: as quatro chaves de chamadas e filas so saem quando a lista tem item (ausente = nada mudou).
+	if len(b.Calls) > 0 {
+		buf.WriteString(`,"calls":`)
+		buf.Write(mustJSON(b.Calls))
+	}
+	if len(b.CallsRemoved) > 0 {
+		buf.WriteString(`,"calls_removed":`)
+		buf.Write(mustJSON(b.CallsRemoved))
+	}
+	if len(b.Queues) > 0 {
+		buf.WriteString(`,"queues":`)
+		buf.Write(mustJSON(b.Queues))
+	}
+	if len(b.QueuesRemoved) > 0 {
+		buf.WriteString(`,"queues_removed":`)
+		buf.Write(mustJSON(b.QueuesRemoved))
+	}
 	buf.WriteByte('}')
 	return buf.Bytes()
 }

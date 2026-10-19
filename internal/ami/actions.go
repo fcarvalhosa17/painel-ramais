@@ -10,7 +10,9 @@ import (
 // allowedActions é a allowlist fixa (CONTRATOS.md 7.1). Qualquer outra action
 // é erro de programação. Proibidas em qualquer hipótese: Command, Originate,
 // Redirect, Hangup, Atxfer, Setvar, Reload, ModuleLoad, UpdateConfig,
-// GetConfig, Filter, MixMonitor, DBPut, PJSIPNotify e qualquer outra. Um teste garante que a lista é exatamente esta.
+// GetConfig, Filter, QueueReload, QueueReset, QueueAdd, QueueRemove, QueuePause,
+// QueuePenalty, QueueLog, QueueSummary, MixMonitor, DBPut, PJSIPNotify e qualquer outra.
+// Sem teste automatizado (CONTRATOS D12): a lista é conferida por leitura contra a tabela da seção 7.1.
 var allowedActions = map[string]struct{}{
 	"Login":              {},
 	"Logoff":             {},
@@ -25,6 +27,7 @@ var allowedActions = map[string]struct{}{
 	"SIPshowpeer":        {},
 	"DeviceStateList":    {},
 	"CoreShowChannels":   {},
+	"QueueStatus":        {}, // rc.8 (ADR-008): filas, membros e quem aguarda; só leitura
 }
 
 // ErrActionNotAllowed é devolvido para action fora da allowlist.

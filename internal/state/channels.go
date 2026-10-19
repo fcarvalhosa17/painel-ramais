@@ -18,6 +18,8 @@ type channel struct {
 	dialed              bool   // foi destino de um Dial
 	dialData            string // argumentos do Dial que este canal executa (so vindo do snapshot)
 	fromSnap            bool   // veio do CoreShowChannels, sem os DialBegin que o originaram
+	dialStr             string // DialString do DialBegin que criou este canal (rc.8: numero discado da chamada de saida)
+	queueApp            string // so snapshot: fila da aplicacao Queue em que o canal ainda esta (rc.8)
 	dialSrc             string // quem discou para este canal
 	dialDsts            map[string]struct{}
 	bridge              string
@@ -37,33 +39,67 @@ func (v *view) applyChannel(ev model.Event) {
 	case model.ChannelCreated:
 		v.onChannelCreated(e)
 	case model.ChannelStateChanged:
-		v.mutate([]string{e.Uniqueid}, func() { v.chans[e.Uniqueid].up = e.State == model.ChanUp })
+		v.mutate([]string{e.Uniqueid}, func() {
+			c := v.chans[e.Uniqueid]
+			v.relink(c, e.Linkedid)
+			c.up = e.State == model.ChanUp
+		})
 	case model.CallerIDChanged:
 		v.mutate([]string{e.Uniqueid}, func() {
 			c := v.chans[e.Uniqueid]
+			v.relink(c, e.Linkedid)
 			c.callerNum, c.callerNm = cleanID(e.Num), cleanID(e.Name)
 		})
 	case model.ConnectedLineChanged:
 		v.mutate([]string{e.Uniqueid}, func() {
 			c := v.chans[e.Uniqueid]
+			v.relink(c, e.Linkedid)
 			c.connNum, c.connNm = cleanID(e.Num), cleanID(e.Name)
 		})
 	case model.HoldChanged:
-		v.mutate([]string{e.Uniqueid}, func() { v.chans[e.Uniqueid].onHold = e.OnHold })
+		v.mutate([]string{e.Uniqueid}, func() {
+			c := v.chans[e.Uniqueid]
+			v.relink(c, e.Linkedid)
+			c.onHold = e.OnHold
+		})
 	case model.DialStarted:
 		v.mutate([]string{e.SrcUniqueid, e.DstUniqueid}, func() {
+			v.relink(v.chans[e.SrcUniqueid], e.SrcLinkedid)
+			v.relink(v.chans[e.DstUniqueid], e.DstLinkedid)
 			v.dialStart(e.SrcUniqueid, e.DstUniqueid)
+			if e.DialString != "" {
+				v.chans[e.DstUniqueid].dialStr = e.DialString
+			}
 			v.learnNameFromDialer(e.SrcUniqueid)
 		})
 	case model.DialEnded:
 		v.mutate([]string{e.SrcUniqueid, e.DstUniqueid}, func() { v.dialEnd(e) })
 	case model.BridgeEntered:
-		v.mutate([]string{e.Uniqueid}, func() { v.bridgeJoin(e.BridgeID, e.Uniqueid) })
+		v.mutate([]string{e.Uniqueid}, func() {
+			v.relink(v.chans[e.Uniqueid], e.Linkedid)
+			v.bridgeJoin(e.BridgeID, e.Uniqueid)
+		})
 	case model.BridgeLeft:
-		v.mutate([]string{e.Uniqueid}, func() { v.bridgeLeave(e.BridgeID, e.Uniqueid) })
+		v.mutate([]string{e.Uniqueid}, func() {
+			v.relink(v.chans[e.Uniqueid], e.Linkedid)
+			v.bridgeLeave(e.BridgeID, e.Uniqueid)
+		})
 	case model.ChannelHungup:
 		v.onHangup(e.Uniqueid)
 	}
+}
+
+// relink move o canal de grupo de Linkedid quando o evento traz um Linkedid novo (rc.8, ADR-008 item 2): o
+// Asterisk troca o Linkedid dos canais que entram numa bridge pelo mais antigo (transferencia assistida).
+// Linkedid vazio = sem mudanca. Roda dentro do mutate, antes do resto do evento: os ramais ligados aos dois
+// grupos (o de antes e o de depois) sao recalculados.
+func (v *view) relink(c *channel, lid string) {
+	if c == nil || lid == "" || lid == c.linkedID {
+		return
+	}
+	delIdx(v.byLinked, c.linkedID, c.uid)
+	c.linkedID = lid
+	addIdx(v.byLinked, lid, c.uid)
 }
 
 // cleanID descarta os valores "sem identificacao" que o Asterisk manda.
@@ -114,7 +150,7 @@ func (v *view) onChannelCreated(e model.ChannelCreated) {
 		uid: e.Uniqueid, linkedID: e.Linkedid, name: e.Channel, endpoint: e.Endpoint, isLocal: e.IsLocal,
 		callerNum: cleanID(e.CallerNum), callerNm: cleanID(e.CallerName), exten: e.Exten, up: e.Up,
 		dialDsts: map[string]struct{}{}, startedAt: started,
-		dialed: e.Dialed, dialData: e.DialData, fromSnap: e.Duration > 0 || e.Dialed || e.DialData != "",
+		dialed: e.Dialed, dialData: e.DialData, queueApp: e.Queue, fromSnap: e.Duration > 0 || e.Dialed || e.DialData != "",
 	}
 	if e.Up && e.Duration > 0 {
 		c.talkingAt = started

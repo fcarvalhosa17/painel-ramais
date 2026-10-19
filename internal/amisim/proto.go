@@ -80,11 +80,16 @@ func (c *conn) wants(name, priv string) bool {
 	return false
 }
 
-// filterSet e o eventfilter do bloco de manager_custom.conf (contrato 7.2).
+// filterSet e o eventfilter do bloco de manager_custom.conf (contrato 7.2): exatamente os 29 nomes do postinstall.
 var filterSet = map[string]bool{
 	"ContactStatus": true, "PeerStatus": true, "DeviceStateChange": true, "Newchannel": true, "Newstate": true,
 	"NewCallerid": true, "NewConnectedLine": true, "DialBegin": true, "DialEnd": true, "BridgeEnter": true,
-	"BridgeLeave": true, "Hangup": true, "Hold": true, "Unhold": true, "Reload": true, "Shutdown": true,
+	"BridgeLeave": true, "Hangup": true, "Hold": true, "Unhold": true, "Reload": true, "ModuleLoadReport": true, "FullyBooted": true,
+	"Shutdown": true,
+	// rc.8 (ADR-008): eventos de fila e agente, classe de leitura "agent".
+	"QueueCallerJoin": true, "QueueCallerLeave": true, "QueueCallerAbandon": true, "QueueMemberStatus": true,
+	"QueueMemberPause": true, "QueueMemberAdded": true, "QueueMemberRemoved": true, "AgentCalled": true,
+	"AgentConnect": true, "AgentComplete": true, "AgentRingNoAnswer": true,
 }
 
 func (c *conn) writeLoop() {

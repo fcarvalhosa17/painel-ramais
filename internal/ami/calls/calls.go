@@ -73,27 +73,29 @@ func chanState(desc string) model.ChannelState {
 func Translate(m ami.Message, ep EndpointFunc) []model.Event {
 	at := m.At
 	uid := m.Get("Uniqueid")
+	lid := m.Get("Linkedid") // rc.8: todo evento de canal que o traga atualiza o Linkedid no estado
 	switch m.Event() {
 	case "Newchannel":
 		return []model.Event{newChannel(m, ep)}
 	case "Newstate":
-		return []model.Event{model.ChannelStateChanged{At: at, Uniqueid: uid, State: chanState(m.Get("ChannelStateDesc"))}}
+		return []model.Event{model.ChannelStateChanged{At: at, Uniqueid: uid, Linkedid: lid, State: chanState(m.Get("ChannelStateDesc"))}}
 	case "NewCallerid":
-		return []model.Event{model.CallerIDChanged{At: at, Uniqueid: uid, Num: clean(m.Get("CallerIDNum")), Name: clean(m.Get("CallerIDName"))}}
+		return []model.Event{model.CallerIDChanged{At: at, Uniqueid: uid, Linkedid: lid, Num: clean(m.Get("CallerIDNum")), Name: clean(m.Get("CallerIDName"))}}
 	case "NewConnectedLine":
-		return []model.Event{model.ConnectedLineChanged{At: at, Uniqueid: uid, Num: clean(m.Get("ConnectedLineNum")), Name: clean(m.Get("ConnectedLineName"))}}
+		return []model.Event{model.ConnectedLineChanged{At: at, Uniqueid: uid, Linkedid: lid, Num: clean(m.Get("ConnectedLineNum")), Name: clean(m.Get("ConnectedLineName"))}}
 	case "DialBegin":
-		return []model.Event{model.DialStarted{At: at, SrcUniqueid: uid, DstUniqueid: m.Get("DestUniqueid")}}
+		return []model.Event{model.DialStarted{At: at, SrcUniqueid: uid, DstUniqueid: m.Get("DestUniqueid"),
+			SrcLinkedid: lid, DstLinkedid: m.Get("DestLinkedid"), DialString: m.Get("DialString")}}
 	case "DialEnd":
 		return []model.Event{model.DialEnded{At: at, SrcUniqueid: uid, DstUniqueid: m.Get("DestUniqueid"), Status: m.Get("DialStatus")}}
 	case "BridgeEnter":
-		return []model.Event{model.BridgeEntered{At: at, BridgeID: m.Get("BridgeUniqueid"), Uniqueid: uid}}
+		return []model.Event{model.BridgeEntered{At: at, BridgeID: m.Get("BridgeUniqueid"), Uniqueid: uid, Linkedid: lid}}
 	case "BridgeLeave":
-		return []model.Event{model.BridgeLeft{At: at, BridgeID: m.Get("BridgeUniqueid"), Uniqueid: uid}}
+		return []model.Event{model.BridgeLeft{At: at, BridgeID: m.Get("BridgeUniqueid"), Uniqueid: uid, Linkedid: lid}}
 	case "Hold":
-		return []model.Event{model.HoldChanged{At: at, Uniqueid: uid, OnHold: true}}
+		return []model.Event{model.HoldChanged{At: at, Uniqueid: uid, Linkedid: lid, OnHold: true}}
 	case "Unhold":
-		return []model.Event{model.HoldChanged{At: at, Uniqueid: uid, OnHold: false}}
+		return []model.Event{model.HoldChanged{At: at, Uniqueid: uid, Linkedid: lid, OnHold: false}}
 	case "Hangup":
 		return []model.Event{model.ChannelHungup{At: at, Uniqueid: uid, Cause: m.Get("Cause")}}
 	}
@@ -122,6 +124,8 @@ func FromCoreShowChannel(m ami.Message, ep EndpointFunc) []model.Event {
 		cc.Dialed = true
 	case strings.EqualFold(app, "Dial"):
 		cc.DialData = data
+	case strings.EqualFold(app, "Queue"): // ainda na aplicacao Queue: aguardando ou ja atendido pela fila
+		cc.Queue = strings.TrimSpace(strings.SplitN(data, ",", 2)[0])
 	}
 	out := []model.Event{cc}
 	if num, name := clean(m.Get("ConnectedLineNum")), clean(m.Get("ConnectedLineName")); num != "" || name != "" {

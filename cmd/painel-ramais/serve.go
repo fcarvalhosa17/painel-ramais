@@ -113,9 +113,10 @@ func newDaemon(cfg *config.Config, hup <-chan os.Signal) (*daemon, error) {
 	}
 	d := &daemon{cfg: cfg, log: log, st: st, hupChan: hup, fatal: make(chan error, 8),
 		events: make(chan model.Event, eventQueueSize), names: make(chan [2]string, 4096), prune: make(chan []string, 1)}
-	d.reg = reglog.New(st, log.Warn)
+	d.reg = reglog.New(st, log.Warn, log.Info)
 	d.state = state.New(cfg.Pattern, d.events, state.Options{OnName: d.onName, OnSync: d.onSync, OnNoPeer: d.onNoPeer,
-		OnInventory: d.onInventory, OnReg: d.reg.Enqueue}) // Enqueue nunca bloqueia: fila cheia descarta e conta
+		OnInventory: d.onInventory, OnReg: d.reg.Enqueue,
+		OnLocalNoPeer: d.onLocalNoPeer}) // Enqueue nunca bloqueia: fila cheia descarta e conta
 	d.hub = api.NewHub(log, nil)
 	d.sup = newSupervisor(ami.Config{Address: cfg.AMI.Address, Username: cfg.AMI.Username, Secret: amiSecret},
 		cfg.Technology, cfg.AMI.NameFillPerSecond, cfg.Pattern, log)
@@ -135,8 +136,9 @@ func newDaemon(cfg *config.Config, hup <-chan os.Signal) (*daemon, error) {
 	d.deps.Check() // chave do Issabel carregada antes de aceitar o primeiro token
 	d.srv = api.New(api.Options{
 		Store: st, Verifier: verifier, Limiter: nameLimiter(), Hub: d.hub,
-		Stats: d.state.Stats, AMI: d.sup.Status, Deps: d.deps.Results, RegStatus: d.reg.Status,
-		SessionTTL: cfg.Auth.SessionTTL, RetentionDays: cfg.History.RetentionDays, Version: version, Log: log,
+		Stats: d.state.Stats, AMI: d.sup.Status, Deps: d.deps.Results, RegStatus: d.reg.Status, QueueInfo: d.sup.QueueInfo,
+		ReloadQueueNames: func(ctx context.Context) error { return reloadQueueNamesAfterRequest(ctx, st, d.events) },
+		SessionTTL:       cfg.Auth.SessionTTL, RetentionDays: cfg.History.RetentionDays, Version: version, Log: log,
 		Static:       web.Static(),
 		ReloadGroups: func(ctx context.Context) error { return reloadAfterRequest(ctx, st, d.events) },
 		StillAdmin:   api.IssabelACL(api.DefaultIssabelACLDB),
@@ -245,6 +247,11 @@ func runDaemon(ctx context.Context, cfg *config.Config, hup <-chan os.Signal) er
 		ln.Close()
 		return err
 	}
+	warnReservedGroup(d.runCtx, d.st, d.log)
+	if err := loadQueueNames(d.runCtx, d.st, d.events); err != nil {
+		ln.Close()
+		return err
+	}
 	loadNames(d.runCtx, d.st, d.events, d.log)
 	d.start()
 	var cause error
@@ -298,6 +305,44 @@ func loadGroups(ctx context.Context, st *store.Store, events chan<- model.Event)
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+}
+
+// loadQueueNames le queue_names do banco e entrega ao estado (QueueNamesLoaded: sem epoch novo, a fila renomeada
+// vai no proximo delta). Devolve ctx.Err() se o contexto acabar antes da entrega.
+func loadQueueNames(ctx context.Context, st *store.Store, events chan<- model.Event) error {
+	names, err := st.LoadQueueNames(ctx)
+	if err != nil {
+		return err
+	}
+	select {
+	case events <- model.QueueNamesLoaded{At: time.Now(), Names: names}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// reloadQueueNamesAfterRequest e o ReloadQueueNames da API: o nome ja foi gravado, entao a recarga nao morre com o
+// cancelamento do pedido; limitada a 10 s.
+func reloadQueueNamesAfterRequest(ctx context.Context, st *store.Store, events chan<- model.Event) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	return loadQueueNames(ctx, st, events)
+}
+
+// warnReservedGroup avisa, uma vez na subida, se o catalogo tem o grupo "Todos os ramais" (nome reservado da tela
+// desde a rc.8; grupo antigo continua valendo ate ser renomeado pela tela).
+func warnReservedGroup(ctx context.Context, st *store.Store, log *slog.Logger) {
+	groups, err := st.ListGroups(ctx)
+	if err != nil {
+		log.Warn("ler grupos para conferir nome reservado", "erro", err.Error())
+		return
+	}
+	for _, g := range groups {
+		if strings.EqualFold(g.Name, store.AllGroupsName) {
+			log.Warn("grupo com nome reservado \"Todos os ramais\"; renomeie pela tela", "grupo", g.Name)
+		}
 	}
 }
 
@@ -368,6 +413,11 @@ func housekeep(ctx context.Context, st *store.Store, log *slog.Logger, retention
 // onNoPeer e chamado pela goroutine do estado quando uma chamada Up ficou 1 s sem outro lado resolvido.
 func (d *daemon) onNoPeer(uniqueid, linkedid string) {
 	d.log.Info("chamada em conversa sem outro lado resolvido", "uniqueid", uniqueid, "linkedid", linkedid)
+}
+
+// onLocalNoPeer e chamado pela goroutine do estado, uma vez por chamada com canal Local que segue 1 s sem o outro lado.
+func (d *daemon) onLocalNoPeer(uniqueid, linkedid, channel string) {
+	d.log.Info("chamada com Local sem par", "uniqueid", uniqueid, "linkedid", linkedid, "canal", channel)
 }
 
 // onInventory e chamado pela goroutine do estado a cada releitura completa dos ramais do PBX.

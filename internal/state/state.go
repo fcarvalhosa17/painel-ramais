@@ -31,6 +31,9 @@ type Options struct {
 	// OnReg recebe as ocorrencias do relatorio de registro (CONTRATOS 11.5), na goroutine do estado: so pode
 	// enfileirar, nunca bloquear nem tocar em banco.
 	OnReg func(model.RegNote)
+	// OnLocalNoPeer e chamado (na goroutine do estado, sem bloquear) uma vez por chamada que tem canal Local e
+	// segue 1 s sem o outro lado (CONTRATOS 2.3): uniqueid e nome do canal Local e o Linkedid da chamada.
+	OnLocalNoPeer func(uniqueid, linkedid, channel string)
 }
 
 // Stats e a foto agregada publicada a cada lote, lida sem bloquear o estado.
@@ -50,10 +53,13 @@ type Stats struct {
 	RegTotal        model.RegCounts
 	RegByGroup      map[string]model.RegCounts
 	SuppressedUntil time.Time
-	Trunks          int
-	ActiveCalls     int
-	EventsPerSec    float64
-	LagMs           int64 // atraso entre a leitura do evento e seu processamento
+	// LiveCalls e Queues (rc.8): linhas da projecao de chamadas e filas na projecao (health live_calls e queues.count).
+	LiveCalls    int
+	Queues       int
+	Trunks       int
+	ActiveCalls  int
+	EventsPerSec float64
+	LagMs        int64 // atraso entre a leitura do evento e seu processamento
 }
 
 // State recebe eventos normalizados e emite Batch/Reset.
@@ -71,6 +77,8 @@ type State struct {
 	catalog       []model.Group // catalogo completo, inclui grupo sem faixa e sem ramal
 	groupsChanged bool          // o catalogo mudou desde o ultimo lote: o proximo Batch o leva
 	rc            *regCtx       // relatorio de registro (janela de sistema, contadores, saida)
+	proj          *callProj     // projecao de chamadas ao vivo por Linkedid (rc.8)
+	qproj         *queueProj    // projecao de filas (rc.8)
 	hints         map[string]string
 	onName        func(number, name string)
 	onSync        func(numbers []string)
@@ -99,6 +107,7 @@ func New(pattern *regexp.Regexp, in <-chan model.Event, opt Options) *State {
 	}
 	s.gi = newGroupIdx(nil, nil)
 	s.rc = newRegCtx(s.now, opt.OnReg)
+	s.proj, s.qproj = newCallProj(opt.OnLocalNoPeer), newQueueProj()
 	if s.interval <= 0 {
 		s.interval = 250 * time.Millisecond
 	}
@@ -175,13 +184,50 @@ func (s *State) Apply(ev model.Event) {
 		s.onNames(e)
 	case model.InventoryListed:
 		s.onInventoryListed(e)
+	case model.QueueNamesLoaded:
+		s.applyQueueNames(e)
+	case model.QueueCallerJoined, model.QueueCallerLeft, model.QueueMemberChanged, model.QueueMemberRemoved,
+		model.QueueAgentConnected, model.QueuesListed:
+		if !s.connected && s.building == nil {
+			return // fila lida de sessao que ja caiu
+		}
+		s.applyQueue(ev)
 	default:
 		if !s.connected && s.building == nil {
 			return // evento solto de sessao que ja caiu (ex.: Enrich atrasado): nao cria estado com o AMI fora
 		}
 		v := s.target()
 		v.at = at
-		v.apply(ev)
+		if v != s.cur { // visao em montagem: a projecao inteira e refeita no SyncFinished
+			v.apply(ev)
+			return
+		}
+		s.applyPublished(v, ev)
+	}
+}
+
+// applyPublished aplica o evento na visao publicada e marca como sujos so os Linkedid que ele pode mudar
+// (antes e depois: o canal pode trocar de Linkedid, de bridge ou sumir). Ramal criado ou removido muda o
+// inventario, que decide ramal ou externo: marca todas as chamadas e filas (CONTRATOS 11.6).
+func (s *State) applyPublished(v *view, ev model.Event) {
+	if h, ok := ev.(model.ChannelHungup); ok {
+		s.onHangupQueue(h.Uniqueid) // antes: o canal ainda existe para marcar a chamada dele
+	}
+	s.proj.touch(v, ev)
+	n0 := len(v.exts)
+	v.apply(ev)
+	s.proj.touch(v, ev)
+	if len(v.exts) != n0 {
+		s.proj.allDirty, s.qproj.allDirty = true, true
+	}
+}
+
+// onHangupQueue tira do indice de filas o canal que desligou: nao fica mais "via fila" nem aguardando (o
+// QueueCallerLeave que viria depois e idempotente).
+func (s *State) onHangupQueue(uid string) {
+	delete(s.proj.viaQueue, uid)
+	if q := s.proj.entryOf[uid]; q != "" {
+		s.dropEntry(q, uid)
 	}
 }
 
@@ -209,6 +255,8 @@ func (s *State) onDisconnected(e model.AMIDisconnected) {
 	s.connectedAt = time.Time{}
 	s.lastDown = e.At
 	s.cur.markUnknown()
+	s.proj.reset() // AMI fora: a lista de chamadas e a de filas ficam vazias (o Reset leva [] nas duas)
+	s.qproj.reset()
 	s.bumpEpoch()
 }
 
@@ -229,6 +277,8 @@ func (s *State) onSyncFinished(e model.SyncFinished) {
 		}
 		s.onSync(nums)
 	}
+	s.rebuildCalls()                          // projecao de chamadas refeita da visao nova (o Reset leva tudo)
+	s.qproj.allDirty = true                   // o inventario pode ter mudado: filas remontadas
 	s.rc.carryDown(old, s.cur, e.At)          // intervalo fora do ar aberto atravessa a sincronizacao
 	if s.rc.syncReason == model.SyncConnect { // conexao nova (inclusive a primeira): janela de sistema
 		s.rc.openWindow(e.At, model.SignalAMIConnect)
@@ -247,7 +297,11 @@ func (s *State) onInventoryListed(e model.InventoryListed) {
 		return
 	}
 	s.cur.at = e.At
+	n0 := len(s.cur.exts)
 	added, removed, kept, pending := s.cur.reconcile(e.Names)
+	if len(s.cur.exts) != n0 { // inventario mudou: ramal ou externo muda nas chamadas e nos agentes das filas
+		s.proj.allDirty, s.qproj.allDirty = true, true
+	}
 	if removed > 0 && s.onSync != nil {
 		s.onSync(s.cur.extNumbers()) // expurga do cache de nomes os ramais que sairam do PBX
 	}
@@ -318,6 +372,8 @@ func (s *State) onNames(e model.NamesLoaded) {
 func (s *State) Flush() model.Output {
 	defer s.publishStats()
 	s.cur.expireNoPeer(s.now())
+	calls, callsGone := s.flushCalls()
+	queues, queuesGone := s.flushQueues()
 	if s.needReset {
 		s.needReset = false
 		// o Reset ja leva o catalogo
@@ -329,21 +385,28 @@ func (s *State) Flush() model.Output {
 		return model.Reset{
 			Epoch: s.epoch, Version: s.version, AMIConnected: s.connected,
 			Technology: s.cur.tech, Extensions: s.cur.allExtensions(), Groups: append([]model.Group{}, s.catalog...),
+			Calls: s.allCalls(), Queues: s.allQueues(),
 		}
 	}
 	n := s.cur.takeChanges()
-	if !s.groupsChanged && (n == 0 || len(s.cur.dirty) == 0 && len(s.cur.removed) == 0) {
+	extChanged := n > 0 && (len(s.cur.dirty) > 0 || len(s.cur.removed) > 0)
+	proj := len(calls) + len(callsGone) + len(queues) + len(queuesGone)
+	if !s.groupsChanged && !extChanged && proj == 0 { // o lote sai se qualquer das listas tiver item
 		return nil
 	}
-	if n == 0 {
+	if !extChanged {
+		n = 0
+	}
+	if n == 0 && proj == 0 {
 		n = 1 // so o catalogo mudou: a versao avanca mesmo assim, senao quem reconecta nao recebe o replay
 	}
 	b := model.Batch{Epoch: s.epoch, FromVersion: s.version, AMIConnected: s.connected,
-		Extensions: s.cur.dirtyExtensions(), Removed: s.cur.takeRemoved()}
+		Extensions: s.cur.dirtyExtensions(), Removed: s.cur.takeRemoved(),
+		Calls: calls, CallsRemoved: callsGone, Queues: queues, QueuesRemoved: queuesGone}
 	if s.groupsChanged {
 		b.Groups, s.groupsChanged = append([]model.Group{}, s.catalog...), false
 	}
-	s.version += n
+	s.version += n + uint64(proj) // cada item das quatro listas novas conta uma mudanca
 	b.ToVersion = s.version
 	return b
 }
@@ -364,5 +427,6 @@ func (s *State) publishStats() {
 	st.Total, st.ByGroup = s.cur.counts(s.catalog)
 	st.RegTotal, st.RegByGroup, st.SuppressedUntil = s.rc.total, s.rc.byGroupCopy(), s.rc.suppressedUntil(now)
 	st.ActiveCalls = s.cur.activeCalls()
+	st.LiveCalls, st.Queues = len(s.proj.calls), len(s.qproj.queues)
 	s.stats.Store(st)
 }

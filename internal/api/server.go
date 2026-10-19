@@ -70,6 +70,10 @@ type Options struct {
 	// ReloadGroups relê os grupos do banco e os entrega ao estado (o caminho do SIGHUP);
 	// nil nos testes que nao precisam dele.
 	ReloadGroups func(context.Context) error
+	// QueueInfo e a foto da leitura de filas (/api/health, "queues"); nil = zerada. ReloadQueueNames rele
+	// queue_names e entrega ao estado depois de cada rename (QueueNamesLoaded); nil nos testes.
+	QueueInfo        func() model.QueueHealth
+	ReloadQueueNames func(context.Context) error
 	// RegStatus e a foto da fila do gravador do relatorio de registro (/api/health, "registrations");
 	// nil = zerada (testes). A API nao importa o pacote reglog.
 	RegStatus func() model.RegStatus
@@ -115,6 +119,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/groups/assign", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsAssign))))
 	mux.HandleFunc("/api/groups/import", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsImport))))
 	mux.HandleFunc("/api/groups/delete", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsDelete))))
+	mux.HandleFunc("/api/queues/rename", s.api(http.MethodPost, s.session(s.adminOnlyMsg("Apenas administradores do Issabel podem renomear filas", s.queuesRename))))
 	mux.HandleFunc("/api/history", s.api(http.MethodGet, s.session(s.history)))
 	mux.HandleFunc("/api/registrations/summary", s.api(http.MethodGet, s.session(s.registrationsSummary)))
 	mux.HandleFunc("/api/registrations/extension", s.api(http.MethodGet, s.session(s.registrationsExtension)))

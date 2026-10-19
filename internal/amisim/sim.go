@@ -27,7 +27,7 @@ type Config struct {
 	FirstExt       int      // primeiro numero (padrao 2000)
 	Trunks         int      // quantidade de troncos (padrao 4)
 	User, Secret   string   // credenciais do Login
-	Read, Write    string   // classes do usuario AMI (padrao: contrato 7.1, read=system,call write=system,reporting)
+	Read, Write    string   // classes do usuario AMI (padrao: contrato 7.1, read=system,call,agent write=system,reporting)
 	Asterisk       string   // versao reportada (padrao 18.20.0)
 	Modules        []string // modulos carregados (padrao: so o da tecnologia)
 	NoShowContacts bool     // simula versao sem PJSIPShowContacts
@@ -55,7 +55,7 @@ func (c *Config) defaults() {
 		c.Secret = "segredo-de-teste"
 	}
 	if c.Read == "" {
-		c.Read = "system,call"
+		c.Read = "system,call,agent"
 	}
 	if c.Write == "" {
 		c.Write = "system,reporting"

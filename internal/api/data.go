@@ -180,7 +180,8 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 			"unreachable": st.Total.Unreachable, "unknown": st.Total.Unknown,
 		},
 		"trunks": st.Trunks, "active_calls": st.ActiveCalls, "ws_clients": pub.Clients,
-		"registrations": s.healthRegistrations(st.SuppressedUntil), "deps": out,
+		"registrations": s.healthRegistrations(st.SuppressedUntil), "live_calls": st.LiveCalls,
+		"queues": s.healthQueues(st.Queues), "deps": out,
 	}
 	code := http.StatusOK
 	if status != "ok" {
@@ -197,8 +198,18 @@ func (s *Server) healthRegistrations(suppressedUntil time.Time) map[string]any {
 	}
 	return map[string]any{
 		"queue_len": rs.QueueLen, "queue_cap": rs.QueueCap, "dropped": rs.Dropped, "write_errors": rs.WriteErrors,
+		"lost_events": rs.LostEvents, "lost_since": sinceOrNil(rs.LostSince), "lost_until": sinceOrNil(rs.LostUntil),
 		"suppressed_until": sinceOrNil(suppressedUntil),
 	}
+}
+
+// healthQueues e o bloco "queues" do /api/health (rc.8): filas na projecao e a leitura da QueueStatus; nao muda o status.
+func (s *Server) healthQueues(count int) map[string]any {
+	var qi model.QueueHealth
+	if s.QueueInfo != nil {
+		qi = s.QueueInfo()
+	}
+	return map[string]any{"count": count, "last_full_at": sinceOrNil(qi.LastFullAt), "refresh_errors": qi.RefreshErrors, "unsupported": qi.Unsupported}
 }
 
 func sinceOrNil(t time.Time) *string {

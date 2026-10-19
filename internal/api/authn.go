@@ -60,19 +60,24 @@ func (s *Server) sessionInfo(w http.ResponseWriter, _ *http.Request, sess store.
 	writeOK(w, newSessionData(sess.Kind, sess.Subject, sess.ExpiresAt), nil)
 }
 
-// adminOnly exige sessao de administrador do Issabel; senao 403 forbidden.
+// adminOnly exige sessao de administrador do Issabel; senao 403 forbidden (rotas de grupo).
 func (s *Server) adminOnly(h sessionHandler) sessionHandler {
+	return s.adminOnlyMsg("Apenas administradores do Issabel podem alterar grupos", h)
+}
+
+// adminOnlyMsg e o adminOnly com a mensagem do 403 da rota (a checagem vem antes de ler o corpo).
+func (s *Server) adminOnlyMsg(msg string, h sessionHandler) sessionHandler {
 	return func(w http.ResponseWriter, r *http.Request, sess store.Session) {
 		if !auth.IsAdmin(sess.Kind, sess.Subject) {
 			s.log.Warn("acesso negado: so administrador", requestIDKey, requestID(r), "path", r.URL.Path, "sub", sess.Subject)
-			writeError(w, http.StatusForbidden, "forbidden", "Apenas administradores do Issabel podem alterar grupos")
+			writeError(w, http.StatusForbidden, "forbidden", msg)
 			return
 		}
 		if s.StillAdmin != nil {
 			user := strings.TrimPrefix(sess.Subject, auth.AdminPrefix)
 			ok, err := s.StillAdmin(r.Context(), user)
 			if err != nil || !ok { // falha fechado: sem leitura do acl.db, nenhuma escrita
-				s.log.Warn("escrita de grupo recusada: usuario fora do grupo administrator do Issabel ou acl.db ilegivel",
+				s.log.Warn("escrita recusada: usuario fora do grupo administrator do Issabel ou acl.db ilegivel",
 					requestIDKey, requestID(r), "path", r.URL.Path, "sub", sess.Subject, "err", err)
 				writeError(w, http.StatusForbidden, "forbidden", "Seu usuario nao esta mais no grupo administrator do Issabel (ou o Issabel nao pode ser consultado); a visualizacao continua")
 				return

@@ -30,6 +30,13 @@ type entry struct {
 	raw []byte
 }
 
+// rawItem e uma chamada ou fila da projecao com o JSON ja serializado (uma vez, na entrada).
+type rawItem struct {
+	key string    // id da chamada ou numero da fila
+	at  time.Time // started_at da chamada (ordem do snapshot)
+	raw []byte
+}
+
 type ringItem struct {
 	from, to uint64
 	n        int
@@ -89,7 +96,9 @@ type Hub struct {
 	exts       map[string]*entry
 	order      []string
 	orderDirty bool
-	groups     []model.Group // catalogo completo (inclui grupo sem faixa e sem ramal)
+	groups     []model.Group      // catalogo completo (inclui grupo sem faixa e sem ramal)
+	calls      map[string]rawItem // rc.8: chamadas ao vivo por id
+	queues     map[string]rawItem // rc.8: filas por numero
 	ring       []ringItem
 	clients    map[*client]struct{}
 	snap       *snapEntry
@@ -102,7 +111,7 @@ func NewHub(log *slog.Logger, now func() time.Time) *Hub {
 		now = time.Now
 	}
 	h := &Hub{log: log, now: now, reqs: make(chan func()), stopped: make(chan struct{}),
-		exts: map[string]*entry{}, clients: map[*client]struct{}{}}
+		exts: map[string]*entry{}, clients: map[*client]struct{}{}, calls: map[string]rawItem{}, queues: map[string]rawItem{}}
 	h.pub.Store(&Pub{})
 	return h
 }
@@ -160,12 +169,37 @@ func (h *Hub) applyReset(r model.Reset) {
 	for _, x := range r.Extensions {
 		h.put(x)
 	}
+	h.calls, h.queues = make(map[string]rawItem, len(r.Calls)), make(map[string]rawItem, len(r.Queues))
+	for _, c := range r.Calls {
+		h.putCall(c)
+	}
+	for _, q := range r.Queues {
+		h.putQueue(q)
+	}
 	h.orderDirty, h.ring, h.snap, h.grp = true, nil, nil, nil
 	msg := reloadFrame("epoch_changed", h.epoch)
 	for c := range h.clients {
 		c.sendReload(msg)
 		delete(h.clients, c)
 	}
+}
+
+func (h *Hub) putCall(c model.LiveCall) {
+	raw, err := json.Marshal(c)
+	if err != nil {
+		h.log.Error("serializar chamada", "id", c.ID, "erro", err.Error())
+		return
+	}
+	h.calls[c.ID] = rawItem{key: c.ID, at: c.StartedAt.Time, raw: raw}
+}
+
+func (h *Hub) putQueue(q model.Queue) {
+	raw, err := json.Marshal(q)
+	if err != nil {
+		h.log.Error("serializar fila", "queue", q.Queue, "erro", err.Error())
+		return
+	}
+	h.queues[q.Queue] = rawItem{key: q.Queue, raw: raw}
 }
 
 func (h *Hub) put(x model.Extension) {
@@ -201,6 +235,18 @@ func (h *Hub) applyBatch(b model.Batch) {
 			h.orderDirty = true
 		}
 		nums = append(nums, "-"+n)
+	}
+	for _, c := range b.Calls { // rc.8: substitui (ou insere) pelo id; apaga ignorando desconhecido
+		h.putCall(c)
+	}
+	for _, id := range b.CallsRemoved {
+		delete(h.calls, id)
+	}
+	for _, q := range b.Queues {
+		h.putQueue(q)
+	}
+	for _, name := range b.QueuesRemoved {
+		delete(h.queues, name)
 	}
 	h.version, h.ami = b.ToVersion, b.AMIConnected
 	h.snap, h.grp = nil, nil
@@ -314,8 +360,54 @@ func (h *Hub) buildSnapshot(now time.Time) *snapEntry {
 	}
 	b.WriteString(`],"groups":`)
 	b.Write(catalogJSON(h.groups))
+	b.WriteString(`,"calls":`)
+	writeRawList(&b, h.sortedCalls())
+	b.WriteString(`,"queues":`)
+	writeRawList(&b, h.sortedQueues())
 	b.WriteString(`},"error":null,"meta":{"count":` + strconv.Itoa(len(order)) + `}}`)
 	return &snapEntry{version: h.version, at: now, raw: b.Bytes()}
+}
+
+// sortedCalls devolve as chamadas por started_at e depois id (ordem do snapshot, CONTRATOS 4.1).
+func (h *Hub) sortedCalls() []rawItem {
+	out := make([]rawItem, 0, len(h.calls))
+	for _, c := range h.calls {
+		out = append(out, c)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].at.Equal(out[j].at) {
+			return out[i].at.Before(out[j].at)
+		}
+		return out[i].key < out[j].key
+	})
+	return out
+}
+
+// sortedQueues devolve as filas por numero (ordem de string).
+func (h *Hub) sortedQueues() []rawItem {
+	out := make([]rawItem, 0, len(h.queues))
+	for _, q := range h.queues {
+		out = append(out, q)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].key < out[j].key })
+	return out
+}
+
+func writeRawList(b *bytes.Buffer, items []rawItem) {
+	b.WriteByte('[')
+	for i, it := range items {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.Write(it.raw)
+	}
+	b.WriteByte(']')
+}
+
+// HasQueue diz se a fila esta na projecao agora (a rota de renomear so aceita fila que existe). ok false se o hub parou.
+func (h *Hub) HasQueue(name string) (has, ok bool) {
+	ok = h.do(func() { _, has = h.queues[name] })
+	return has, ok
 }
 
 // Groups devolve o corpo de /api/groups da versao atual.

@@ -12,6 +12,7 @@ import (
 
 	"painel-ramais/internal/ami"
 	"painel-ramais/internal/ami/pjsip"
+	"painel-ramais/internal/ami/queues"
 	"painel-ramais/internal/ami/sip"
 	"painel-ramais/internal/model"
 )
@@ -99,7 +100,8 @@ type supervisor struct {
 	status   model.AMIStatus
 	lockedTo string // tecnologia detectada na primeira conexao
 	cur      *ami.Client
-	resyncs  uint64 // vezes que a fila estourou e o estado foi refeito
+	resyncs  uint64            // vezes que a fila estourou e o estado foi refeito
+	qhealth  model.QueueHealth // leitura das filas (supervisor_queues.go), para o /api/health
 	// onLogin avisa que o resultado do Login mudou (a verificacao de dependencias reroda ja).
 	onLogin func()
 }
@@ -332,12 +334,20 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 	}
 	inventory := time.NewTicker(every)
 	defer inventory.Stop()
+	qFull := time.NewTicker(queueFullEvery)
+	defer qFull.Stop()
 	var (
 		deb     debounce  // eventos de recarga ainda nao tratados
 		retryAt time.Time // releitura que falhou: quando tentar de novo
+		qs      = newQueueSched()
+		fullDue = true // QueueStatus completa: logo depois da sincronizacao, depois de reload e a cada queueFullEvery
 	)
 	for {
 		reason := "" // preenchido quando uma releitura deve rodar agora
+		if fullDue { // a mesma goroutine do live: o que chegar durante a leitura e aplicado depois da lista
+			fullDue = false
+			s.queuesFull(ctx, c, emit, qs)
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -355,8 +365,16 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 			for _, ev := range ad.Translate(m) {
 				emit(ev)
 			}
+			for _, ev := range queues.Translate(m) {
+				emit(ev)
+			}
+			if queues.NeedsRefresh(m.Event()) {
+				qs.mark(queues.QueueOf(m))
+			}
 		case <-refresh.C:
 			enr.restart(ctx) // ciclo completo a cada 6 h
+		case <-qFull.C:
+			fullDue = true
 		case <-inventory.C:
 			reason = "periodica"
 		case <-poll.C:
@@ -368,6 +386,7 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 			switch {
 			case resynced:
 				deb, retryAt = debounce{}, time.Time{} // o resync ja releu tudo
+				fullDue = true                         // e as filas tambem
 			case deb.due(now):
 				reason = "reload"
 			case !retryAt.IsZero() && !now.Before(retryAt):
@@ -383,9 +402,13 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 				for _, ev := range ad.Translate(m) {
 					emit(ev)
 				}
+				for _, ev := range queues.Translate(m) {
+					emit(ev)
+				}
 			}
 			return c.Err()
 		}
+		s.queuesPending(ctx, c, emit, qs, time.Now()) // por fila, no maximo uma vez a cada queueMinGap
 		if reason == "" {
 			continue
 		}
@@ -393,6 +416,9 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 		retry, err := s.reread(ctx, c, ad, enr, reason)
 		if err != nil {
 			return err
+		}
+		if reason == "reload" && !retry {
+			fullDue = true // depois de uma recarga do Asterisk as filas tambem sao relidas
 		}
 		if retry {
 			retryAt = time.Now().Add(rereadRetry)
