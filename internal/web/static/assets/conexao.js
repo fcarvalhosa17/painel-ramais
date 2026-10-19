@@ -52,6 +52,8 @@ export const api = {
   // e só apaga vínculo manual (não existe exclusão de faixa). Respostas { changed } e { changed, not_manual }.
   adicionarAGrupos: (numbers, groups) => chamar("POST", "api/groups/assign", { mode: "add", numbers, groups }),
   removerDoGrupo: (numbers, group) => chamar("POST", "api/groups/assign", { mode: "remove", numbers, group }),
+  // Nome da fila (CONTRATOS 4.8, só administrador): name "" tira o nome. Resposta { queue, name }.
+  renomearFila: (queue, name) => chamar("POST", "api/queues/rename", { queue, name }),
   // Relatório de registro (CONTRATOS 4.7). grupo "" = todos os ramais (sem o parâmetro).
   resumoRegistros: (grupo) => chamar("GET", "api/registrations/summary" + (grupo ? "?" + new URLSearchParams({ group: grupo }) : "")),
   registros: (period, cursor) => {

@@ -19,9 +19,11 @@ const plural = (n, um, varios) => formatarNumero(n) + " " + (n === 1 ? um : vari
 const TRACO = String.fromCharCode(0x2014); // dado ausente: "—" como no design (decorate)
 
 // Caixas de seleção de grupos (modo add). Só refaz quando a lista de nomes muda e mantém as marcadas:
-// o detalhe é redesenhado a cada delta e não pode apagar a escolha em andamento.
+// o detalhe é redesenhado a cada delta e não pode apagar a escolha em andamento. Grupo recém-criado pelo
+// "+ Novo grupo" (D35) chega pelo delta e volta marcado (pendentes).
 function listaDeGrupos(caixa) {
   let chave = null;
+  const pendentes = new Set();
   const marcados = () => [...caixa.querySelectorAll("input:checked")].map((i) => i.value);
   return {
     marcados,
@@ -36,14 +38,26 @@ function listaDeGrupos(caixa) {
         const input = document.createElement("input");
         input.type = "checkbox";
         input.value = nome;
-        input.checked = antes.has(nome);
+        input.checked = antes.has(nome) || pendentes.delete(nome);
         const span = document.createElement("span");
         span.textContent = nome;
         label.append(input, span);
         return label;
       }));
+      // Avisa quem acompanha a escolha (botão Adicionar) que uma caixa pode ter sido marcada.
+      caixa.dispatchEvent(new Event("change"));
     },
-    limpar() { for (const i of caixa.querySelectorAll("input:checked")) i.checked = false; },
+    // O delta com o catálogo novo pode chegar antes ou depois da resposta do POST: marca já, se a caixa existe.
+    marcarQuandoAparecer(nome) {
+      const ja = [...caixa.querySelectorAll("input")].find((i) => i.value === nome);
+      if (!ja) { pendentes.add(nome); return; }
+      ja.checked = true;
+      caixa.dispatchEvent(new Event("change"));
+    },
+    limpar() {
+      pendentes.clear();
+      for (const i of caixa.querySelectorAll("input:checked")) i.checked = false;
+    },
   };
 }
 
@@ -73,7 +87,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     b.addEventListener("click", () => { if (!dialogo.dataset.ocupado) dialogo.close(); });
   }
   // Escape não fecha um diálogo com gravação em andamento.
-  for (const id of ["dialogo-novo-grupo", "dialogo-mover"]) {
+  for (const id of ["dialogo-novo-grupo", "dialogo-vinculo"]) {
     $(id).addEventListener("cancel", (e) => { if ($(id).dataset.ocupado) e.preventDefault(); });
   }
   function ocupar(dialogo, botoes, sim) {
@@ -96,7 +110,10 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     criar: $("ng-criar"),
   };
 
-  function abrirCriar() {
+  // depois(nome): chamado com o nome gravado quando o grupo é criado (o "+ Novo grupo" dos seletores, D35).
+  let depoisDeCriar = null;
+  function abrirCriar(depois = null) {
+    depoisDeCriar = depois;
     ng.form.reset();
     for (const el of [ng.nomeErro, ng.faixasErro, ng.erro]) el.textContent = "";
     previaCriar();
@@ -136,7 +153,9 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
       const r = await api.criarGrupo(nome, faixas);
       delete ng.dialogo.dataset.ocupado;
       ng.dialogo.close();
-      avisar("Grupo " + ((r && r.name) || nome) + " criado.");
+      const criado = (r && r.name) || nome;
+      avisar("Grupo " + criado + " criado.");
+      if (depoisDeCriar) depoisDeCriar(criado);
     } catch (err) {
       tratarErro(err, ng.erro);
     } finally {
@@ -147,6 +166,21 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
 
   $("botao-novo-grupo").addEventListener("click", () => abrirCriar());
 
+  // "+ Novo grupo" como última opção de um seletor de grupos de destino (D35, só administrador): cria o grupo e
+  // ele volta marcado na lista quando o catálogo novo chegar.
+  const botoesNovo = [];
+  function botaoNovoGrupo(listaGrupos, caixa) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "botao-pequeno marcar-novo";
+    b.textContent = "+ Novo grupo";
+    b.hidden = true;
+    b.addEventListener("click", () => abrirCriar((nome) => listaGrupos.marcarQuandoAparecer(nome)));
+    caixa.after(b);
+    botoesNovo.push(b);
+    return b;
+  }
+
   // ---------- detalhe do ramal (coluna da direita; o mesmo painel para Operator e administrador) ----------
   const dr = {
     painel: $("detalhe"), num: $("dr-num"), sumiu: $("dr-sumiu"), nome: $("dr-nome"), estado: $("dr-estado"),
@@ -156,6 +190,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     remover: $("dr-remover"), removerNota: $("dr-remover-nota"), erro: $("dr-erro"), ok: $("dr-ok"), fechar: $("dr-fechar"),
   };
   const drLista = listaDeGrupos($("dr-add-lista"));
+  botaoNovoGrupo(drLista, $("dr-add-lista"));
   let numeroAberto = null;
   let ocupadoRamal = false;
   const detalheAberto = () => !dr.painel.hidden;
@@ -365,11 +400,12 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
   });
 
   // ---------- confirmar e aplicar ----------
-  const dm = {
-    dialogo: $("dialogo-mover"), resumo: $("dm-resumo"), gruposCaixa: $("dm-grupos-caixa"), origens: $("dm-origens"),
-    notas: $("dm-notas"), erro: $("dm-erro"), aplicar: $("dm-aplicar"), cancelar: $("dm-cancelar"),
+  const dv = {
+    dialogo: $("dialogo-vinculo"), resumo: $("dv-resumo"), gruposCaixa: $("dv-grupos-caixa"), origens: $("dv-origens"),
+    notas: $("dv-notas"), erro: $("dv-erro"), aplicar: $("dv-aplicar"), cancelar: $("dv-cancelar"),
   };
-  const dmLista = listaDeGrupos($("dm-grupos"));
+  const dvLista = listaDeGrupos($("dv-grupos"));
+  const dvNovo = botaoNovoGrupo(dvLista, $("dv-grupos"));
   let modo = "add";
   let grupoRemover = "";
 
@@ -399,42 +435,42 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     grupoRemover = g;
     const total = selecao.size;
     const notas = [];
-    dm.erro.textContent = "";
+    dv.erro.textContent = "";
     if (modo === "add") {
-      dm.resumo.textContent = "Adicionar " + plural(total, "ramal", "ramais") + " aos grupos marcados.";
-      dm.gruposCaixa.hidden = false;
-      dmLista.preencher(nomesCatalogo());
-      dm.origens.replaceChildren();
+      dv.resumo.textContent = "Adicionar " + plural(total, "ramal", "ramais") + " aos grupos marcados.";
+      dv.gruposCaixa.hidden = false;
+      dvLista.preencher(nomesCatalogo());
+      dv.origens.replaceChildren();
       if (!catalogo().length) notas.push("Nenhum grupo cadastrado. Crie um em Novo grupo.");
       notas.push("Os ramais continuam nos grupos em que já estão.");
       const ausentes = contarAusentes();
       if (ausentes) notas.push(plural(ausentes, "número selecionado não está", "números selecionados não estão") + " mais no PBX e vai junto (o vínculo é pelo número).");
       atualizarAplicar();
     } else {
-      dm.resumo.textContent = "Remover " + plural(total, "ramal", "ramais") + " do grupo " + g + ".";
-      dm.gruposCaixa.hidden = true;
+      dv.resumo.textContent = "Remover " + plural(total, "ramal", "ramais") + " do grupo " + g + ".";
+      dv.gruposCaixa.hidden = true;
       const c = resumirRemocao(g);
-      dm.origens.replaceChildren(
+      dv.origens.replaceChildren(
         linhaOrigem("Saem do grupo (vínculo manual)", c.saem),
         linhaOrigem("Continuam pela faixa", c.pelaFaixa),
         linhaOrigem("Não estão no grupo", c.fora),
       );
       if (c.pelaFaixa) notas.push(plural(c.pelaFaixa, "continua", "continuam") + " no grupo pela faixa; para tirá-" + (c.pelaFaixa === 1 ? "lo" : "los") + ", edite a faixa.");
       if (c.ausentes) notas.push(plural(c.ausentes, "número selecionado não está", "números selecionados não estão") + " mais no PBX; o vínculo manual dele" + (c.ausentes === 1 ? "" : "s") + " também sai.");
-      dm.aplicar.disabled = false;
+      dv.aplicar.disabled = false;
     }
-    dm.notas.textContent = notas.join(" ");
-    dm.notas.hidden = !notas.length;
-    dm.aplicar.textContent = modo === "add" ? "Adicionar" : "Remover do grupo";
-    dm.aplicar.className = "botao " + (modo === "add" ? "botao-primario" : "botao-perigo");
-    dm.dialogo.showModal();
-    (modo === "add" && catalogo().length ? $("dm-grupos").querySelector("input") : dm.cancelar).focus();
+    dv.notas.textContent = notas.join(" ");
+    dv.notas.hidden = !notas.length;
+    dv.aplicar.textContent = modo === "add" ? "Adicionar" : "Remover do grupo";
+    dv.aplicar.className = "botao " + (modo === "add" ? "botao-primario" : "botao-perigo");
+    dv.dialogo.showModal();
+    (modo === "add" && catalogo().length ? $("dv-grupos").querySelector("input") : dv.cancelar).focus();
   }
 
   function atualizarAplicar() {
-    if (modo === "add" && !dm.dialogo.dataset.ocupado) dm.aplicar.disabled = dmLista.marcados().length === 0;
+    if (modo === "add" && !dv.dialogo.dataset.ocupado) dv.aplicar.disabled = dvLista.marcados().length === 0;
   }
-  $("dm-grupos").addEventListener("change", atualizarAplicar);
+  $("dv-grupos").addEventListener("change", atualizarAplicar);
 
   function linhaOrigem(nome, q) {
     const li = document.createElement("li");
@@ -456,13 +492,13 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     return "";
   }
 
-  dm.aplicar.addEventListener("click", async () => {
+  dv.aplicar.addEventListener("click", async () => {
     const numeros = [...selecao];
-    const grupos = modo === "add" ? dmLista.marcados() : null;
+    const grupos = modo === "add" ? dvLista.marcados() : null;
     const erro = erroDosTetos(numeros, grupos);
-    if (erro) { dm.erro.textContent = erro; return; }
-    const botoes = [dm.aplicar, dm.cancelar, bs.adicionar, bs.remover, bs.limpar, bs.resultados];
-    ocupar(dm.dialogo, botoes, true);
+    if (erro) { dv.erro.textContent = erro; return; }
+    const botoes = [dv.aplicar, dv.cancelar, dvNovo, bs.adicionar, bs.remover, bs.limpar, bs.resultados];
+    ocupar(dv.dialogo, botoes, true);
     try {
       let texto;
       if (modo === "add") {
@@ -477,16 +513,16 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
         texto = (n === 0 ? "Nenhum vínculo manual removido de " + g : plural(n, "vínculo manual removido", "vínculos manuais removidos") + " de " + g)
           + (sem ? "; " + plural(sem, "ramal sem vínculo manual", "ramais sem vínculo manual") + " (pela faixa ou fora do grupo)." : ".");
       }
-      delete dm.dialogo.dataset.ocupado;
-      dm.dialogo.close();
+      delete dv.dialogo.dataset.ocupado;
+      dv.dialogo.close();
       selecao.clear();
       ancora = null;
-      dmLista.limpar();
+      dvLista.limpar();
       avisar(texto);
     } catch (e) {
-      tratarErro(e, dm.erro); // seleção mantida para tentar de novo
+      tratarErro(e, dv.erro); // seleção mantida para tentar de novo
     } finally {
-      ocupar(dm.dialogo, botoes, false);
+      ocupar(dv.dialogo, botoes, false);
       atualizarAplicar();
       aoMudarSelecao();
     }
@@ -499,6 +535,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
       admin = sim;
       lista.marcavel = sim;
       $("botao-novo-grupo").hidden = !sim;
+      for (const b of botoesNovo) b.hidden = !sim;
       if (!sim) { selecao.clear(); ancora = null; }
       aoMudarSelecao();
       if (detalheAberto()) renderRamal();
@@ -517,7 +554,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
       aoMudarSelecao();
     },
     aoMudarCatalogo() {
-      if (dm.dialogo.open && modo === "add") { dmLista.preencher(nomesCatalogo()); atualizarAplicar(); }
+      if (dv.dialogo.open && modo === "add") { dvLista.preencher(nomesCatalogo()); atualizarAplicar(); }
       if (detalheAberto()) renderRamal();
       if (ng.dialogo.open && ng.nome.value.trim()) { ng.nomeErro.textContent = erroNomeGrupo(ng.nome.value, catalogo()); previaCriar(); }
     },

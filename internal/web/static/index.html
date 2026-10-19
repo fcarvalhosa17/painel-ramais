@@ -18,6 +18,9 @@
 <link rel="modulepreload" href="/painel-ramais/assets/edicao.js">
 <link rel="modulepreload" href="/painel-ramais/assets/instabilidade.js">
 <link rel="modulepreload" href="/painel-ramais/assets/registros.js">
+<link rel="modulepreload" href="/painel-ramais/assets/linhas.js">
+<link rel="modulepreload" href="/painel-ramais/assets/chamadas.js">
+<link rel="modulepreload" href="/painel-ramais/assets/filas.js">
 <script type="module" src="/painel-ramais/assets/app.js"></script>
 </head>
 <body>
@@ -65,9 +68,9 @@
     <span id="topo-info" class="topo-info"></span>
   </div>
   <div class="topo-dir">
-    <!-- Abas (desvios D19). Etapa 2: a aba Chamadas entra aqui (data-aba="chamadas", painel #aba-chamadas) e na lista ABAS do app.js; sem botão até lá. -->
     <div id="abas" class="segmentado" role="tablist" aria-label="Telas do painel">
       <button type="button" class="seg" role="tab" id="aba-btn-ramais" data-aba="ramais" aria-selected="true" aria-controls="aba-ramais">Ramais</button>
+      <button type="button" class="seg" role="tab" id="aba-btn-chamadas" data-aba="chamadas" aria-selected="false" aria-controls="aba-chamadas" tabindex="-1">Chamadas</button>
       <button type="button" class="seg" role="tab" id="aba-btn-registros" data-aba="registros" aria-selected="false" aria-controls="aba-registros" tabindex="-1">Registros</button>
     </div>
     <div id="densidade" class="segmentado" role="group" aria-label="Densidade">
@@ -245,7 +248,7 @@
       <span id="chamadas-n" class="chamadas-n">0</span>
     </div>
     <span id="chamadas-sub" class="chamadas-sub">Todos os ramais · mais longas primeiro</span>
-    <div id="chamadas" class="chamadas pr-scroll"></div>
+    <div id="chamadas" class="chamadas pr-scroll" role="list" aria-label="Chamadas ativas"></div>
     <p id="chamadas-vazio" class="vazio" hidden>Nenhuma chamada ativa.</p>
   </section>
 </aside>
@@ -361,6 +364,114 @@
     </aside>
   </div>
 </section>
+
+<!-- Aba Chamadas (desvios D28 a D34, CONTRATOS 2.3 e 2.4). -->
+<section id="aba-chamadas" class="ch" role="tabpanel" aria-labelledby="aba-btn-chamadas" hidden>
+  <section class="indicadores" aria-label="Resumo das chamadas">
+    <div class="ind">
+      <span class="ind-rotulo"><span class="ind-seta" aria-hidden="true">↙</span>EXTERNAS ENTRANTES</span>
+      <span id="ch-n-entrantes" class="ind-valor">0</span>
+    </div>
+    <div class="ind">
+      <span class="ind-rotulo"><span class="ind-seta" aria-hidden="true">↗</span>EXTERNAS SAINTES</span>
+      <span id="ch-n-saintes" class="ind-valor">0</span>
+    </div>
+    <div class="ind">
+      <span class="ind-rotulo"><span class="ind-seta" aria-hidden="true">↔</span>INTERNAS</span>
+      <span id="ch-n-internas" class="ind-valor">0</span>
+    </div>
+    <div class="ind">
+      <span class="ind-rotulo"><span class="ind-chave" data-estado="em_espera"></span>AGUARDANDO EM FILA</span>
+      <span id="ch-n-fila" class="ind-valor ind-valor-fila">0</span>
+    </div>
+  </section>
+
+  <div class="ch-filtros">
+    <label class="reg-campo">
+      <span class="so-leitor">Grupo</span>
+      <select id="ch-grupo"></select>
+    </label>
+    <label class="busca ch-busca">
+      <svg class="icone icone-15" aria-hidden="true"><use href="#i-busca"/></svg>
+      <span class="so-leitor">Buscar nas chamadas</span>
+      <input id="ch-busca" type="search" placeholder="Número externo, ramal ou nome" autocomplete="off" spellcheck="false">
+    </label>
+    <div id="ch-tipo" class="segmentado" role="group" aria-label="Tipo de chamada">
+      <button type="button" class="seg" data-tipo="" aria-pressed="true">Todas</button>
+      <button type="button" class="seg" data-tipo="entrantes" aria-pressed="false">Entrantes</button>
+      <button type="button" class="seg" data-tipo="saintes" aria-pressed="false">Saintes</button>
+      <button type="button" class="seg" data-tipo="internas" aria-pressed="false">Internas</button>
+    </div>
+    <label class="reg-campo">
+      <span class="so-leitor">Tronco</span>
+      <select id="ch-tronco"></select>
+    </label>
+    <label class="reg-campo">
+      <span class="so-leitor">Fila</span>
+      <select id="ch-fila"></select>
+    </label>
+  </div>
+
+  <div class="ch-colunas">
+    <div class="ch-listas">
+      <section id="ch-bloco-entrantes" class="bloco" aria-labelledby="ch-t-entrantes">
+        <div class="bloco-cabeca">
+          <h2 id="ch-t-entrantes" class="bloco-titulo">EXTERNAS ENTRANTES</h2>
+          <span id="ch-total-entrantes" class="chamadas-n">0</span>
+        </div>
+        <div id="ch-entrantes" class="chamadas pr-scroll" role="list" aria-label="Externas entrantes"></div>
+        <p id="ch-vazio-entrantes" class="vazio" hidden></p>
+      </section>
+      <section id="ch-bloco-saintes" class="bloco" aria-labelledby="ch-t-saintes">
+        <div class="bloco-cabeca">
+          <h2 id="ch-t-saintes" class="bloco-titulo">EXTERNAS SAINTES</h2>
+          <span id="ch-total-saintes" class="chamadas-n">0</span>
+        </div>
+        <div id="ch-saintes" class="chamadas pr-scroll" role="list" aria-label="Externas saintes"></div>
+        <p id="ch-vazio-saintes" class="vazio" hidden></p>
+      </section>
+      <section id="ch-bloco-internas" class="bloco" aria-labelledby="ch-t-internas">
+        <div class="bloco-cabeca">
+          <h2 id="ch-t-internas" class="bloco-titulo">INTERNAS</h2>
+          <span id="ch-total-internas" class="chamadas-n">0</span>
+        </div>
+        <div id="ch-internas" class="chamadas pr-scroll" role="list" aria-label="Internas"></div>
+        <p id="ch-vazio-internas" class="vazio" hidden></p>
+      </section>
+    </div>
+
+    <aside class="ch-filas" aria-label="Filas">
+      <section id="fila-detalhe" class="detalhe" aria-labelledby="fd-nome" hidden>
+        <div class="detalhe-cabeca">
+          <div class="detalhe-id">
+            <span id="fd-nome" class="detalhe-num fd-nome"></span>
+            <span id="fd-num" class="detalhe-nome mono"></span>
+          </div>
+          <button id="fd-fechar" class="botao-fechar" type="button" aria-label="Fechar detalhe da fila"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
+        </div>
+        <p id="fd-sumiu" class="dialogo-contexto" hidden>Esta fila não existe mais no Asterisk.</p>
+        <p id="fd-lida" class="bloco-nota"></p>
+        <button id="fd-renomear" class="botao fd-renomear" type="button" hidden>Renomear</button>
+        <h3 class="dg-sub">Aguardando</h3>
+        <ol id="fd-espera" class="fd-lista" aria-label="Quem aguarda na fila"></ol>
+        <p id="fd-espera-vazio" class="vazio" hidden>Ninguém aguardando.</p>
+        <h3 class="dg-sub">Agentes</h3>
+        <ul id="fd-agentes" class="fd-lista" aria-label="Agentes da fila"></ul>
+        <p id="fd-agentes-vazio" class="vazio" hidden>Fila sem agentes.</p>
+      </section>
+
+      <section class="bloco" aria-labelledby="filas-titulo">
+        <div class="bloco-cabeca">
+          <h2 id="filas-titulo" class="bloco-titulo">FILAS</h2>
+          <span id="filas-n" class="chamadas-n">0</span>
+        </div>
+        <span class="chamadas-sub">Contadores desde o último reinício do Asterisk</span>
+        <div id="filas-lista" class="filas pr-scroll" role="list" aria-label="Filas"></div>
+        <p id="filas-vazio" class="vazio" hidden></p>
+      </section>
+    </aside>
+  </div>
+</section>
 </main>
 
 <dialog id="dialogo-grupos" class="dialogo" aria-labelledby="dg-titulo">
@@ -420,25 +531,45 @@
   </form>
 </dialog>
 
-<dialog id="dialogo-mover" class="dialogo dialogo-estreito" aria-labelledby="dm-titulo">
+<dialog id="dialogo-vinculo" class="dialogo dialogo-estreito" aria-labelledby="dv-titulo">
   <div class="dialogo-cabeca">
-    <h2 id="dm-titulo" class="dialogo-titulo">Confirmar mudança</h2>
+    <h2 id="dv-titulo" class="dialogo-titulo">Confirmar mudança</h2>
     <button class="botao-fechar" type="button" data-fechar aria-label="Fechar"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
   </div>
   <div class="dialogo-pilha">
-    <p id="dm-resumo" class="dm-resumo"></p>
-    <fieldset id="dm-grupos-caixa" class="marcar-caixa" hidden>
+    <p id="dv-resumo" class="dv-resumo"></p>
+    <fieldset id="dv-grupos-caixa" class="marcar-caixa" hidden>
       <legend class="campo-rotulo">Grupos</legend>
-      <div id="dm-grupos" class="marcar-lista pr-scroll"></div>
+      <div id="dv-grupos" class="marcar-lista pr-scroll"></div>
     </fieldset>
-    <ul id="dm-origens" class="dm-origens"></ul>
-    <p id="dm-notas" class="campo-ajuda"></p>
-    <p id="dm-erro" class="campo-erro" role="alert"></p>
+    <ul id="dv-origens" class="dv-origens"></ul>
+    <p id="dv-notas" class="campo-ajuda"></p>
+    <p id="dv-erro" class="campo-erro" role="alert"></p>
     <div class="dialogo-botoes">
-      <button id="dm-aplicar" class="botao botao-primario" type="button">Adicionar</button>
-      <button id="dm-cancelar" class="botao" type="button" data-fechar>Cancelar</button>
+      <button id="dv-aplicar" class="botao botao-primario" type="button">Adicionar</button>
+      <button id="dv-cancelar" class="botao" type="button" data-fechar>Cancelar</button>
     </div>
   </div>
+</dialog>
+
+<dialog id="dialogo-fila" class="dialogo dialogo-estreito" aria-labelledby="df-titulo">
+  <div class="dialogo-cabeca">
+    <h2 id="df-titulo" class="dialogo-titulo">Nome da fila</h2>
+    <button class="botao-fechar" type="button" data-fechar aria-label="Fechar"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
+  </div>
+  <form id="df-form" class="dialogo-pilha" novalidate>
+    <p id="df-contexto" class="dialogo-contexto"></p>
+    <label class="campo">
+      <span class="campo-rotulo">Nome</span>
+      <input id="df-nome" type="text" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="df-ajuda df-erro">
+    </label>
+    <p id="df-ajuda" class="campo-ajuda">Vazio tira o nome e a fila volta a aparecer pelo número.</p>
+    <p id="df-erro" class="campo-erro" role="alert"></p>
+    <div class="dialogo-botoes">
+      <button id="df-salvar" class="botao botao-primario" type="submit">Salvar</button>
+      <button class="botao" type="button" data-fechar>Cancelar</button>
+    </div>
+  </form>
 </dialog>
 
 <div id="barra-selecao" class="barra-selecao" role="region" aria-label="Ramais selecionados" hidden>

@@ -411,10 +411,10 @@ input[type="checkbox"] { min-height: auto; width: 14px; height: 14px; margin: 0;
 .dg-importar { display: flex; flex-direction: column; gap: 10px; }
 .dg-erro { font-family: var(--fonte-mono); font-size: 12px; max-height: 10rem; overflow: auto; }
 .dg-importar > .botao { align-self: flex-start; }
-.dm-resumo { font-family: var(--fonte-display); font-weight: 700; font-size: 20px; line-height: 1.2; color: var(--texto-forte); overflow-wrap: anywhere; }
-.dm-origens { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.dm-origens li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--borda); background: var(--item); font-size: 13px; }
-.dm-origens b { font-family: var(--fonte-mono); font-weight: 500; color: var(--texto-forte); }
+.dv-resumo { font-family: var(--fonte-display); font-weight: 700; font-size: 20px; line-height: 1.2; color: var(--texto-forte); overflow-wrap: anywhere; }
+.dv-origens { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.dv-origens li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--borda); background: var(--item); font-size: 13px; }
+.dv-origens b { font-family: var(--fonte-mono); font-weight: 500; color: var(--texto-forte); }
 
 /* ---------- seleção múltipla (só administrador) ---------- */
 .barra-selecao {
@@ -561,4 +561,58 @@ body.com-selecao .aviso-status { bottom: 90px; }
 
 @media (forced-colors: active) {
   .inst-barra > span, .rl-ponto, .leg-perdeu, .leg-inalc { forced-color-adjust: none; }
+}
+
+/* ---------- rc.8: listas com teclado (desvios D34): item com o botão dentro e foco que não é cortado pela caixa ---------- */
+.chamada-item { display: flex; flex: none; }
+.chamada-item > .chamada { flex: 1 1 auto; min-width: 0; }
+.chamada-fixa { cursor: default; }
+.chamadas .chamada:focus-visible, .filas .fila-linha:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
+
+/* ---------- rc.8: aba Chamadas (desvios D28 a D33) ---------- */
+.ch { display: flex; flex-direction: column; gap: 14px; }
+.ind-seta { font-family: var(--fonte-mono); font-size: 13px; color: var(--conversa-fg); }
+.ind-valor-fila { color: var(--espera-fg); }
+.ch-filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ch-busca { flex: 0 1 260px; }
+.ch-colunas { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.ch-listas { flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; align-items: start; }
+.ch-listas .chamadas { max-height: 420px; }
+.ch-filas { flex: 1 1 320px; max-width: 100%; display: flex; flex-direction: column; gap: 14px; }
+
+.filas { display: flex; flex-direction: column; gap: 6px; max-height: 560px; overflow-y: auto; overflow-anchor: none; }
+.fila-linha {
+  flex: none; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--borda); background: var(--item); font-size: 12px; color: var(--texto-fraco); cursor: pointer;
+}
+.fila-linha:hover { border-color: var(--borda-forte); }
+.fila-linha[data-aberta] { background: var(--sel-fundo); border-color: var(--sel-borda); }
+.fila-linha > span, .fila-ag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fila-cabeca { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.fila-nome { font-size: 14px; font-weight: 600; color: var(--texto-forte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fila-num { font-family: var(--fonte-mono); color: var(--texto-4); flex: none; }
+.fila-espera { color: var(--texto-2); }
+.fila-com-espera { color: var(--espera-fg); }
+.fila-agentes { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; font-family: var(--fonte-mono); }
+.fila-ag { display: flex; align-items: center; gap: 6px; }
+.fila-ag-ponto { width: 8px; height: 8px; border-radius: 2px; background: var(--cor); flex: none; }
+
+.fd-nome { font-size: 24px; overflow-wrap: anywhere; }
+.fd-renomear { align-self: flex-start; }
+.fd-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
+.fd-item {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 6px 10px;
+  border: 1px solid var(--borda); border-radius: 7px; background: var(--item); font-size: 12px;
+}
+.fd-pos { font-family: var(--fonte-mono); color: var(--texto-4); }
+.fd-quem { color: var(--texto); overflow-wrap: anywhere; min-width: 0; }
+.fd-tempo { font-family: var(--fonte-mono); color: var(--espera-fg); }
+.fd-agente { grid-template-columns: 8px 1fr; row-gap: 2px; }
+.fd-estado { grid-column: 2; color: var(--texto-fraco); overflow-wrap: anywhere; }
+
+/* ---------- rc.8: "+ Novo grupo" nos seletores de grupo de destino (desvios D35) ---------- */
+.marcar-novo { align-self: flex-start; margin-top: 6px; }
+
+@media (forced-colors: active) {
+  .fila-ag-ponto { forced-color-adjust: none; }
 }

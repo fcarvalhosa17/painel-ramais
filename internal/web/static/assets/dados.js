@@ -1,5 +1,5 @@
 // Núcleo de dados (contrato C8): snapshot, aplicação de delta, lacuna e desvio de relógio.
-// Sem DOM e sem rede: testado com node --test.
+// Sem DOM e sem rede. Chamadas e filas (rc.8): mapas por id e por fila, aplicados pelo delta (CONTRATOS 5.2).
 
 import { estadoDaTela, chaveBusca } from "./estado.js";
 
@@ -16,6 +16,9 @@ export class Dados {
     // Catálogo de grupos [{ name, ranges }], inclui grupos vazios. catalogoMudou: quem desenha zera depois de ler.
     this.grupos = [];
     this.catalogoMudou = false;
+    // Chamadas ao vivo (CONTRATOS 2.3) por id e filas (2.4) por queue.
+    this.chamadas = new Map();
+    this.filas = new Map();
   }
 
   aplicarSnapshot(data, agoraMs = Date.now()) {
@@ -29,6 +32,8 @@ export class Dados {
     const grupos = Array.isArray(data.groups) ? data.groups : [];
     if (chaveCatalogo(grupos) !== chaveCatalogo(this.grupos)) this.catalogoMudou = true;
     this.grupos = grupos;
+    this.chamadas = porChave(data.calls, "id");
+    this.filas = porChave(data.queues, "queue");
     this.itens = [];
     this.porNumero = new Map();
     for (const ramal of data.extensions || []) {
@@ -75,6 +80,10 @@ export class Dados {
         if (j >= 0) this.itens.splice(j, 1);
       }
     }
+    // Chamadas e filas: chaves opcionais, presentes só quando têm item; substitui pelo id ou queue, apaga ignorando
+    // o desconhecido. Nunca têm chave em comum entre a lista e a de removidos, então a ordem não importa.
+    aplicarPorChave(this.chamadas, msg.calls, msg.calls_removed, "id");
+    aplicarPorChave(this.filas, msg.queues, msg.queues_removed, "queue");
     // A conexão com o AMI muda o estado exibido de todos (C9 regra 1).
     if (amiMudou) for (const it of this.itens) it.estado = estadoDaTela(it.ramal, this.amiConectado);
     this.version = msg.to_version;
@@ -89,6 +98,18 @@ export class Dados {
     const t = Date.parse(serverTime);
     if (!Number.isNaN(t)) this.desvioMs = t - agoraMs;
   }
+}
+
+// Lista do snapshot vira mapa pela chave (item sem chave de texto é descartado).
+function porChave(lista, chave) {
+  const m = new Map();
+  for (const x of Array.isArray(lista) ? lista : []) if (x && typeof x[chave] === "string") m.set(x[chave], x);
+  return m;
+}
+
+function aplicarPorChave(mapa, itens, removidos, chave) {
+  for (const x of Array.isArray(itens) ? itens : []) if (x && typeof x[chave] === "string") mapa.set(x[chave], x);
+  for (const k of Array.isArray(removidos) ? removidos : []) mapa.delete(k);
 }
 
 // Nomes e faixas, na ordem do servidor: igual = mesmo catálogo.

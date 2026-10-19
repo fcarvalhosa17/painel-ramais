@@ -7,7 +7,9 @@ import {
 } from "./estado.js";
 import { Dados, atrasoReconexao } from "./dados.js";
 import { api, CanalAoVivo } from "./conexao.js";
-import { Lista, janela } from "./lista.js";
+import { Lista } from "./lista.js";
+import { ListaLinhas } from "./linhas.js";
+import { iniciarChamadas } from "./chamadas.js";
 import { desenharHistorico, rotulosEixo } from "./grafico.js";
 import { iniciarGrupos } from "./grupos.js";
 import { iniciarEdicao } from "./edicao.js";
@@ -25,8 +27,8 @@ const CHAMADA_LONGA_MS = 20 * MIN; // tempo em laranja acima de 20 min
 const TRACO = String.fromCharCode(0x2014); // sem leitura: "—" como no design (decorate), nunca 0
 const CHAVE_MODO = "painel-ramais.modo";
 const CHAVE_ABA = "painel-ramais.aba";
-// Abas da tela (desvios D19). Etapa 2: "chamadas" entra nesta lista, com o botão na #abas e o painel #aba-chamadas.
-const ABAS = ["ramais", "registros"];
+// Abas da tela (desvios D19 e D28), na ordem dos botões da #abas; cada uma tem o painel #aba-<nome>.
+const ABAS = ["ramais", "chamadas", "registros"];
 
 // ---------- gancho de medição (C10) ----------
 const medida = {
@@ -156,6 +158,7 @@ const lista = new Lista($("lista"), $("lista-altura"));
 const areaGrupos = iniciarGrupos({ dados, aoSessaoEncerrada: () => semSessao() });
 const edicao = iniciarEdicao({ dados, lista, grupoAberto: () => filtros.grupo, aoSessaoEncerrada: () => semSessao() });
 const registros = iniciarRegistros({ dados, relogio: () => Date.now() + dados.desvioMs, aoSessaoEncerrada: () => semSessao() });
+const chamadas = iniciarChamadas({ dados, relogio: () => Date.now() + dados.desvioMs, aoSessaoEncerrada: () => semSessao() });
 const instabilidade = iniciarInstabilidade({
   // Clique no ramal do bloco: aba Registros com 24 h, o grupo atual e a linha do tempo dele.
   aoAbrir(numero) {
@@ -191,6 +194,7 @@ function iniciarPainel(sessao) {
   $("botao-sair").hidden = !EMERGENCIA;
   $("botao-cheia").hidden = !document.fullscreenEnabled;
   edicao.definirAdmin(!!sessao.admin);
+  chamadas.definirAdmin(!!sessao.admin);
   canal.parado = false;
   status("conectando");
   carregarSnapshot();
@@ -215,6 +219,7 @@ function pararPainel() {
   edicao.parar();
   instabilidade.parar();
   registros.parar();
+  chamadas.parar();
   for (const d of document.querySelectorAll("dialog[open]")) d.close();
 }
 
@@ -248,6 +253,7 @@ function tique() {
   renderChamadas();
   renderInfo();
   edicao.tique();
+  chamadas.tique();
 }
 
 // ---------- quadro: tudo que depende dos dados, num requestAnimationFrame ----------
@@ -282,9 +288,11 @@ function quadro() {
       areaGrupos.aoMudarCatalogo();
       edicao.aoMudarCatalogo();
       registros.aoMudarCatalogo();
+      chamadas.aoMudarCatalogo();
     }
     areaGrupos.aoMudarDados();
     edicao.aoMudarDados();
+    chamadas.aoMudarDados();
   }
   if (sujo.dados || sujo.filtro) renderCentro();
   sujo.dados = sujo.filtro = sujo.delta = false;
@@ -533,13 +541,13 @@ function trocarAba(nova, focar = false) {
     b.tabIndex = sel ? 0 : -1;
     if (sel && focar) b.focus();
   }
-  $("aba-ramais").hidden = aba !== "ramais";
-  $("aba-registros").hidden = aba !== "registros";
+  for (const nome of ABAS) $("aba-" + nome).hidden = aba !== nome;
   $("densidade").hidden = aba !== "ramais";
   try { localStorage.setItem(CHAVE_ABA, aba); } catch { /* sem armazenamento: vale só nesta visita */ }
-  // Cada aba só busca dados enquanto está visível (o documento escondido é conferido em cada módulo).
+  // Cada aba só busca dados (e a de Chamadas só pinta e conta o tempo) enquanto está visível.
   instabilidade.mostrar(ativo && aba === "ramais");
   registros.mostrar(ativo && aba === "registros");
+  chamadas.mostrar(ativo && aba === "chamadas");
   if (aba === "ramais") { lista.agendar(); pintarChamadas(); }
 }
 for (const b of botoesAba) {
@@ -555,27 +563,13 @@ for (const b of botoesAba) {
 }
 
 // ---------- chamadas ativas do escopo selecionado (grupo ou todos os ramais), mais longas primeiro ----------
-// Rolagem virtual como a da lista central: só as linhas da janela visível existem no DOM; dois espaçadores
-// ocupam o lugar das linhas de fora, então a barra de rolagem mede todas as chamadas. (Padding na caixa não
-// serve: com box-sizing border-box ele aumentaria a caixa em vez de rolar.)
-const poolChamadas = [];
-let ativosChamadas = [];
-let alturaChamada = 52; // estimativa até medir a primeira linha desenhada
-let chamadasPendente = false;
-const [chamadasAntes, chamadasDepois] = [0, 1].map(() => {
-  const d = document.createElement("div");
-  d.setAttribute("aria-hidden", "true");
-  d.style.flex = "none"; // não encolhe dentro da caixa de altura máxima, como as linhas
-  d.hidden = true;
-  $("chamadas").append(d);
-  return d;
-});
-// Espaço de n linhas: o vão do flex já separa o espaçador da linha vizinha, por isso desconta um vão.
-function espacoChamadas(el, n, passo, vao) {
-  el.hidden = n === 0;
-  el.style.height = Math.max(0, n * passo - vao) + "px";
-}
+// Rolagem virtual e teclado pelo ListaLinhas (linhas.js, D18 e D34): só as linhas da janela visível existem no DOM,
+// roving tabindex, setas, Home e End; a linha focada é achada pelo número do ramal e não perde o foco no tique de 1 s.
+// Cada linha é um item de lista com o botão dentro (o clique abre o detalhe do ramal).
 function criarLinhaChamada() {
+  const item = document.createElement("div");
+  item.className = "chamada-item";
+  item.setAttribute("role", "listitem");
   const b = document.createElement("button");
   b.type = "button";
   b.className = "chamada";
@@ -595,9 +589,30 @@ function criarLinhaChamada() {
   const tempo = document.createElement("span");
   tempo.className = "chamada-tempo";
   b.append(seta, meio, tempo);
-  chamadasDepois.before(b);
-  return { b, seta, num, nome, l2, tempo };
+  item.append(b);
+  return { no: item, foco: b, b, seta, num, nome, l2, tempo };
 }
+
+function preencherLinhaChamada(ui, a) {
+  const r = a.it.ramal;
+  const c = chamadaPrincipal(r.calls) || {};
+  const espera = a.it.estado === "em_espera";
+  ui.b.dataset.numero = r.number;
+  if (espera) ui.b.dataset.espera = "1"; else delete ui.b.dataset.espera;
+  ui.seta.textContent = SETA[c.direction] || SETA.internal;
+  ui.num.textContent = r.number;
+  ui.nome.data = " " + (r.name || "sem nome");
+  ui.l2.textContent = (espera ? "Em espera" : DIRECAO[c.direction] || "Chamada") + " · " + outroLado(c);
+  ui.tempo.textContent = formatarCronometro(a.ms);
+  ui.tempo.classList.toggle("longa", a.ms > CHAMADA_LONGA_MS);
+  ui.b.setAttribute("aria-label", "Ramal " + r.number + ", " + (r.name || "sem nome") + ", " + ui.l2.textContent + ", " + ui.tempo.textContent);
+}
+
+const listaChamadas = new ListaLinhas($("chamadas"), {
+  criar: criarLinhaChamada,
+  preencher: preencherLinhaChamada,
+  chave: (a) => a.it.ramal.number,
+});
 
 function renderChamadas() {
   const agora = Date.now();
@@ -610,51 +625,15 @@ function renderChamadas() {
   ativos.sort((a, b) => b.ms - a.ms);
   $("chamadas-n").textContent = formatarNumero(ativos.length);
   $("chamadas-sub").textContent = (filtros.grupo || TODOS) + " · mais longas primeiro";
-  ativosChamadas = ativos;
+  $("chamadas").setAttribute("aria-label", "Chamadas ativas, " + formatarNumero(ativos.length) + (ativos.length === 1 ? " chamada" : " chamadas"));
+  listaChamadas.itens = ativos;
   pintarChamadas();
   $("chamadas-vazio").hidden = ativos.length > 0;
 }
 
 function pintarChamadas() {
-  const caixa = $("chamadas");
-  const ativos = ativosChamadas;
-  // Altura real (fracionária) da linha e vão do CSS: um erro aqui se acumula a cada linha acima da janela.
-  if (poolChamadas[0] && !poolChamadas[0].b.hidden) alturaChamada = poolChamadas[0].b.getBoundingClientRect().height || alturaChamada;
-  const css = getComputedStyle(caixa);
-  const vao = parseFloat(css.rowGap) || 0;
-  const passo = alturaChamada + vao;
-  const alturaVisivel = parseFloat(css.maxHeight) || caixa.clientHeight;
-  // Rolagem limitada ao fim da lista nova: se ela encolheu, a janela não cai além do fim (lista em branco).
-  const topo = Math.min(caixa.scrollTop, Math.max(0, ativos.length * passo - alturaVisivel));
-  const j = janela(ativos.length, 1, topo, alturaVisivel, passo);
-  const mostrar = ativos.slice(j.inicio, j.fim);
-  espacoChamadas(chamadasAntes, j.inicio, passo, vao);
-  espacoChamadas(chamadasDepois, ativos.length - j.fim, passo, vao);
-  while (poolChamadas.length < mostrar.length) poolChamadas.push(criarLinhaChamada());
-  poolChamadas.forEach((ui, k) => {
-    const a = mostrar[k];
-    ui.b.hidden = !a;
-    if (!a) return;
-    const r = a.it.ramal;
-    const c = chamadaPrincipal(r.calls) || {};
-    const espera = a.it.estado === "em_espera";
-    ui.b.dataset.numero = r.number;
-    if (espera) ui.b.dataset.espera = "1"; else delete ui.b.dataset.espera;
-    ui.seta.textContent = SETA[c.direction] || SETA.internal;
-    ui.num.textContent = r.number;
-    ui.nome.data = " " + (r.name || "sem nome");
-    ui.l2.textContent = (espera ? "Em espera" : DIRECAO[c.direction] || "Chamada") + " · " + outroLado(c);
-    ui.tempo.textContent = formatarCronometro(a.ms);
-    ui.tempo.classList.toggle("longa", a.ms > CHAMADA_LONGA_MS);
-    ui.b.setAttribute("aria-label", "Ramal " + r.number + ", " + (r.name || "sem nome") + ", " + ui.l2.textContent + ", " + ui.tempo.textContent);
-  });
+  listaChamadas.pintar();
 }
-
-$("chamadas").addEventListener("scroll", () => {
-  if (chamadasPendente) return;
-  chamadasPendente = true;
-  requestAnimationFrame(() => { chamadasPendente = false; pintarChamadas(); });
-}, { passive: true });
 
 $("chamadas").addEventListener("click", (e) => {
   const b = e.target.closest(".chamada");
