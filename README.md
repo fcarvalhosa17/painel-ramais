@@ -120,12 +120,12 @@ Antes de atualizar, faça uma cópia do banco do painel. Como root:
 
 ```sh
 systemctl stop painel-ramais.socket painel-ramais.service
-runuser -u painel-ramais -- sh -c 'cd /var/lib/painel-ramais && B=painel.db.antes-$(date +%Y%m%d) && cp -p painel.db $B && for s in -wal -shm; do [ -e painel.db$s ] && cp -p painel.db$s $B$s; done; ls -l painel.db*'
+runuser -u painel-ramais -- sh -c 'cd /var/lib/painel-ramais && B=painel.db.antes-$(date +%Y%m%d-%H%M) && cp -p painel.db $B && for s in -wal -shm; do [ -e painel.db$s ] && cp -p painel.db$s $B$s; done; ls -l painel.db*'
 cd /root/painel-ramais && git pull && ./instalar.py instalar --pre
 systemctl is-active painel-ramais.socket || systemctl start painel-ramais.socket
 ```
 
-A cópia fica como `painel.db.antes-AAAAMMDD` (com a data do dia) na mesma pasta do banco. Por que fazer assim:
+A cópia fica como `painel.db.antes-AAAAMMDD-HHMM` (com a data e a hora do dia, para uma segunda atualização no mesmo dia não sobrescrever a primeira cópia) na mesma pasta do banco. Por que fazer assim:
 
 - O serviço e o socket (`painel-ramais.socket`, que guarda a porta do painel e religaria o serviço sozinho se alguém abrisse a tela) são
   parados antes para ninguém gravar no banco durante a cópia. Assim a cópia fica consistente.
@@ -179,14 +179,15 @@ cd /root/painel-ramais
 ### Restaurar a copia manual do painel.db
 
 Use só se a atualização deu errado e você quer o banco exatamente como estava na cópia feita na seção 6. Isso **perde tudo o que foi
-gravado depois da cópia**. Como root (troque `AAAAMMDD` pela data da sua cópia):
+gravado depois da cópia**. Como root (troque `AAAAMMDD-HHMM` pela data e hora da sua cópia):
 
 ```sh
 systemctl stop painel-ramais.socket painel-ramais.service
 cd /var/lib/painel-ramais
-C=painel.db.antes-AAAAMMDD
+C=painel.db.antes-AAAAMMDD-HHMM
+R=painel.db.antes-restauracao-$(date +%Y%m%d-%H%M)
 ls -l $C*
-for s in "" -wal -shm; do [ -e painel.db$s ] && mv painel.db$s painel.db.antes-restauracao-$(date +%Y%m%d)$s; done
+for s in "" -wal -shm; do [ -e painel.db$s ] && mv painel.db$s $R$s; done
 runuser -u painel-ramais -- sh -c 'for s in "" -wal -shm; do [ -e "$1$s" ] && cp -p "$1$s" "painel.db$s"; done; ls -l painel.db*' sh "$C"
 systemctl start painel-ramais.socket painel-ramais.service
 systemctl is-active painel-ramais.socket painel-ramais.service
@@ -195,7 +196,7 @@ curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:8790/api/health
 ```
 
 - O `ls -l $C*` tem de listar a cópia (e o `-wal` e o `-shm`, se foram copiados). Se não listar nada, pare: não há o que restaurar.
-- O banco atual não é apagado: vira `painel.db.antes-restauracao-<data>` (com o `-wal` e o `-shm`, se havia). Os arquivos `-wal` e `-shm`
+- O banco atual não é apagado: vira `painel.db.antes-restauracao-AAAAMMDD-HHMM` (com o `-wal` e o `-shm`, se havia). Os arquivos `-wal` e `-shm`
   atuais saem do lugar de propósito: um `-wal` que não é da cópia, deixado ao lado do banco restaurado, pode ser reaplicado sobre ele e
   misturar dados. Só voltam ao lugar os `-wal` e `-shm` que existiam na cópia.
 - Depois do `ls -l` final, `painel.db` (e `-wal`/`-shm`, se voltaram) deve ter dono `painel-ramais` e grupo `painel-ramais`. Se não
@@ -270,23 +271,26 @@ Tabela de problemas comuns e onde olhar: `docs/referencia-tecnica.md`, seção 7
   o Asterisk. Com muitos ramais leva alguns minutos; depois ficam guardados e aparecem logo após um reinício.
 - **Lista de filas vazia.** Em Asterisk sem o módulo de filas, a lista fica vazia, sem erro.
 
-## 10. O que o painel não faz
+## 10. O que o painel faz e não faz no servidor
 
-- Nenhuma ação na central: não liga, não desliga, não transfere, não grava, não recarrega o Asterisk. Comandos fora da lista fixa de
-  consulta são recusados pelo próprio painel antes de chegar ao Asterisk.
-- Não altera a configuração do Issabel nem o `manager.conf`. No Asterisk, a única escrita é a seção do próprio painel no
-  `/etc/asterisk/manager_custom.conf`, entre os marcadores `; BEGIN painel-ramais` e `; END painel-ramais`. Esse arquivo também
-  passa a ficar sem acesso para "outros" (`chmod o-rwx`), porque contém a senha AMI do painel.
-- Não lê os dados do Issabel no banco: ramais, chamadas e filas vêm só do AMI. Do Issabel, o painel só consulta, em modo somente
-  leitura, o cadastro do menu (`/var/www/db/menu.db`, para saber se o item existe) e as permissões (`/var/www/db/acl.db`, para saber
-  quem é do grupo administrator).
+O painel só observa a central. Ele não liga, não desliga, não transfere, não grava e não recarrega o Asterisk. Comandos fora da
+lista fixa de consulta são recusados pelo próprio painel antes de chegar ao Asterisk.
 
-O que ele acrescenta ao servidor, além do próprio serviço (a remoção, seção 7, desfaz tudo menos o ajuste do SELinux):
+De onde vêm os dados:
+- Ramais, chamadas e filas vêm só do AMI do Asterisk.
+- O painel não lê o MySQL do Issabel.
+- Do Issabel ele lê, em modo somente leitura, apenas dois arquivos: o cadastro do menu (`/var/www/db/menu.db`, para saber se o item
+  do menu existe) e as permissões (`/var/www/db/acl.db`, para saber quem é do grupo administrator).
 
-- o arquivo próprio do Apache `/etc/httpd/conf.d/painel-ramais.conf`;
-- o item **Painel de Ramais** no menu PBX, registrado com a ferramenta do Issabel (`issabel-menumerge`), e o módulo em
-  `/var/www/html/modules/painel_ramais/`;
-- com SELinux em modo Enforcing, liga o `httpd_can_network_connect` (a remoção não desliga).
+O que a instalação muda no servidor (a remoção, seção 7, desfaz tudo menos o ajuste do SELinux):
+- Asterisk: a única escrita é a seção do próprio painel em `/etc/asterisk/manager_custom.conf`, entre `; BEGIN painel-ramais` e
+  `; END painel-ramais`. O `manager.conf` não é alterado. O `manager_custom.conf` passa a ficar sem acesso para "outros"
+  (`chmod o-rwx`), porque contém a senha AMI do painel.
+- Apache: cria o arquivo próprio `/etc/httpd/conf.d/painel-ramais.conf`.
+- Menu do Issabel: registra o item **Painel de Ramais** no menu PBX com a ferramenta do próprio Issabel (`issabel-menumerge`) e
+  instala o módulo em `/var/www/html/modules/painel_ramais/`.
+- SELinux: com o SELinux em modo Enforcing, liga o `httpd_can_network_connect` (a remoção não desliga).
+Fora isso, nada da configuração do Issabel é alterada.
 
 ## 11. Para saber mais
 
