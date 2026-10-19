@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"painel-ramais/internal/model"
 	"painel-ramais/internal/store"
 )
 
@@ -86,12 +87,16 @@ func (s *Server) regCtx(r *http.Request) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(r.Context(), regDBTimeout)
 }
 
-// regHead e o cabecalho comum de todo data: period, from, to, since.
+// regHead e o cabecalho comum de todo data: period, from, to, since e, desde a rc.9, a pausa da contagem e o AMI fora
+// (CONTRATOS 4.7, "Cabecalho rc.9").
 type regHead struct {
-	Period string `json:"period"`
-	From   string `json:"from"`
-	To     string `json:"to"`
-	Since  string `json:"since"`
+	Period            string  `json:"period"`
+	From              string  `json:"from"`
+	To                string  `json:"to"`
+	Since             *string `json:"since"`
+	PausedUntil       *string `json:"paused_until"`
+	PauseReason       *string `json:"pause_reason"`
+	StateUnknownSince *string `json:"state_unknown_since"`
 }
 
 func (s *Server) regHead(ctx context.Context, p regPeriod, now time.Time) (regHead, error) {
@@ -99,42 +104,60 @@ func (s *Server) regHead(ctx context.Context, p regPeriod, now time.Time) (regHe
 	if err != nil {
 		return regHead{}, err
 	}
-	return regHead{Period: p.name, From: stamp(p.from), To: stamp(now), Since: stamp(since)}, nil
+	h := regHead{Period: p.name, From: stamp(p.from), To: stamp(now), Since: sinceOrNil(since)}
+	st := s.Stats()
+	if !st.SuppressedUntil.IsZero() && now.Before(st.SuppressedUntil) { // mesmo valor de registrations.suppressed_until
+		h.PausedUntil, h.PauseReason = sinceOrNil(st.SuppressedUntil), model.StrPtr(model.PauseAsteriskReboot)
+	}
+	if !st.AMIConnected && !st.LastDisconnect.IsZero() { // AMI fora: o estado de registro e desconhecido
+		h.StateUnknownSince = sinceOrNil(st.LastDisconnect)
+	}
+	return h, nil
 }
 
 // regRow e a linha de ramal (4.7): a mesma em /registrations e /registrations/extension.
 type regRow struct {
-	Number        string   `json:"number"`
-	Name          *string  `json:"name"`
-	Groups        []string `json:"groups"`
-	Removed       bool     `json:"removed"`
-	Lost          int64    `json:"lost_registration"`
-	Unreachable   int64    `json:"became_unreachable"`
-	Registered    int64    `json:"registered"`
-	Reachable     int64    `json:"reachable_again"`
-	SystemEvents  int64    `json:"system_events"`
-	LastDropAt    *string  `json:"last_drop_at"`
-	LastIP        *string  `json:"last_ip"`
-	LastPort      *int     `json:"last_port"`
-	DownS         int64    `json:"down_s"`
-	DownOpenSince *string  `json:"down_open_since"`
+	Number         string   `json:"number"`
+	Name           *string  `json:"name"`
+	Groups         []string `json:"groups"`
+	Removed        bool     `json:"removed"`
+	Lost           int64    `json:"lost_registration"`
+	Unreachable    int64    `json:"became_unreachable"`
+	Registered     int64    `json:"registered"`
+	Reachable      int64    `json:"reachable_again"`
+	SystemEvents   int64    `json:"system_events"`
+	LastDropAt     *string  `json:"last_drop_at"`
+	LastIP         *string  `json:"last_ip"`
+	LastPort       *int     `json:"last_port"`
+	DownS          int64    `json:"down_s"`
+	DownGap        bool     `json:"down_gap"`
+	DownSince      *string  `json:"down_since"`
+	DownKind       *string  `json:"down_kind"`
+	DownCountFrom  *string  `json:"down_count_from"`
+	LastRegistered *string  `json:"last_registered"`
+	LastRegExact   bool     `json:"last_registered_exact"`
 }
 
-// buildRegRow junta o agregado do banco com o estado atual do ramal (nome, grupos, intervalo aberto).
-// Ramal fora da projecao = removed: sem grupos e sem intervalo aberto; o nome e o ultimo gravado.
+// buildRegRow junta o agregado do banco com o estado atual do ramal (nome, grupos, "fora do ar" e ultimo registro).
+// Ramal fora da projecao = removed: sem grupos e sem down_*; o nome e o ultimo gravado, e last_registered vem do banco.
 func buildRegRow(r store.RegRow, info ExtInfo, present bool) regRow {
 	row := regRow{
 		Number: r.Number, Groups: []string{}, Removed: !present,
 		Lost: r.Lost, Unreachable: r.Unreachable, Registered: r.Registered, Reachable: r.Reachable,
-		SystemEvents: r.SystemEvents, DownS: r.DownS, LastDropAt: unixStampPtr(r.LastDropAt),
+		SystemEvents: r.SystemEvents, DownS: r.DownS, DownGap: r.DownGap, LastDropAt: unixStampPtr(r.LastDropAt),
 	}
 	name := r.Name
 	if present {
 		row.Groups = info.Groups
-		row.DownOpenSince = stampPtr(info.DownSince)
+		if info.DownSince != nil && !info.DownSince.IsZero() { // down_kind e down_count_from nulos junto com down_since
+			row.DownSince, row.DownKind, row.DownCountFrom = stampPtr(info.DownSince), model.StrPtr(info.DownKind), stampPtr(info.DownSeg)
+		}
+		row.LastRegistered, row.LastRegExact = stampPtr(info.LastReg), info.LastReg != nil && info.LastRegExact
 		if info.Name != "" {
 			name = info.Name
 		}
+	} else {
+		row.LastRegistered, row.LastRegExact = unixStampPtr(r.LastReg), r.LastReg > 0 && r.LastRegExact
 	}
 	if name != "" {
 		row.Name = &name
@@ -150,9 +173,10 @@ func buildRegRow(r store.RegRow, info ExtInfo, present bool) regRow {
 	return row
 }
 
-// listed diz se a linha entra na tabela: algum dos quatro contadores, tempo fora do ar fechado ou aberto.
+// listed diz se a linha entra na tabela (4.7, "Lista"): algum dos quatro contadores, tempo fora do ar fechado
+// (down_s) ou fora do ar agora (down_since).
 func (r regRow) listed() bool {
-	return r.Lost+r.Unreachable+r.Registered+r.Reachable > 0 || r.DownS > 0 || r.DownOpenSince != nil
+	return r.Lost+r.Unreachable+r.Registered+r.Reachable > 0 || r.DownS > 0 || r.DownSince != nil
 }
 
 // regCursor e o cursor opaco de /api/registrations: "<inicio da hora em unix>.<revisao>".
@@ -222,18 +246,33 @@ func (s *Server) registrations(w http.ResponseWriter, r *http.Request, _ store.S
 	for _, d := range dbRows {
 		seen[d.Number] = struct{}{}
 		info, present := infos[d.Number]
-		if row := buildRegRow(d, info, present); row.listed() {
+		// full: so as linhas que passam na regra de lista; full false: as tocadas, sem filtro (a tela remove do mapa
+		// a que deixou de passar, ex.: ramal listado so por estar fora que voltou).
+		if row := buildRegRow(d, info, present); !full || row.listed() {
 			rows = append(rows, row)
 		}
 	}
-	if full { // ramal caido agora que nao tem linha no periodo (caiu antes dele) tambem entra
+	if full { // ramal fora agora que nao tem linha no periodo (caiu antes dele) tambem entra
 		for n, info := range infos {
 			if _, ok := seen[n]; !ok && info.DownSince != nil {
 				rows = append(rows, buildRegRow(store.RegRow{Number: n}, info, true))
 			}
 		}
-		sort.Slice(rows, func(i, j int) bool { return rows[i].Number < rows[j].Number })
+	} else { // reg_state tocado depois do cursor sem linha de reg_hourly para entrar na soma do periodo
+		touched, err := s.Store.RegStateTouched(ctx, after)
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
+		for _, t := range touched {
+			if _, ok := seen[t.Number]; ok {
+				continue
+			}
+			info, present := infos[t.Number]
+			rows = append(rows, buildRegRow(t, info, present))
+		}
 	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Number < rows[j].Number })
 	writeOK(w, struct {
 		regHead
 		Cursor string   `json:"cursor"`
@@ -371,6 +410,11 @@ func (s *Server) registrationsExtension(w http.ResponseWriter, r *http.Request, 
 	d := store.RegRow{Number: number}
 	if len(dbRows) > 0 {
 		d = dbRows[0]
+	} else if st, err := s.Store.RegStateOne(ctx, number); err != nil { // sem linha no periodo: o ultimo registro guardado
+		s.internalError(w, r, err)
+		return
+	} else if len(st) > 0 {
+		d.LastReg, d.LastRegExact = st[0].LastReg, st[0].LastRegExact
 	}
 	evs, err := s.Store.RegEvents(ctx, number, p.from.Unix(), regEventsLimit)
 	if err != nil {

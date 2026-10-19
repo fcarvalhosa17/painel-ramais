@@ -195,7 +195,7 @@ func span(notes []model.RegNote) (from, to time.Time) {
 // intervalo = as horas entre DownFrom e At (no maximo 720); sinal = 1. O corte de 200 por ramal entra a parte (1 por
 // ramal distinto do sublote).
 func noteCost(n model.RegNote) int {
-	if n.Signal != "" {
+	if n.Signal != "" || n.State != nil { // sinal e nota de estado (upsert em reg_state, rc.9): 1 comando
 		return 1
 	}
 	c := 0
@@ -259,9 +259,21 @@ func (w *Writer) purge(ctx context.Context) {
 // (DownFrom) e sinal (Signal). Uma ocorrencia que fecha intervalo gera as duas coisas.
 func toBatch(notes []model.RegNote) store.RegBatch {
 	var b store.RegBatch
+	stateAt := map[string]int{} // numero -> posicao em b.States: a ultima nota de estado de cada numero vence
 	for _, n := range notes {
 		if n.Signal != "" {
 			b.Signals = append(b.Signals, store.RegSignal{At: n.At, Kind: n.Signal})
+			continue
+		}
+		if n.State != nil {
+			row := store.RegStateRow{Number: n.Number, DownSince: n.State.DownSince, DownKind: n.State.DownKind,
+				DownSeg: n.State.DownSeg, LastReg: n.State.LastReg, LastRegExact: n.State.LastRegExact}
+			if i, ok := stateAt[n.Number]; ok {
+				b.States[i] = row
+			} else {
+				stateAt[n.Number] = len(b.States)
+				b.States = append(b.States, row)
+			}
 			continue
 		}
 		if n.Kind != "" {
@@ -269,7 +281,7 @@ func toBatch(notes []model.RegNote) store.RegBatch {
 				System: n.System, IP: n.IP, Port: n.Port, UserAgent: n.UserAgent})
 		}
 		if !n.DownFrom.IsZero() {
-			b.Downs = append(b.Downs, store.RegDown{Number: n.Number, Name: n.Name, From: n.DownFrom, To: n.At})
+			b.Downs = append(b.Downs, store.RegDown{Number: n.Number, Name: n.Name, From: n.DownFrom, To: n.At, Gap: n.DownGap})
 		}
 	}
 	return b

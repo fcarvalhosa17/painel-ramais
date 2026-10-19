@@ -67,7 +67,7 @@ func Open(ctx context.Context, dataDir string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 // migrations[i] leva o banco da versao i para i+1. So para frente.
-var migrations = []string{ddlV1, ddlV2, ddlV3, ddlV4, ddlV5}
+var migrations = []string{ddlV1, ddlV2, ddlV3, ddlV4, ddlV5, ddlV6}
 
 // SchemaVersion e o PRAGMA user_version que este binario conhece (uma migracao por versao).
 var SchemaVersion = len(migrations)
@@ -352,4 +352,33 @@ CREATE TABLE queue_names (
   updated_at INTEGER NOT NULL,
   updated_by TEXT    NOT NULL CHECK (length(updated_by) BETWEEN 1 AND 128)
 ) STRICT, WITHOUT ROWID;
+`
+
+// v6 (rc.9): estado "fora do ar" e ultimo registro persistentes (reg_state) e a coluna de lacuna em reg_hourly
+// (ADR-010). So aditiva. Identica ao bloco SQL da versao 6 da secao 10 do CONTRATOS.
+const ddlV6 = `
+-- Estado "fora do ar" e ultimo registro de cada ramal ja visto (ADR-010). Fora da retencao de 30 dias e do corte de 200.
+-- down_since: inicio do "fora" atual (unregistered ou unreachable); NULL = registrado e alcancavel (ou nunca visto fora).
+-- down_kind: observed (hora vista), unknown_start (caiu com painel ou AMI parado: down_since e limite),
+--            before_install (ja estava fora na primeira vez que o painel o viu, com a tabela vazia).
+-- down_seg: inicio do trecho aberto ainda nao somado em reg_hourly.down_s (difere de down_since depois de lacuna).
+-- last_reg: ultima vez que ficou registrado; last_reg_exact = 0 quando e limite ("antes de").
+-- rev: lote de gravacao que tocou a linha por ultimo (cursor da secao 4.7.2).
+CREATE TABLE reg_state (
+  number         TEXT    PRIMARY KEY CHECK (length(number) BETWEEN 1 AND 64),
+  down_since     INTEGER,
+  down_kind      TEXT    CHECK (down_kind IN ('observed', 'unknown_start', 'before_install')),
+  down_seg       INTEGER,
+  last_reg       INTEGER,
+  last_reg_exact INTEGER NOT NULL DEFAULT 0 CHECK (last_reg_exact IN (0, 1)),
+  rev            INTEGER NOT NULL CHECK (rev >= 1),
+  CHECK ((down_since IS NULL) = (down_kind IS NULL)),
+  CHECK ((down_since IS NULL) = (down_seg IS NULL)),
+  CHECK (down_seg IS NULL OR down_seg >= down_since),
+  CHECK (last_reg IS NOT NULL OR last_reg_exact = 0)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX reg_state_rev ON reg_state(rev);
+
+-- Lacuna: a hora recebeu segundos de um trecho cortado porque o painel ou o AMI estavam parados.
+ALTER TABLE reg_hourly ADD COLUMN down_gap INTEGER NOT NULL DEFAULT 0 CHECK (down_gap IN (0, 1));
 `

@@ -31,7 +31,47 @@ type RegNote struct {
 	Port      int
 	UserAgent string
 	DownFrom  time.Time
+	DownGap   bool // rc.9: o trecho fechado foi cortado porque o painel ou o AMI estavam parados (reg_hourly.down_gap)
 	Signal    string
+	State     *RegState // rc.9: nota de estado (Number preenchido, o resto vazio): upsert em reg_state
+}
+
+// RegState e o estado "fora do ar" e ultimo registro de um ramal (ADR-010, linha de reg_state). Hora zero = nulo.
+// DownKind: observed, unknown_start ou before_install; vazio junto com DownSince zero.
+type RegState struct {
+	DownSince    time.Time
+	DownSeg      time.Time
+	LastReg      time.Time
+	DownKind     string
+	LastRegExact bool
+}
+
+// Tipos de "fora do ar" (reg_state.down_kind).
+const (
+	DownObserved      = "observed"
+	DownUnknownStart  = "unknown_start"
+	DownBeforeInstall = "before_install"
+)
+
+// Motivos de uma decisao de contagem (CONTRATOS 11.5, item 4).
+const (
+	ReasonCounted       = "contada"
+	ReasonPause         = "pausa"
+	ReasonFirstState    = "primeiro_estado"
+	ReasonReread        = "releitura"
+	ReasonReconcile     = "reconciliacao"
+	ReasonOutOfTable    = "fora_da_tabela"
+	PauseAsteriskReboot = "asterisk_restart" // pause_reason da 4.4 e da 4.7
+)
+
+// RegDecision e uma decisao de contagem do estado: uma por transicao de registration na visao publicada e por
+// mudanca ok/fora da reconciliacao. Vai ao log por um canal sem bloqueio (internal/reglog/decisions.go).
+type RegDecision struct {
+	At       time.Time
+	Number   string
+	From, To Registration
+	Counted  bool
+	Reason   string
 }
 
 // RegCounts acumula, desde a subida do daemon, as ocorrencias contadas (system = 0).
@@ -47,6 +87,10 @@ type RegStatus struct {
 	LostEvents         uint64
 	LostSince          time.Time
 	LostUntil          time.Time
+	// rc.9: DecisionLines = linhas Info de decisao escritas; DecisionSummarized = motivo -> decisoes que ficaram so
+	// no resumo (limite por segundo ou canal cheio), so motivos acima de zero (copia).
+	DecisionLines      uint64
+	DecisionSummarized map[string]uint64
 }
 
 // QueueHealth e a foto da leitura de filas (QueueStatus) para o /api/health (rc.8, CONTRATOS 4.4): LastFullAt =
@@ -56,4 +100,12 @@ type QueueHealth struct {
 	LastFullAt    time.Time
 	RefreshErrors uint64
 	Unsupported   bool
+	// rc.9 (ADR-011 decisao 3 e 7): FullReads = completas lidas com sucesso; LastFullMs = duracao da ultima; FullMinGap =
+	// intervalo minimo atual entre completas; HeldDropped = eventos de fila guardados e descartados por passar do teto;
+	// EventsReceived = nome do evento -> quantidade, contado antes de qualquer descarte (copia).
+	FullReads      uint64
+	LastFullMs     int64
+	FullMinGap     time.Duration
+	HeldDropped    uint64
+	EventsReceived map[string]uint64
 }

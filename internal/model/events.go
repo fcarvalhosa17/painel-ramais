@@ -59,9 +59,24 @@ type (
 	// AsteriskSignal e o aviso de que o Asterisk esta desligando (SignalShutdown) ou terminou de subir
 	// (SignalFullyBooted), lido pelo supervisor no laco ao vivo (CONTRATOS 11.1). Abre a janela de
 	// evento do sistema do relatorio de registro. Nao muda epoch nem versao.
+	// rc.9 (ADR-011 decisao 1): no FullyBooted, Uptime e LastReload (segundos desde a subida e desde o ultimo
+	// reload; HasUptime e HasLastReload = o campo veio e e inteiro valido). So o Uptime decide a pausa.
 	AsteriskSignal struct {
-		At   time.Time
-		Kind string
+		At            time.Time
+		Kind          string
+		Uptime        time.Duration
+		HasUptime     bool
+		LastReload    time.Duration
+		HasLastReload bool
+	}
+	// RegStateLoaded entrega o estado "fora do ar" gravado em reg_state (rc.9, ADR-010) e o ultimo minuto de
+	// history com group_name = '' e gap = 0 (LastAlive, sem somar 60 s; zero sem linha ou com leitura falha). Fresh = reg_state vazia. Emitido pelo cmd
+	// na subida e consumido so pela primeira SyncFinished. Nao muda epoch nem versao.
+	RegStateLoaded struct {
+		At        time.Time
+		Rows      map[string]RegState
+		Fresh     bool
+		LastAlive time.Time
 	}
 	// QueueNamesLoaded entrega os nomes das filas dados pelo painel (fila -> nome; ausente = sem nome), lidos
 	// de queue_names na subida e depois de cada POST /api/queues/rename. Quem envia nao pode alterar Names
@@ -197,6 +212,7 @@ func (e SyncStarted) EventTime() time.Time          { return e.At }
 func (e SyncFinished) EventTime() time.Time         { return e.At }
 func (e GroupsLoaded) EventTime() time.Time         { return e.At }
 func (e AsteriskSignal) EventTime() time.Time       { return e.At }
+func (e RegStateLoaded) EventTime() time.Time       { return e.At }
 func (e NamesLoaded) EventTime() time.Time          { return e.At }
 func (e InventoryListed) EventTime() time.Time      { return e.At }
 func (e EndpointSeen) EventTime() time.Time         { return e.At }
@@ -267,6 +283,11 @@ type AMIStatus struct {
 	LoginOK         bool
 	LoginDetail     string
 	LoginAt         time.Time
+	// rc.9 (ADR-011 decisao 3): Resyncs = ressincronizacoes por estouro feitas; ResyncMinGap = intervalo minimo
+	// atual entre duas; LastResyncAt = a ultima (zero = nenhuma).
+	Resyncs      uint64
+	ResyncMinGap time.Duration
+	LastResyncAt time.Time
 }
 
 // Collector e o coletor AMI (supervisor + adaptador). Run bloqueia ate ctx

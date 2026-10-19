@@ -94,6 +94,12 @@ func IsExtension(pattern *regexp.Regexp, name string) bool {
 	return name != "" && !IsInternalEndpoint(name) && pattern.MatchString(name)
 }
 
+// IgnoredQueue diz se a fila e ignorada pelo painel: a fila "default" do queues.conf de exemplo do Asterisk, que
+// nao existe no Issabel (ADR-011 decisao 9). Comparacao exata, com diferenca de maiusculas: o Asterisk nao deixa
+// "default" e "Default" existirem juntos, e outro nome foi escolhido por alguem. Ponto unico: a traducao da
+// QueueStatus, dos eventos e do ApplicationData do snapshot.
+func IgnoredQueue(name string) bool { return name == "default" }
+
 // NoGroup e o nome do "grupo" implicito do ramal sem nenhum vinculo (nem faixa, nem manual).
 const NoGroup = "Sem grupo"
 
@@ -155,9 +161,16 @@ type Extension struct {
 	LatencyMs    *int         `json:"latency_ms"`
 	DeviceState  DeviceState  `json:"device_state"`
 	Calls        []Call       `json:"calls"`
-	// DownSince: inicio do intervalo fora do ar ainda aberto (relatorio de registro, ADR-007). Fora
-	// do JSON do snapshot e do delta; o hub o guarda para montar down_open_since.
-	DownSince *time.Time `json:"-"`
+	// Estado "fora do ar" e ultimo registro (relatorio de registro, ADR-010). Fora do JSON do snapshot e do
+	// delta; o hub os guarda para montar a linha da secao 4.7. DownSince = inicio do "fora" atual (nil = ok);
+	// DownKind = observed, unknown_start ou before_install (vazio junto com DownSince nil); DownSeg = inicio do
+	// trecho ainda nao somado em down_s; LastReg = ultima vez que ficou registrado (nil = nunca visto);
+	// LastRegExact = a hora foi vista ao vivo (false = limite, "antes de").
+	DownSince    *time.Time `json:"-"`
+	DownKind     string     `json:"-"`
+	DownSeg      *time.Time `json:"-"`
+	LastReg      *time.Time `json:"-"`
+	LastRegExact bool       `json:"-"`
 }
 
 // StrPtr devolve nil para texto vazio (JSON null).

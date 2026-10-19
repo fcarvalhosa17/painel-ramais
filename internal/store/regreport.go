@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -27,11 +28,24 @@ type RegEvent struct {
 	UserAgent string
 }
 
-// RegDown e um intervalo fora do ar que fechou ([From, To)).
+// RegDown e um trecho fora do ar que fechou ([From, To)). Gap = o trecho foi cortado porque o painel ou o AMI
+// estavam parados (reg_hourly.down_gap, ADR-010).
 type RegDown struct {
 	Number   string
 	Name     string
 	From, To time.Time
+	Gap      bool
+}
+
+// RegStateRow e uma linha de reg_state a gravar (ADR-010). Hora zero = NULL. Quem grava confere as CHECK do
+// esquema (down_since, down_kind e down_seg juntos; down_seg >= down_since; last_reg_exact so com last_reg).
+type RegStateRow struct {
+	Number       string
+	DownSince    time.Time
+	DownKind     string
+	DownSeg      time.Time
+	LastReg      time.Time
+	LastRegExact bool
 }
 
 // RegSignal e um sinal do sistema (shutdown, fully_booted, ami_connected).
@@ -45,10 +59,13 @@ type RegBatch struct {
 	Events  []RegEvent
 	Downs   []RegDown
 	Signals []RegSignal
+	States  []RegStateRow // rc.9: a ultima nota de cada numero vence (quem monta o lote ja junta)
 }
 
 // Empty diz se nao ha nada para gravar.
-func (b RegBatch) Empty() bool { return len(b.Events) == 0 && len(b.Downs) == 0 && len(b.Signals) == 0 }
+func (b RegBatch) Empty() bool {
+	return len(b.Events) == 0 && len(b.Downs) == 0 && len(b.Signals) == 0 && len(b.States) == 0
+}
 
 const insertRegEventSQL = `INSERT INTO reg_events(at, number, kind, system, ip, port, user_agent) VALUES(?,?,?,?,?,?,?)`
 
@@ -74,12 +91,20 @@ ON CONFLICT(number, hour) DO UPDATE SET
 	rev = excluded.rev`
 
 // upsertDownSQL soma segundos fora do ar na hora; o teto de 3600 faz um erro de conta nunca derrubar o
-// lote no CHECK da coluna.
-const upsertDownSQL = `INSERT INTO reg_hourly(number, hour, name, down_s, rev) VALUES (?,?,?,?,?)
+// lote no CHECK da coluna. down_gap (rc.9) fica em 1 se algum trecho somado na hora veio com lacuna.
+const upsertDownSQL = `INSERT INTO reg_hourly(number, hour, name, down_s, down_gap, rev) VALUES (?,?,?,?,?,?)
 ON CONFLICT(number, hour) DO UPDATE SET
 	down_s = min(3600, reg_hourly.down_s + excluded.down_s),
+	down_gap = max(reg_hourly.down_gap, excluded.down_gap),
 	name = COALESCE(excluded.name, reg_hourly.name),
 	rev = excluded.rev`
+
+// upsertStateSQL grava o estado "fora do ar" e o ultimo registro do ramal (ADR-010): uma linha por numero.
+const upsertStateSQL = `INSERT INTO reg_state(number, down_since, down_kind, down_seg, last_reg, last_reg_exact, rev)
+VALUES (?,?,?,?,?,?,?)
+ON CONFLICT(number) DO UPDATE SET
+	down_since = excluded.down_since, down_kind = excluded.down_kind, down_seg = excluded.down_seg,
+	last_reg = excluded.last_reg, last_reg_exact = excluded.last_reg_exact, rev = excluded.rev`
 
 // trimRegEventsSQL deixa so as 200 ocorrencias mais novas do ramal: a subconsulta pega
 // o id da 200a mais nova (OFFSET 199) e e NULL com menos de 200, quando nada e apagado.
@@ -159,6 +184,12 @@ func (s *Store) WriteRegBatch(ctx context.Context, rev int64, b RegBatch) error 
 			continue
 		}
 		from, to := d.From.Unix(), d.To.Unix()
+		if d.Gap && to <= from { // lacuna sem tempo (secao 10): so marca down_gap na hora de From, down_s 0
+			if _, err := tx.ExecContext(ctx, upsertDownSQL, d.Number, hourOf(from), nullStr(d.Name, 1, 128), 0, 1, rev); err != nil {
+				return err
+			}
+			continue
+		}
 		if floor := to - regMaxDownHours*3600; from < floor {
 			from = floor
 		}
@@ -167,7 +198,11 @@ func (s *Store) WriteRegBatch(ctx context.Context, rev int64, b RegBatch) error 
 			if hi <= lo {
 				continue
 			}
-			if _, err := tx.ExecContext(ctx, upsertDownSQL, d.Number, h, nullStr(d.Name, 1, 128), hi-lo, rev); err != nil {
+			gap := 0
+			if d.Gap {
+				gap = 1
+			}
+			if _, err := tx.ExecContext(ctx, upsertDownSQL, d.Number, h, nullStr(d.Name, 1, 128), hi-lo, gap, rev); err != nil {
 				return err
 			}
 		}
@@ -182,20 +217,135 @@ func (s *Store) WriteRegBatch(ctx context.Context, rev int64, b RegBatch) error 
 			return err
 		}
 	}
+	for _, st := range b.States { // (6) rc.9: estado "fora do ar" e ultimo registro
+		if !validRegNumber(st.Number) {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, upsertStateSQL, stateArgs(st, rev)...); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
-// MaxRegRev devolve a maior revisao gravada em reg_hourly (0 sem linhas).
+// stateArgs monta os argumentos de upsertStateSQL e conserta o que violaria as CHECK de reg_state (uma violacao
+// desfaria o sublote inteiro): sem down_since, tudo de "fora" fica NULL; down_kind invalido vira unknown_start;
+// down_seg antes de down_since sobe para down_since; last_reg_exact so vale com last_reg.
+func stateArgs(st RegStateRow, rev int64) []any {
+	var since, kind, seg, last any
+	if !st.DownSince.IsZero() {
+		since, kind = st.DownSince.Unix(), st.DownKind
+		if kind != "observed" && kind != "unknown_start" && kind != "before_install" {
+			kind = "unknown_start"
+		}
+		s := st.DownSeg.Unix()
+		if st.DownSeg.IsZero() || s < st.DownSince.Unix() {
+			s = st.DownSince.Unix()
+		}
+		seg = s
+	}
+	exact := 0
+	if !st.LastReg.IsZero() {
+		last = st.LastReg.Unix()
+		if st.LastRegExact {
+			exact = 1
+		}
+	}
+	return []any{st.Number, since, kind, seg, last, exact, rev}
+}
+
+// MaxRegRev devolve a maior revisao gravada em reg_hourly e em reg_state (0 sem linhas). rc.9: as duas tabelas
+// entram no cursor da 4.7.2.
 func (s *Store) MaxRegRev(ctx context.Context) (int64, error) {
 	var n int64
-	err := s.db.QueryRowContext(ctx, "SELECT COALESCE(MAX(rev), 0) FROM reg_hourly").Scan(&n)
+	err := s.db.QueryRowContext(ctx, `SELECT max(COALESCE((SELECT MAX(rev) FROM reg_hourly), 0),
+		COALESCE((SELECT MAX(rev) FROM reg_state), 0))`).Scan(&n)
 	return n, err
 }
 
-// RegSince devolve quando a versao com o relatorio foi instalada (reg_meta.since, "Dados desde").
+// LoadRegState le o estado "fora do ar" de todos os ramais ja vistos (reg_state), na subida. Hora zero = NULL.
+func (s *Store) LoadRegState(ctx context.Context) ([]RegStateRow, error) {
+	rs, err := s.db.QueryContext(ctx, "SELECT number, down_since, down_kind, down_seg, last_reg, last_reg_exact FROM reg_state")
+	if err != nil {
+		return nil, err
+	}
+	defer rs.Close()
+	var out []RegStateRow
+	for rs.Next() {
+		var r RegStateRow
+		var since, seg, last sql.NullInt64
+		var kind sql.NullString
+		var exact int
+		if err := rs.Scan(&r.Number, &since, &kind, &seg, &last, &exact); err != nil {
+			return nil, err
+		}
+		if since.Valid {
+			r.DownSince, r.DownKind = time.Unix(since.Int64, 0).UTC(), kind.String
+		}
+		if seg.Valid {
+			r.DownSeg = time.Unix(seg.Int64, 0).UTC()
+		}
+		if last.Valid {
+			r.LastReg, r.LastRegExact = time.Unix(last.Int64, 0).UTC(), exact == 1
+		}
+		out = append(out, r)
+	}
+	return out, rs.Err()
+}
+
+// LastAliveMinute devolve o ultimo minuto de history com group_name = vazio e gap = 0 (o batimento do daemon com o
+// AMI ligado; minuto de lacuna nao conta); zero sem linha. A linha do minuto M e gravada em M, entao M e o ultimo
+// instante provado com o painel vivo e o AMI conectado (sem somar 60 s).
+func (s *Store) LastAliveMinute(ctx context.Context) (time.Time, error) {
+	var n sql.NullInt64
+	if err := s.db.QueryRowContext(ctx, "SELECT max(minute) FROM history WHERE group_name = '' AND gap = 0").Scan(&n); err != nil {
+		return time.Time{}, err
+	}
+	if !n.Valid {
+		return time.Time{}, nil
+	}
+	return time.Unix(n.Int64, 0).UTC(), nil
+}
+
+// RegStateTouched devolve os ramais de reg_state gravados depois da revisao afterRev (cursor da 4.7.2, rc.9), com o
+// ultimo registro guardado (LastReg, LastRegExact). Usa reg_state_rev.
+func (s *Store) RegStateTouched(ctx context.Context, afterRev int64) ([]RegRow, error) {
+	return s.regStateLast(ctx, "SELECT number, COALESCE(last_reg, 0), last_reg_exact FROM reg_state WHERE rev > ?", afterRev)
+}
+
+// RegStateOne devolve o ultimo registro guardado de um numero em reg_state (RegRow so com Number, LastReg e
+// LastRegExact); slice vazio se o numero nao tem linha.
+func (s *Store) RegStateOne(ctx context.Context, number string) ([]RegRow, error) {
+	return s.regStateLast(ctx, "SELECT number, COALESCE(last_reg, 0), last_reg_exact FROM reg_state WHERE number = ?", number)
+}
+
+func (s *Store) regStateLast(ctx context.Context, query string, arg any) ([]RegRow, error) {
+	rs, err := s.db.QueryContext(ctx, query, arg)
+	if err != nil {
+		return nil, err
+	}
+	defer rs.Close()
+	var out []RegRow
+	for rs.Next() {
+		var r RegRow
+		var exact int
+		if err := rs.Scan(&r.Number, &r.LastReg, &exact); err != nil {
+			return nil, err
+		}
+		r.LastRegExact = exact == 1
+		out = append(out, r)
+	}
+	return out, rs.Err()
+}
+
+// RegSince devolve quando a versao com o relatorio foi instalada (reg_meta.since, "Dados desde"); zero se a
+// tabela estiver vazia.
 func (s *Store) RegSince(ctx context.Context) (time.Time, error) {
 	var n int64
 	if err := s.db.QueryRowContext(ctx, "SELECT since FROM reg_meta WHERE id = 1").Scan(&n); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return time.Time{}, nil
+		}
 		return time.Time{}, err
 	}
 	return time.Unix(n, 0).UTC(), nil
@@ -252,6 +402,9 @@ type RegRow struct {
 	Reachable    int64
 	SystemEvents int64
 	DownS        int64
+	DownGap      bool  // rc.9: max(down_gap) do periodo
+	LastReg      int64 // rc.9: reg_state.last_reg (unix; 0 = nunca); o ramal presente usa o hub
+	LastRegExact bool
 	LastDropAt   int64 // unix; 0 = nunca
 	LastIP       string
 	LastPort     int
@@ -269,6 +422,9 @@ func (s *Store) RegRows(ctx context.Context, fromHour, afterRev int64, number st
 	sb.WriteString(`SELECT r.number,
 	COALESCE((SELECT n.name FROM reg_hourly n WHERE n.number = r.number AND n.name IS NOT NULL ORDER BY n.hour DESC LIMIT 1), ''),
 	sum(r.lost_registration), sum(r.registered), sum(r.became_unreachable), sum(r.reachable_again), sum(r.system_events), sum(r.down_s),
+	COALESCE(max(r.down_gap), 0),
+	COALESCE((SELECT t.last_reg FROM reg_state t WHERE t.number = r.number), 0),
+	COALESCE((SELECT t.last_reg_exact FROM reg_state t WHERE t.number = r.number), 0),
 	COALESCE(max(r.last_drop_at), 0),
 	COALESCE((SELECT a.last_ip || '|' || COALESCE(a.last_port, 0) FROM reg_hourly a
 		WHERE a.number = r.number AND a.hour >= ? AND a.last_ip IS NOT NULL ORDER BY a.hour DESC LIMIT 1), '')
@@ -279,8 +435,10 @@ FROM reg_hourly r WHERE r.hour >= ?`)
 		args = append(args, number)
 	}
 	if afterRev > 0 {
-		sb.WriteString(" AND r.number IN (SELECT c.number FROM reg_hourly c WHERE c.hour >= ? AND c.rev > ?)")
-		args = append(args, fromHour, afterRev)
+		// rc.9: tocado em reg_hourly (no periodo) ou em reg_state depois do cursor
+		sb.WriteString(` AND (r.number IN (SELECT c.number FROM reg_hourly c WHERE c.hour >= ? AND c.rev > ?)
+			OR r.number IN (SELECT t.number FROM reg_state t WHERE t.rev > ?))`)
+		args = append(args, fromHour, afterRev, afterRev)
 	}
 	sb.WriteString(" GROUP BY r.number")
 	if onlyDrops {
@@ -296,10 +454,12 @@ FROM reg_hourly r WHERE r.hour >= ?`)
 	for rs.Next() {
 		var r RegRow
 		var addr string
+		var gap, exact int
 		if err := rs.Scan(&r.Number, &r.Name, &r.Lost, &r.Registered, &r.Unreachable, &r.Reachable, &r.SystemEvents,
-			&r.DownS, &r.LastDropAt, &addr); err != nil {
+			&r.DownS, &gap, &r.LastReg, &exact, &r.LastDropAt, &addr); err != nil {
 			return nil, err
 		}
+		r.DownGap, r.LastRegExact = gap == 1, exact == 1
 		if ip, port, ok := strings.Cut(addr, "|"); ok {
 			r.LastIP = ip
 			r.LastPort, _ = strconv.Atoi(port)
