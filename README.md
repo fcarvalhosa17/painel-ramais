@@ -76,7 +76,7 @@ de acesso direto só existem pelo `instalar.py`). Nenhum pacote do Issabel é de
 | `/usr/lib/systemd/system/painel-ramais.socket` | root 0644 | socket activation: `ListenStream=127.0.0.1:8790`; o systemd mantém a porta ocupada mesmo com o daemon parado ou em crash |
 | `/usr/lib/systemd/system/painel-ramais.service` | root 0644 | `Restart=always`; `Requires=painel-ramais.socket`; recebe o socket via `LISTEN_FDS` (fora do systemd, em desenvolvimento e testes, o daemon abre a porta sozinho) |
 | `/etc/httpd/conf.d/painel-ramais.conf` | root 0644 | gerado no `%post` a partir de `/usr/share/painel-ramais/httpd.conf.tmpl`; removido na desinstalação |
-| bloco `; BEGIN painel-ramais` em `/etc/asterisk/manager_custom.conf` | asterisk 0640 | usuário AMI; **nunca** se edita `manager.conf` |
+| bloco `; BEGIN painel-ramais` em `/etc/asterisk/manager_custom.conf` | asterisk 0640 | usuário AMI e `eventfilter` (desde a rc.7 inclui `Event: Shutdown`, para o reinício do Asterisk não virar instabilidade); **nunca** se edita `manager.conf` |
 
 Se o `listen:` do `config.yaml` não for `127.0.0.1:8790`, o `%post` cria o drop-in `/etc/systemd/system/painel-ramais.socket.d/listen.conf` com o endereço certo (e o remove na desinstalação). Nenhuma porta nova é exposta: todo acesso passa pela 443 do Apache (`https://<servidor>/painel-ramais/`). `/debug` e
 `/api/health` ficam fora do proxy e só respondem em `127.0.0.1`.
@@ -173,7 +173,16 @@ O mesmo arquivo com `;` (`Suporte;2000-2099`) também é aceito, desde que o arq
 - Linhas vazias e linhas que começam com `#` são ignoradas. Cabeçalho opcional: só é pulado se a primeira linha de dados for exatamente `grupo<delim>ramal` (sem diferenciar maiúsculas). Qualquer outra linha é dado.
 - `grupo`: 1 a 64 caracteres depois do trim, diferente de `Sem grupo`. Grupo que não existe é criado.
 - `ramal_ou_faixa`: só dígitos (`2150`) ou `inicio-fim` com `inicio <= fim`. Comparação numérica. Ramal com zero à esquerda ou nome não numérico nunca cai em faixa e fica em `"Sem grupo"` (suposição registrada na seção 13).
-- Tudo ou nada: qualquer erro ou sobreposição (dentro do arquivo ou com faixas já gravadas) rejeita o arquivo inteiro e lista as linhas em conflito. Com `--replace`, apaga todos os grupos e importa na mesma transação; a sobreposição é checada só dentro do arquivo.
+- **Ramal em vários grupos (N:N, rc.7).** O mesmo ramal pode aparecer em várias linhas, uma por grupo. Um ramal por linha (`Suporte,2150`) é vínculo manual e soma à faixa; sem nenhum vínculo o ramal fica em "Sem grupo", que é implícito (`Sem grupo,2150` é aceito e ignorado). Linha repetida (mesmo grupo, mesmo valor), ou já existente no banco, é ignorada sem erro.
+- Faixas de grupos diferentes podem se sobrepor. Só faixas do **mesmo grupo** que se cruzam são erro (a idêntica é ignorada). Limites por importação: 5.000 linhas e 1.000 faixas por grupo (contando as que já existiam).
+- Tudo ou nada: qualquer erro rejeita o arquivo inteiro e lista as linhas em conflito. Sem `--replace` a importação só acrescenta: nunca apaga nem troca faixa ou vínculo existente. Com `--replace`, apaga todos os grupos e importa na mesma transação.
+
+### Tela: grupos, Registros e instabilidade (rc.7)
+
+- No detalhe do ramal, "Remover deste grupo" só fica habilitado para vínculo manual que não vem de faixa; vínculo por faixa se muda editando a faixa do grupo.
+- A tela tem as abas Ramais e Registros. O bloco "Instabilidade de registro (24 h)" da aba Ramais mostra até 10 ramais que mais perderam registro ou ficaram inalcançáveis, filtrável por grupo. A aba Registros lista, por ramal, as ocorrências em 24 h, 7 dias ou 30 dias, com linha do tempo e exportação CSV (rotas `GET /api/registrations*`, só leitura, qualquer papel; contrato na seção 4.7 do `docs/CONTRATOS.md`).
+- Reinício do Asterisk (`Shutdown`, `FullyBooted` ou reconexão do AMI) abre uma janela de 120 s em que as transições não entram no ranking.
+- Os dados do relatório começam na instalação da rc.7 (a tela mostra "Dados desde ..."); não há histórico anterior. Retenção de 30 dias.
 
 ## 5. API consumida pela Fase 2
 
@@ -195,7 +204,9 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
         "number": "2001",
         "name": "Maria Souza",
         "technology": "pjsip",
-        "group": "Suporte",
+        "groups": ["Suporte"],
+        "range_groups": ["Suporte"],
+        "manual_groups": [],
         "registration": "registered",
         "ip": "192.0.2.23",
         "user_agent": "Yealink SIP-T46U 108.86.0.20",
@@ -216,7 +227,9 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
         "number": "2002",
         "name": "João Lima",
         "technology": "pjsip",
-        "group": "Suporte",
+        "groups": ["Suporte"],
+        "range_groups": ["Suporte"],
+        "manual_groups": [],
         "registration": "unreachable",
         "ip": "192.0.2.24",
         "user_agent": null,
@@ -234,6 +247,7 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
 - `epoch`: string opaca. O cliente só compara igualdade. Formato atual `<unix ms do início do processo>-<contador>`, único entre reinícios do daemon.
 - `version`: inteiro monotônico durante a vida do processo.
 - `technology`: `null` só antes da primeira detecção.
+- `groups`: todos os grupos do ramal (faixa mais vínculo manual), nunca vazio (sem vínculo vem `["Sem grupo"]`). `range_groups` e `manual_groups` dizem a origem. Substituem o antigo `group` (removido na rc.7).
 - `extensions` ordenado por `number` (ordem de string). Antes da primeira conexão AMI vem vazio.
 - `server_time` serve para a tela calcular a diferença de relógio e mostrar a duração certa.
 
@@ -260,7 +274,9 @@ Um lote a cada 250 ms, só quando houve mudança. Ramal que mudou várias vezes 
       "number": "2002",
       "name": "João Lima",
       "technology": "pjsip",
-      "group": "Suporte",
+      "groups": ["Suporte"],
+      "range_groups": ["Suporte"],
+      "manual_groups": [],
       "registration": "registered",
       "ip": "192.0.2.24",
       "user_agent": "Grandstream GXP1625 1.0.11.23",
@@ -326,6 +342,7 @@ Enviado no lugar do replay quando não dá para continuar, ou para todos os clie
     "trunks": 4,
     "active_calls": 312,
     "ws_clients": 7,
+    "registrations": { "queue_len": 0, "queue_cap": 16384, "dropped": 0, "write_errors": 0, "suppressed_until": null },
     "deps": [
       { "name": "ami_user", "status": "ok", "detail": "login aceito em 2026-10-13T08:00:01Z", "checked_at": "2026-10-13T14:30:00.000Z" },
       { "name": "manager_custom_include", "status": "ok", "detail": "manager.conf inclui manager_custom.conf e o bloco painel-ramais está presente", "checked_at": "2026-10-13T14:30:00.000Z" },
@@ -338,6 +355,7 @@ Enviado no lugar do replay quando não dá para continuar, ou para todos os clie
 ```
 
 - `deps[].status`: `ok`, `fail` ou `unknown` (por exemplo, sem permissão de leitura em `/etc/asterisk/manager.conf`). `unknown` também deixa o status em `degraded` e o `detail` diz o que fazer. Exceção deliberada: o `%post` tira o acesso de "outros" de `manager_custom.conf` (o-rwx, dono asterisk) e o serviço não entra no grupo asterisk; então `EACCES` ao ler `manager.conf` ou `manager_custom.conf` é esperado e o item `manager_custom_include` passa a `ok` se o Login AMI foi aceito (`detail`: "não legível pelo serviço (esperado, o-rwx); login AMI aceito confirma o usuário"), `fail` se o Login foi recusado e `unknown` se ainda não houve Login. Arquivo ausente continua `fail`.
+- `registrations` (rc.7): fila do gravador do relatório de registro (`queue_len`/`queue_cap`, `dropped` = ocorrências descartadas com a fila cheia, `write_errors` = lotes que falharam, `suppressed_until` = fim da janela de reinício do Asterisk, ou `null`). Não muda o `status`.
 - `ami_user` vem do resultado do último Login da conexão única (não abre segunda conexão).
 - `events_per_s`: média dos últimos 60 s. `lag_ms`: agora menos a hora de leitura do último evento processado. `queue.overflows`: quantas vezes a fila encheu e forçou ressincronização (seção 11.3); `queue.len` e `queue.cap` são da fila do leitor AMI (a que pode estourar).
 
@@ -387,6 +405,7 @@ e o bloqueio de `X-Forwarded-*` em `/api/health` e `/debug`. Acesso externo: só
 
 ### RPM de rollback e instalador
 
+- **Rollback rc.7 para rc.6:** a rc.7 usa o banco no esquema 4 e a rc.6 recusa abri-lo. O `./instalar.py rollback` restaura sozinho o `painel.db.bak-v3` (o banco 4 fica guardado como `painel.db.rollback-<data>`) e avisa antes de confirmar: vínculos de ramal em vários grupos, relatório de registros e tudo o que foi gravado depois da atualização (histórico, sessões, usuários, grupos) é perdido. Sem o `.bak-v3`, o rollback não mexe em nada e sai com 2.
 - O instalador guarda o RPM anterior em `/var/lib/painel-ramais-instalador/` (acessível só ao root, 0700), **aceito pelo usuário** (decisão 3). Antes do `rollback` confere o nome do pacote e o **SHA-256** gravado na instalação. `./instalar.py remover --purge` apaga esse diretório também.
 - O instalador roda como root e nunca lê nem grava como root em diretório do usuário do serviço: usa `runuser -u painel-ramais`, e o CSV de grupos vai pelo stdin da CLI. O `%post` edita o `manager_custom.conf` como o usuário `asterisk`.
 - O RPM do bundle é conferido pelo `SHA256SUMS` antes de instalar. Obtenha o tar.gz de origem confiável.
