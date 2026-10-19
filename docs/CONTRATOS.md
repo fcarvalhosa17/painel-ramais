@@ -2,7 +2,7 @@
 
 **Data**: 2026-10-13
 **Origem**: `docs/PROMPT-FASE-1.md` e `docs/ADENDO-FASE-1-INSTALADOR.md` (especificação do usuário, mesmo peso; o adendo troca o `discovery.sh` pelo `instalar.py verificar`). Em conflito, a especificação vence e este documento é corrigido.
-**Decisões de arquitetura ligadas**: `docs/adr/ADR-001-protocolo-websocket.md` (Aceito), `docs/adr/ADR-002-sessao-e-token-hmac.md` (PROPOSTO, aguarda o usuário), `docs/adr/ADR-003-pacote-rpm-e-integracao-issabel.md` (Proposto, aguarda spike em Rocky 8 e 9), `docs/adr/ADR-004-tela-e-menu-do-issabel.md` (Proposto; fase 2: tela, menu do Issabel, chave própria do Issabel e acesso de emergência), `docs/adr/ADR-005-grupos-editaveis-manual-sobre-faixa.md` (substituído em parte pelo ADR-006), `docs/adr/ADR-006-ramal-em-n-grupos.md` e `docs/adr/ADR-007-relatorio-de-registro.md` (Aceitos, rc.7). Planos: `docs/plans/2026-10-16-fase2-menu-issabel.md` e `docs/plans/2026-10-19-rc7-n-grupos-e-registros.md`.
+**Decisões de arquitetura ligadas**: `docs/adr/ADR-001-protocolo-websocket.md` (Aceito), `docs/adr/ADR-002-sessao-e-token-hmac.md` (PROPOSTO, aguarda o usuário), `docs/adr/ADR-003-pacote-rpm-e-integracao-issabel.md` (Proposto, aguarda spike em Rocky 8 e 9), `docs/adr/ADR-004-tela-e-menu-do-issabel.md` (Proposto; fase 2: tela, menu do Issabel, chave própria do Issabel e acesso de emergência), `docs/adr/ADR-005-grupos-editaveis-manual-sobre-faixa.md` (substituído em parte pelo ADR-006), `docs/adr/ADR-006-ramal-em-n-grupos.md` e `docs/adr/ADR-007-relatorio-de-registro.md` (Aceitos, rc.7), `docs/adr/ADR-008-chamadas-e-filas-ao-vivo.md` e `docs/adr/ADR-009-nome-da-fila-esquema-5.md` (Aceitos, rc.8). Planos: `docs/plans/2026-10-16-fase2-menu-issabel.md`, `docs/plans/2026-10-19-rc7-n-grupos-e-registros.md` e `docs/plans/2026-10-19-rc8-chamadas-e-filas.md`.
 
 Este documento é a fonte única dos formatos trocados entre as partes do coletor, e entre o coletor e quem o consome (fase 2: tela e item no menu do Issabel). Quem implementa não inventa campo: campo novo entra aqui primeiro.
 
@@ -23,7 +23,9 @@ Valem para todos os agentes. Reabrir só com o usuário.
 | D7 | Histórico por minuto. Minuto sem AMI (ou sem daemon) sai como `gap: true` com contagens `null`, nunca como queda de registros. | seções 4.3, 10 |
 | D8 | Chaves JSON e valores de enum em inglês, `snake_case`. Datas em RFC 3339 UTC com milissegundos (`2026-10-13T14:30:00.000Z`). | todas |
 | D9 | O `instalar.py` orquestra e valida; nunca edita `manager_custom.conf`, Apache, SELinux nem o SQLite. Integração com o sistema é do `%post` do RPM; usuário e grupos, da CLI do daemon. | seção 15, ADR-003 |
-| D10 | Relatório de registro (rc.7, ADR-007): só transição ao vivo conta; janela de 120 s depois de `Shutdown`, `FullyBooted` ou conexão do AMI vira evento do sistema; gravação em lote fora da goroutine do estado; retenção fixa de 30 dias. | seções 4.7, 10, 11 |
+| D10 | Relatório de registro (rc.7, ADR-007): só transição ao vivo conta; janela de 120 s depois de `Shutdown`, `FullyBooted` ou conexão do AMI vira evento do sistema; gravação em lote fora da goroutine do estado; retenção fixa de 30 dias. rc.8: sublotes por custo, uma repetição, perda contada no health. | seções 4.7, 10, 11 |
+| D11 | Chamadas e filas ao vivo (rc.8, ADR-008): uma linha por chamada, `id` = `Linkedid`; ramal é quem está no inventário, qualquer outro canal não Local é externo; projeção no estado, publicada no mesmo delta com chaves opcionais (`calls`, `calls_removed`, `queues`, `queues_removed`); tudo em memória. Filas só por `QueueStatus` e eventos de classe `agent`. Nome da fila no banco do painel (esquema 5, ADR-009). | seções 2.3, 2.4, 4.1, 4.8, 5.2, 7, 10, 11.6 |
+| D12 | Sem teste automatizado no repositório (rc.8, decisão do usuário): critério de pronto é compilar (`go build` com `GOOS=linux ./...`, `go vet ./...`, `node --check`) e conferir por leitura; o teste é ao vivo no servidor. `testdata/capturas` e `cmd/loadtest` ficam (ferramenta de carga na VM, nunca no PC do usuário). | seções 7.1, 12, 14 |
 
 ---
 
@@ -49,6 +51,7 @@ O daemon escuta só em loopback. O Apache publica o prefixo `/painel-ramais/` e 
 | POST | `/api/groups/assign` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
 | POST | `/api/groups/import` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
 | POST | `/api/groups/delete` | sim, administrador | navegador via Apache | envelope (seção 4.6) |
+| POST | `/api/queues/rename` | sim, administrador | navegador via Apache | envelope (seção 4.8, rc.8) |
 | GET | `/api/history` | sim | navegador via Apache | envelope, gzip |
 | GET | `/api/registrations/summary` | sim | navegador via Apache | envelope, gzip (seção 4.7) |
 | GET | `/api/registrations` | sim | navegador via Apache | envelope, gzip (seção 4.7) |
@@ -92,8 +95,8 @@ Erro:
 | 401 | `unauthorized` | sem sessão ou sessão expirada |
 | 401 | `invalid_credentials` | login com usuário ou senha errados (mesma mensagem para os dois casos) |
 | 401 | `invalid_token` | token com assinatura errada, expirado, já usado ou malformado (mesma mensagem para todos) |
-| 403 | `forbidden` | sessão sem papel de administrador numa rota de administrador: "Apenas administradores do Issabel podem alterar grupos"; ou sessão `issabel:admin:<usuario>` cujo usuário não está mais no grupo `administrator` do `/var/www/db/acl.db` (conferido somente leitura a cada escrita de grupo; acl.db ilegível também dá 403, falha fechada; a sessão e a visualização continuam; M1); ou POST com `Sec-Fetch-Site` diferente de ausente, `same-origin` e `none` (por exemplo `cross-site` ou `same-site`; qualquer rota POST, antes de ler o corpo) |
-| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy; `/api/groups/update`, `/assign` ou `/delete` de grupo que não existe ("Grupo inexistente") |
+| 403 | `forbidden` | sessão sem papel de administrador numa rota de administrador: "Apenas administradores do Issabel podem alterar grupos" (em `/api/queues/rename`: "Apenas administradores do Issabel podem renomear filas"); ou sessão `issabel:admin:<usuario>` cujo usuário não está mais no grupo `administrator` do `/var/www/db/acl.db` (conferido somente leitura a cada escrita de grupo; acl.db ilegível também dá 403, falha fechada; a sessão e a visualização continuam; M1); ou POST com `Sec-Fetch-Site` diferente de ausente, `same-origin` e `none` (por exemplo `cross-site` ou `same-site`; qualquer rota POST, antes de ler o corpo) |
+| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy; `/api/groups/update`, `/assign` ou `/delete` de grupo que não existe ("Grupo inexistente"); `/api/queues/rename` de fila que não está na projeção atual ("Fila inexistente", rc.8) |
 | 405 | `method_not_allowed` | método errado |
 | 409 | `conflict` | só nas rotas de edição de grupo (`create`, `update`): nome de grupo que já existe (sem diferenciar maiúsculas; `message` = `grupo ja existe: "<nome>"`). Desde a rc.7 faixa que cruza faixa de **outro** grupo é aceita (ADR-006). Nada é gravado |
 | 413 | `payload_too_large` | corpo acima de 4 KiB (1 MiB em `/api/groups/import`, `create`, `update` e `delete`; 2 MiB em `/api/groups/assign`) |
@@ -183,7 +186,7 @@ Origem por grupo na tela (detalhe do ramal): grupo G em `range_groups` mostra "p
 | Campo | Tipo | Regra |
 |---|---|---|
 | `id` | string | Uniqueid do canal do próprio ramal. Ramal com chamada em espera e outra ativa tem dois itens |
-| `direction` | enum | `internal`: o outro lado é ramal. `inbound`: o outro lado é tronco e o canal do tronco nasceu do lado de fora (não foi destino de Dial). `outbound`: o outro lado é tronco e o canal do tronco foi destino de Dial. A regra olha o canal do tronco, então sobrevive a transferência |
+| `direction` | enum | `internal`: o outro lado é ramal. `inbound`: o outro lado é externo e o canal dele nasceu do lado de fora (não foi destino de Dial). `outbound`: o outro lado é externo e o canal dele foi destino de Dial. A regra olha o canal do outro lado, então sobrevive a transferência. rc.8 (ADR-008): **ramal é quem está no inventário** (endpoint do canal presente na lista de ramais do estado); qualquer outro canal que não seja Local é **externo**, inclusive canal sem endpoint da tecnologia ativa (DAHDI, IAX2, Khomp, `SIP/` com a tecnologia `pjsip`), que até a rc.7 virava `internal` com `peer.kind: unknown`. `peer.kind: unknown` fica só para "nenhum outro canal" (URA, correio de voz) e para Local sem par |
 | `state` | enum | `ringing`: ainda não atendida, em qualquer ponta. `talking`: atendida (em bridge ou em aplicação, como URA ou correio de voz). `hold`: canal do ramal recebeu `Hold` sem `Unhold` |
 | `peer.kind` | enum | `extension`, `external`, `unknown` (sem outro canal identificável, por exemplo URA) |
 | `peer.number` | string ou null | ramal do outro lado, número externo, ou destino discado quando `unknown` |
@@ -192,6 +195,93 @@ Origem por grupo na tela (detalhe do ramal): grupo G em `range_groups` mostra "p
 | `answered_at` | data ou null | quando o canal ficou `Up`; null enquanto `ringing` |
 
 Correlação de "com quem fala" (implementação no `state`): Uniqueid, Linkedid, membros da bridge (`BridgeEnter`/`BridgeLeave`) e pares de Local channel casados pelo nome (`Local/x@ctx-0000001a;1` com `;2`).
+
+### 2.3 Chamada ao vivo (`LiveCall`, rc.8, ADR-008)
+
+Uma linha por **chamada** (não por ramal nem por canal), para a aba Chamadas. Vai no snapshot (`calls`, seção 4.1) e no delta (`calls`, `calls_removed`, seção 5.2). Tipo Go `model.LiveCall`, JSON = `json.Marshal` dele.
+
+```json
+{
+  "id": "1791902000.4600",
+  "direction": "inbound",
+  "state": "talking",
+  "extensions": ["2001"],
+  "external": "11987654321",
+  "trunk": "PJSIP/operadora_x",
+  "queue": "600",
+  "started_at": "2026-10-13T14:30:00.250Z"
+}
+```
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `id` | string | `Linkedid` comum aos canais da chamada (= Uniqueid do canal âncora, o que começou a chamada). Estável enquanto a chamada existe, mesmo depois que o canal âncora desliga. Duas chamadas que viram uma (transferência assistida: o Asterisk dá aos canais o `Linkedid` mais antigo) continuam com o `id` mais antigo; a outra sai em `calls_removed` |
+| `direction` | enum | `inbound`, `outbound`, `internal` (mesmas palavras da 2.2, regra diferente). Origem = canal com Uniqueid igual ao `id`; se ele é Local ou já não existia quando a linha foi montada pela primeira vez (snapshot), o canal não Local mais antigo da chamada. Origem fora do inventário de ramais: `inbound`, sempre (inclui tronco para tronco, siga-me). Origem ramal: `outbound` se há canal externo vivo na chamada, senão `internal`. Se a origem é externa ou ramal fica **guardado** na primeira montagem e não muda até a linha sumir |
+| `state` | enum | precedência, a primeira que vale: `queued` (algum canal da chamada está aguardando numa fila: entrada de fila viva, seção 2.4); `hold` (algum canal não Local da chamada recebeu `Hold` sem `Unhold`); `talking` (alguma bridge tem 2 ou mais canais da chamada, ou nenhum canal não Local da chamada está fora de `Up`); `ringing` (o resto: algum canal tocando, ninguém em bridge) |
+| `extensions` | array de string | números dos ramais (inventário) com canal vivo na chamada, sem repetição. Ordem: o ramal da origem primeiro (se a origem é ramal e está viva), depois por início do canal e Uniqueid. `[]` quando nenhum ramal (URA, tronco para tronco, só fila). Nunca `null`. Sem teto: grupo de toque com 30 ramais tocando traz os 30. Nome e grupos do ramal **não** vêm aqui: a tela os lê da lista de ramais do mesmo snapshot/delta (ramal com chamada nunca sai do estado antes do `Hangup`, seção 7.4) |
+| `external` | string ou null | `inbound`: CallerID (número) do canal de origem; vazio vira `null`. `outbound`: número do `DialString` do `DialBegin` que criou o canal externo mais antigo da chamada (regra "Número discado" abaixo); sem ele (snapshot), o mesmo extraído do primeiro destino do `DialData` do canal que discou; sem os dois, o `Exten` do canal de origem (se diferente de `s`); senão `null`. `internal`: `null` |
+| `trunk` | string ou null | `inbound`: rótulo (regra "Tronco" abaixo) do canal de origem, ou do canal externo vivo mais antigo se a origem já desligou. `outbound`: rótulo do canal externo vivo mais antigo. `internal`: `null` |
+| `queue` | string ou null | `queued`: a fila em que espera. `talking`/`hold`: a fila que atendeu (`AgentConnect` com o Uniqueid de um canal da chamada; no snapshot, canal que está na aplicação `Queue` sem entrada viva na fila, primeiro argumento do `ApplicationData`). Senão `null`. Identificador da fila no Asterisk (`"600"`), não o nome |
+| `started_at` | data | início do canal de origem (`agora - Duration` no snapshot); se a origem não existia quando a linha foi montada, o início do canal mais antigo. Guardado na primeira montagem. A duração é contada no navegador (`server_time` corrige o relógio) |
+
+**Quando existe a linha.** Grupo de canais vivos com o mesmo `Linkedid` que tem pelo menos um canal não Local. Grupo só de Local channels não vira linha. A linha sai (`calls_removed`) quando o último canal não Local do grupo desliga ou muda de `Linkedid`.
+
+**Tronco.** A partir do nome do canal: (1) tira o sufixo de sequência, o último `-` seguido só de dígitos hexadecimais até o fim; (2) fica só até a segunda `/`. Exemplos: `PJSIP/operadora_x-0000001a` vira `PJSIP/operadora_x`; `SIP/trunk-acme-0000001` vira `SIP/trunk-acme`; `DAHDI/i1/11999887766-1a` vira `DAHDI/i1`; `DAHDI/1-1` vira `DAHDI/1`; `IAX2/operadora-1234` vira `IAX2/operadora`. Nome fora dessas formas sai como veio depois dos dois passos (S17).
+
+**Número discado** (do `DialString`, ou do destino do `DialData` sem o prefixo de tecnologia): com `@`, o texto antes do `@` (`011987654321@operadora_x`); sem `@` e com `/`, o texto depois da última `/` (`operadora_x/011987654321`, `g0/011987654321`); sem os dois, o texto inteiro. Vale só se casar `^[0-9+*#]{1,32}$`; senão passa para a reserva seguinte.
+
+**Ramal ou externo.** Canal Local: nunca ramal nem externo (transparente). Canal com endpoint da tecnologia ativa presente no inventário do estado: ramal. Qualquer outro canal: externo.
+
+**"Outro lado desconhecido"** (texto da tela, sem campo próprio): `internal` com `extensions` de tamanho 1 e `queue` nulo; `inbound` com `extensions` vazio e `queue` nulo. Se a chamada tem canal Local e fica assim por 1 s seguido, o daemon registra **uma vez** por `id` o log Info `chamada com Local sem par` com `uniqueid` (o canal Local), `linkedid` e `canal` (nome do canal Local). Sem canal Local (URA pura) ou com externo do outro lado: sem log.
+
+### 2.4 Fila (`Queue`, rc.8, ADR-008 e ADR-009)
+
+Vai no snapshot (`queues`, seção 4.1) e no delta (`queues`, `queues_removed`, seção 5.2). Tipo Go `model.Queue`, JSON = `json.Marshal` dele.
+
+```json
+{
+  "queue": "600",
+  "name": "Suporte N1",
+  "completed": 120,
+  "abandoned": 7,
+  "service_level_s": 60,
+  "service_level_perf": 93.5,
+  "stats_at": "2026-10-13T14:29:41.000Z",
+  "entries": [
+    { "uniqueid": "1791902000.4600", "position": 1, "number": "11987654321", "name": null, "since": "2026-10-13T14:29:12.100Z" }
+  ],
+  "members": [
+    { "interface": "Local/2001@from-queue/n", "name": "Maria Souza", "extension": "2001", "state": "busy", "paused": false, "pause_reason": null, "calls_taken": 12 },
+    { "interface": "Local/2002@from-queue/n", "name": "João Lima", "extension": "2002", "state": "paused", "paused": true, "pause_reason": "almoço", "calls_taken": 4 }
+  ]
+}
+```
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `queue` | string | identificador da fila no Asterisk (`Queue` do AMI), chave da fila. 1 a 64 caracteres |
+| `name` | string ou null | nome dado no painel (`queue_names`, seção 10, versão 5); `null` sem nome. A tela mostra `Fila <queue>` quando `null` |
+| `completed`, `abandoned` | inteiro | `Completed` e `Abandoned` do `QueueParams` da última `QueueStatus` da fila; `0` antes da primeira. Contam desde o último reinício do Asterisk (ou reset de estatística da fila) |
+| `service_level_s` | inteiro | `ServiceLevel` (segundos) do `QueueParams`; `0` antes da primeira `QueueStatus` |
+| `service_level_perf` | número | `ServicelevelPerf` (percentual, 0 a 100, uma casa) do `QueueParams`; `0` antes da primeira |
+| `stats_at` | data ou null | quando a última `QueueStatus` desta fila foi lida; `null` se a fila só apareceu por evento |
+| `entries` | array | quem aguarda, ordenado por `since` (mais antigo primeiro). `[]` quando ninguém |
+| `entries[].uniqueid` | string | Uniqueid do canal do chamador (casa com um canal da chamada da 2.3) |
+| `entries[].position` | inteiro | posição pela ordem de `since` (1 = mais antigo). Fila com prioridade mostra a ordem de chegada (ADR-008) |
+| `entries[].number`, `.name` | string ou null | `CallerIDNum` e `CallerIDName` (passam por `model.CleanName`); vazio vira `null` |
+| `entries[].since` | data | entrada na fila: `At` do `QueueCallerJoin`, ou `agora - Wait` na `QueueStatus` |
+| `members` | array | agentes, ordenados por `interface`. `[]` em fila sem agente (a fila continua aparecendo) |
+| `members[].interface` | string | `Interface` do evento ou `Location` da `QueueStatus`; chave do membro dentro da fila |
+| `members[].name` | string | `MemberName` (CleanName); vazio vira o próprio `interface` |
+| `members[].extension` | string ou null | ramal do inventário extraído de `StateInterface`, senão de `interface`: texto entre o primeiro `/` ou `:` e o primeiro `@` ou `/` seguinte (`Local/2001@from-queue/n`, `PJSIP/2001`, `hint:2001@ext-local` dão `2001`); `null` se não for ramal do inventário (S16) |
+| `members[].state` | enum | precedência: `unavailable` (`Status` 4 ou 5: inválido ou indisponível); `busy` (`InCall` 1, ou `Status` 2, 3, 6, 7 ou 8: em uso, ocupado, tocando, tocando em uso, em espera); `paused` (`Paused` 1); `free` (o resto, inclusive `Status` 0, desconhecido, que o `app_queue` trata como disponível) |
+| `members[].paused` | booleano | `Paused` do AMI, independente do `state` (agente em ligação e pausado: `state: busy`, `paused: true`) |
+| `members[].pause_reason` | string ou null | `PausedReason` (CleanName); vazio vira `null` |
+| `members[].calls_taken` | inteiro | `CallsTaken` |
+
+**Derivados no navegador (o servidor não manda, para não haver duas fontes):** aguardando = `entries.length`; maior espera desde = `entries[0].since` (contada ao vivo); agentes livres, em atendimento, pausados e indisponíveis = contagem de `members[].state` (`free`, `busy`, `paused`, `unavailable`; cada membro conta em um só). "Aguardando em fila" do topo da aba = número de linhas da 2.3 com `state: queued`.
+
+**Quais filas aparecem.** Toda fila da última `QueueStatus` completa, mais as que aparecerem por evento depois dela. Fila vazia ou sem agente continua na lista. Fila que some de uma `QueueStatus` completa (ou cuja `QueueStatus` individual volta sem `QueueParams`) sai em `queues_removed`. AMI fora: `queues: []` (o `Reset` da queda leva a lista vazia).
 
 ---
 
@@ -358,6 +448,12 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
       { "name": "Plantão", "ranges": [] },
       { "name": "Suporte", "ranges": [ { "start": 2000, "end": 2099 } ] },
       { "name": "Vendas", "ranges": [] }
+    ],
+    "calls": [
+      { "id": "1791901712.4520", "direction": "inbound", "state": "talking", "extensions": ["2001"], "external": "11987654321", "trunk": "PJSIP/operadora_x", "queue": null, "started_at": "2026-10-13T14:28:30.900Z" }
+    ],
+    "queues": [
+      { "queue": "600", "name": null, "completed": 0, "abandoned": 0, "service_level_s": 60, "service_level_perf": 0, "stats_at": "2026-10-13T14:29:41.000Z", "entries": [], "members": [] }
     ]
   },
   "error": null,
@@ -371,6 +467,7 @@ Estado completo. Servido pela projeção do hub (ADR-001), então `version` é s
 - `extensions` ordenado por `number` (ordem de string). Antes da primeira conexão AMI vem vazio. Servidor **sem ramais** (nenhum endpoint/peer de ramal configurado) também vem `[]`, mas com `ami_connected: true`, `technology` preenchido e `meta.count: 0`: é um estado válido, não erro nem `degraded` (seção 7.4); o primeiro ramal criado chega por delta.
 - `server_time` serve para a tela calcular a diferença de relógio e mostrar a duração certa.
 - `groups`: o catálogo **completo**, ordenado por nome sem diferenciar maiúsculas, incluindo grupos sem ramal e sem faixa (`"ranges": []`). Não inclui `"Sem grupo"` (é implícito). Aditivo: cliente antigo ignora. O delta (seção 5.2) traz o catálogo inteiro de novo, só quando ele muda.
+- `calls` (rc.8, seção 2.3): todas as chamadas ao vivo, ordenadas por `started_at` e depois `id`; `queues` (rc.8, seção 2.4): todas as filas, ordenadas por `queue` (ordem de string). As duas chaves estão **sempre** presentes no snapshot (`[]` quando não há, inclusive com o AMI fora). Sem teto de itens. `meta.count` continua sendo a quantidade de ramais.
 
 ### 4.2 GET /api/groups
 
@@ -449,7 +546,9 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
     "trunks": 4,
     "active_calls": 312,
     "ws_clients": 7,
-    "registrations": { "queue_len": 0, "queue_cap": 16384, "dropped": 0, "write_errors": 0, "suppressed_until": null },
+    "registrations": { "queue_len": 0, "queue_cap": 16384, "dropped": 0, "write_errors": 0, "lost_events": 0, "lost_since": null, "lost_until": null, "suppressed_until": null },
+    "live_calls": 298,
+    "queues": { "count": 6, "last_full_at": "2026-10-13T14:25:00.000Z", "refresh_errors": 0, "unsupported": false },
     "deps": [
       { "name": "ami_user", "status": "ok", "detail": "login aceito em 2026-10-13T08:00:01Z", "checked_at": "2026-10-13T14:30:00.000Z" },
       { "name": "manager_custom_include", "status": "ok", "detail": "manager.conf inclui manager_custom.conf e o bloco painel-ramais está presente", "checked_at": "2026-10-13T14:30:00.000Z" },
@@ -478,7 +577,9 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
   `issabel_key` é a fonte única da chave do verificador de tokens (seção 3.3): a cada verificação (na subida, a cada 60 s e após cada Login AMI) o resultado é entregue ao verificador (chave válida ou nenhuma). O daemon só lê o modo do `manager_custom.conf` (`stat`), nunca o altera. Mudança de estado de qualquer item sai no log.
 - `ami_user` vem do resultado do último Login da conexão única (não abre segunda conexão).
 - `events_per_s`: média dos últimos 60 s. `lag_ms`: agora menos a hora de leitura do último evento processado. `queue.overflows`: quantas vezes a fila encheu e forçou ressincronização (seção 11.3); `queue.len` e `queue.cap` são da fila do leitor AMI (a que pode estourar).
-- `registrations` (rc.7, ADR-007): fila do gravador do relatório de registro (seção 11.5). `queue_len` e `queue_cap` (16384, constante); `dropped`: ocorrências descartadas porque a fila estava cheia, desde a subida do daemon; `write_errors`: lotes que falharam ao gravar (o lote é perdido e o erro sai no log Warn); `suppressed_until`: fim da janela de evento do sistema em curso (RFC 3339) ou `null`. Nenhum destes campos muda o `status` (não é `degraded`).
+- `registrations` (rc.7, ADR-007): fila do gravador do relatório de registro (seção 11.5). `queue_len` e `queue_cap` (16384, constante); `dropped`: ocorrências descartadas porque a fila estava cheia, desde a subida do daemon; `write_errors`: lotes que falharam ao gravar (o lote é perdido e o erro sai no log Warn); `suppressed_until`: fim da janela de evento do sistema em curso (RFC 3339) ou `null`. Nenhum destes campos muda o `status` (não é `degraded`). rc.8 (seção 10, "Gravação de um lote"): `write_errors` passa a contar **sublotes perdidos** (falharam na tentativa e na repetição); `lost_events` = notas perdidas nesses sublotes (ocorrências, fechamentos de intervalo e sinais), desde a subida; `lost_since` e `lost_until` = menor e maior `At` entre as notas perdidas desde a subida (RFC 3339) ou `null` quando nada se perdeu. `dropped` (fila cheia) continua separado.
+- `live_calls` (rc.8): quantidade de linhas da projeção de chamadas (seção 2.3). Pode diferir de `active_calls`, que conta `Linkedid` com canal de ramal ou tronco da tecnologia ativa (não conta chamada só de DAHDI/IAX2).
+- `queues` (rc.8): `count` = filas na projeção (seção 2.4); `last_full_at` = última `QueueStatus` completa lida com sucesso (RFC 3339) ou `null`; `refresh_errors` = `QueueStatus` (completa ou por fila) que falharam desde a subida; `unsupported` = `true` quando a última `QueueStatus` completa respondeu que a action não existe (módulo de filas não carregado: lista vazia, sem erro). Nenhum destes campos muda o `status`.
 
 ### 4.5 GET /debug (só localhost, exige sessão)
 
@@ -510,7 +611,7 @@ Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes 
 { "name": "Suporte", "ranges": [ { "start": 2000, "end": 2099 }, { "start": 2150, "end": 2150 } ] }
 ```
 
-`name` obrigatório; `ranges` opcional (grupo sem faixa é válido; até 1000 faixas, cada uma com `start` e `end`, `0 <= start <= end`, até 18 dígitos). O nome tem as pontas aparadas e segue a regra única de nome de grupo (seção 9: 1 a 64 caracteres, sem controle/formatação invisível, diferente de `Sem grupo`, sem diferenciar maiúsculas). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}`. Erros: `400 bad_request` (nome inválido ou reservado, faixa inválida, faixas da própria requisição que se cruzam, faixa sem `start` ou `end`); `409 conflict` (nome já existe, sem diferenciar maiúsculas). rc.7: faixa que cruza faixa de outro grupo é aceita; o `checkRangeConflicts` sai do código.
+`name` obrigatório; `ranges` opcional (grupo sem faixa é válido; até 1000 faixas, cada uma com `start` e `end`, `0 <= start <= end`, até 18 dígitos). O nome tem as pontas aparadas e segue a regra única de nome de grupo (seção 9: 1 a 64 caracteres, sem controle/formatação invisível, diferente de `Sem grupo` e, desde a rc.8, de `Todos os ramais`, sem diferenciar maiúsculas). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}`. Erros: `400 bad_request` (nome inválido ou reservado, faixa inválida, faixas da própria requisição que se cruzam, faixa sem `start` ou `end`); `409 conflict` (nome já existe, sem diferenciar maiúsculas). rc.7: faixa que cruza faixa de outro grupo é aceita; o `checkRangeConflicts` sai do código.
 
 `POST /api/groups/update`:
 
@@ -725,6 +826,21 @@ Decisão do ADR-007: o servidor não gera CSV. O botão "Exportar CSV" da aba Re
 - Cabeçalho e colunas, nesta ordem: `Ramal;Nome;Grupos;Perdeu registro;Ficou inalcançável;Registrou;Voltou a ser alcançável;Última queda;Último IP;Tempo fora do ar (s);Removido`. `Grupos` separados por `, `; `Última queda` em hora local `AAAA-MM-DD HH:MM:SS` ou vazio; `Último IP` como `ip:porta` (ou só `ip`, ou vazio); `Tempo fora do ar (s)` inteiro, calculado como na tela; `Removido` `sim` ou `não`.
 - Download por `Blob` + `URL.createObjectURL` + `<a download>` criado por script (sem `innerHTML`; nada muda na CSP).
 
+### 4.8 POST /api/queues/rename (rc.8, ADR-009; só administrador)
+
+Dá ou tira o nome de uma fila. Mesmas regras de transporte das rotas de grupo: sessão de administrador (senão `403 forbidden` antes de ler o corpo), `Content-Type: application/json`, corpo estrito de até **4 KiB** (`413` acima), campo desconhecido `400 bad_request`, `Sec-Fetch-Site` da seção 1. Antes de gravar, confere o usuário no grupo `administrator` do `acl.db` (M1; falha fechada, `403`).
+
+```json
+{ "queue": "600", "name": "Suporte N1" }
+```
+
+| Campo | Regra |
+|---|---|
+| `queue` | obrigatório; 1 a 64 caracteres sem controle/formatação invisível (a regra de `store.ValidNumber`); precisa existir na projeção de filas do hub agora, senão `404 not_found` "Fila inexistente" |
+| `name` | obrigatório (pode ser `""`); pontas aparadas; `""` **apaga** o nome (a tela volta a "Fila 600"); senão 1 a 64 caracteres com as regras de caractere do nome de grupo (seção 9: sem Cc, Cf, Zl, Zp; só o espaço U+0020), sem nome reservado. Fora da regra: `400 bad_request` com a mensagem |
+
+Resposta `200`: `{"success":true,"data":{"queue":"600","name":"Suporte N1"},"error":null,"meta":null}` (`"name": null` depois de apagar). Mesmo nome que já está gravado (ou apagar o que não existe): `200` sem escrita. Escrita: upsert (ou `DELETE`) em `queue_names` numa transação, com `updated_at` e `updated_by` = `subject` da sessão; log Info `nome de fila alterado` com `request_id`, `sub`, `queue` e `name` (ou `removido`). Sem linha em `group_audit` (ADR-009). Depois de gravar, o daemon relê `queue_names` e entrega `QueueNamesLoaded` ao estado: a fila vai no próximo delta com o `name` novo, sem epoch novo. Releitura falhou: `500 internal` (o nome já está gravado; repetir é seguro). Erros possíveis: `400`, `403`, `404`, `405`, `413`, `415`, `500`.
+
 ---
 
 ## 5. WebSocket `/ws` (ADR-001)
@@ -793,6 +909,21 @@ Regra de aplicação no cliente (com `v` = versão local):
 - `epoch` diferente do local: o mesmo que lacuna.
 
 Ramal criado ou apagado no Issabel **não** muda o epoch: o novo chega em `extensions` (não registrado, com o grupo calculado pelas faixas) e o apagado em `removed` (seção 7.4). Apagado com chamada ativa continua em `extensions` até o `Hangup` da última chamada e só então vai para `removed`. O epoch novo continua só para queda do AMI e ressincronização.
+
+**Chamadas e filas (rc.8, ADR-008).** O mesmo delta pode trazer quatro chaves **opcionais**, presentes só quando têm item (ausente = nada mudou daquele tipo; cliente antigo ignora):
+
+| Chave | Conteúdo | Aplicação no cliente |
+|---|---|---|
+| `calls` | array de `LiveCall` (seção 2.3), cada uma com o estado completo | substitui (ou insere) pelo `id` |
+| `calls_removed` | array de `id` (ordenado) das chamadas que acabaram ou foram absorvidas por outra | apaga pelo `id`; `id` desconhecido é ignorado |
+| `queues` | array de `Queue` (seção 2.4), cada uma completa (inclusive `entries` e `members`) | substitui (ou insere) pelo `queue` |
+| `queues_removed` | array de `queue` (ordenado) que saíram | apaga pelo `queue`; desconhecido é ignorado |
+
+`calls` e `calls_removed` nunca têm `id` em comum; `queues` e `queues_removed` nunca têm `queue` em comum. Cada item das quatro listas conta uma mudança na versão (como os ramais), então lote só com chamada ou fila também avança a versão e entra no replay. Chamada que mudou várias vezes na janela de 250 ms aparece uma vez, com o estado final. O `reload` (epoch novo) vale para tudo: o cliente relê o snapshot, que traz `calls` e `queues` completos. Exemplo de lote só com chamada:
+
+```json
+{ "type": "delta", "epoch": "1791900000123-3", "from_version": 48219, "to_version": 48221, "ami_connected": true, "server_time": "2026-10-13T14:30:00.623Z", "extensions": [], "removed": [], "calls": [ { "id": "1791902000.4600", "direction": "inbound", "state": "queued", "extensions": [], "external": "11987654321", "trunk": "PJSIP/operadora_x", "queue": "600", "started_at": "2026-10-13T14:29:10.000Z" } ], "calls_removed": ["1791901990.4590"] }
+```
 
 **Mudança de grupo não muda o epoch** (ADR-005). Criar, renomear, editar faixas, apagar grupo, atribuir ou retirar ramais (tela, CLI/SIGHUP ou importação de CSV) chega assim: cada ramal cujo `groups`, `range_groups` ou `manual_groups` mudou vem em `extensions` com o estado completo (versão avança, como em qualquer delta), e, **só quando o catálogo mudou**, o lote traz `"groups"`: o catálogo **completo** (`[{"name","ranges":[{"start","end"}]}]`, inclui grupo sem ramal e sem faixa, sem `Sem grupo`), que o cliente usa para **substituir** o catálogo local inteiro. Sem a chave `groups` o catálogo não mudou. Pode haver lote com `groups` e `extensions: []` (grupo novo vazio, ou faixa sem ramal): a versão avança mesmo assim, então quem reconecta recebe o lote no replay. Atribuir 10.000 ramais de uma vez produz um lote com 10.000 ramais (cerca de 3 MB de JSON, uma vez, sem epoch novo).
 
@@ -887,7 +1018,7 @@ Não há variáveis de ambiente no binário de release. O único "ambiente" é e
 
 ### 7.1 Allowlist de actions
 
-O cliente AMI tem uma lista fixa no código. Pedido de action fora dela é erro de programação (retorna erro e um teste unitário garante que a lista é exatamente esta). Proibidas em qualquer hipótese: `Command`, `Originate`, `Redirect`, `Hangup`, `Atxfer`, `Setvar`, `Reload`, `ModuleLoad`, `UpdateConfig`, `GetConfig`, `Filter` e qualquer outra.
+O cliente AMI tem uma lista fixa no código (`internal/ami/actions.go`). Pedido de action fora dela é erro de programação (retorna erro). Desde a rc.8 não há teste automatizado (D12): a lista é conferida por leitura contra esta tabela em cada revisão. Proibidas em qualquer hipótese: `Command`, `Originate`, `Redirect`, `Hangup`, `Atxfer`, `Setvar`, `Reload`, `ModuleLoad`, `UpdateConfig`, `GetConfig`, `Filter`, `QueueReload`, `QueueReset`, `QueueAdd`, `QueueRemove`, `QueuePause`, `QueuePenalty`, `QueueLog`, `QueueSummary` e qualquer outra.
 
 | Action | Uso | Tecnologia | Classe esperada (`write` do usuário AMI) |
 |---|---|---|---|
@@ -904,14 +1035,37 @@ O cliente AMI tem uma lista fixa no código. Pedido de action fora dela é erro 
 | `SIPshowpeer` | nome (callerid) e user agent de um peer, em segundo plano e com taxa limitada (decisão 4) | sip | system ou reporting |
 | `DeviceStateList` | estado de dispositivo inicial | ambas | call ou reporting |
 | `CoreShowChannels` | chamadas já em andamento (com `BridgeId` e `Duration`) | ambas | system ou reporting |
+| `QueueStatus` | rc.8 (ADR-008): filas, membros e quem aguarda; sem parâmetro (todas) ou com `Queue: <fila>` (uma). Resposta em lista: `QueueParams`, `QueueMember`, `QueueEntry`, fim em `QueueStatusComplete` | ambas | nenhuma (a conferir; S15) |
 
-Permissões do usuário AMI (bloco do ADR-003): `read = system,call` e `write = system,reporting`. A coluna "classe esperada" vem da documentação do Asterisk e **precisa ser confirmada** na versão real com `manager show command <Action>` (o `instalar.py verificar` coleta isso no relatório). Risco aceito e documentado: a classe `system` de escrita é exigida pelas actions PJSIP e também liberaria actions de escrita; a defesa é a allowlist no código, o segredo 0600 e o `permit` só para 127.0.0.1. **Decisão do usuário em 2026-10-13** (`docs/DECISOES-FASE-1.md`, decisões 1 e 2: manter `write = system,reporting` com controles compensatórios; porta mantida por socket activation; detalhe no ADR-003): a classe `system` de escrita pode autorizar, para quem tiver o segredo, actions que não são de consulta (a conferir: `Reload`, `ModuleLoad`, `Hangup`); e o daemon escuta em TCP loopback, não em socket Unix.
+Permissões do usuário AMI (bloco do ADR-003, atualizado na rc.8): `read = system,call,agent` e `write = system,reporting`. A classe `agent` só libera **leitura** dos eventos de fila e agente (seção 7.2); `write` não muda. A coluna "classe esperada" vem da documentação do Asterisk e **precisa ser confirmada** na versão real com `manager show command <Action>` (o `instalar.py verificar` coleta isso no relatório). Risco aceito e documentado: a classe `system` de escrita é exigida pelas actions PJSIP e também liberaria actions de escrita; a defesa é a allowlist no código, o segredo 0600 e o `permit` só para 127.0.0.1. **Decisão do usuário em 2026-10-13** (`docs/DECISOES-FASE-1.md`, decisões 1 e 2: manter `write = system,reporting` com controles compensatórios; porta mantida por socket activation; detalhe no ADR-003): a classe `system` de escrita pode autorizar, para quem tiver o segredo, actions que não são de consulta (a conferir: `Reload`, `ModuleLoad`, `Hangup`); e o daemon escuta em TCP loopback, não em socket Unix.
 
-Todas marcadas "a confirmar no Asterisk real com `manager show command <Action>`" (o `instalar.py verificar` coleta). Controle compensatório da decisão 1 (mantém `write = system,reporting`): a lista acima é fixa no código (`internal/ami/actions.go`); qualquer outra action (`Command`, `Originate`, `Reload`, `ModuleLoad`, `MixMonitor`, `GetConfig`, `DBPut`, `PJSIPNotify` e as demais) é recusada **antes** de escrever no socket, com log em nível **Error** (visível com `log_level: info`; só o nome da action vai ao log, nunca os parâmetros; `ami.Config.OnRefused`), e os parâmetros `Action`/`ActionID` são reservados ao cliente; um teste cobre a recusa e prova que nada chega ao socket. Risco residual aceito (para a auditoria): se o próprio daemon for comprometido, a classe `system` dá acesso a `GetConfig` e `ModuleUnload`; as barreiras são `permit` só para 127.0.0.1, segredo 0600 do usuário `painel-ramais` e o endurecimento da unit (`NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `ReadWritePaths=/var/lib/painel-ramais`, `CapabilityBoundingSet=` vazio; validar com `systemd-analyze security painel-ramais`).
+Todas marcadas "a confirmar no Asterisk real com `manager show command <Action>`" (o `instalar.py verificar` coleta). Controle compensatório da decisão 1 (mantém `write = system,reporting`): a lista acima é fixa no código (`internal/ami/actions.go`); qualquer outra action (`Command`, `Originate`, `Reload`, `ModuleLoad`, `MixMonitor`, `GetConfig`, `DBPut`, `PJSIPNotify` e as demais) é recusada **antes** de escrever no socket, com log em nível **Error** (visível com `log_level: info`; só o nome da action vai ao log, nunca os parâmetros; `ami.Config.OnRefused`), e os parâmetros `Action`/`ActionID` são reservados ao cliente; a recusa acontece em `validate`, antes de qualquer escrita no socket (conferido por leitura). Risco residual aceito (para a auditoria): se o próprio daemon for comprometido, a classe `system` dá acesso a `GetConfig` e `ModuleUnload`; as barreiras são `permit` só para 127.0.0.1, segredo 0600 do usuário `painel-ramais` e o endurecimento da unit (`NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `ReadWritePaths=/var/lib/painel-ramais`, `CapabilityBoundingSet=` vazio; validar com `systemd-analyze security painel-ramais`).
 
 ### 7.2 Eventos (eventfilter estático, união SIP e PJSIP)
 
 `ContactStatus`, `PeerStatus`, `DeviceStateChange`, `Newchannel`, `Newstate`, `NewCallerid`, `NewConnectedLine`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, `Hangup`, `Hold`, `Unhold`, `Reload`, `ModuleLoadReport`, `FullyBooted` (recarga do Asterisk: o inventário de ramais e os nomes são refeitos 3 s depois do último desses eventos, seção 7.4; classe de leitura `system`) e, desde a rc.7, `Shutdown` (Asterisk desligando: abre a janela de evento do sistema do relatório de registro, seção 11.5; classe `system`). O `%post` acrescenta `eventfilter = Event: Shutdown` **só** no bloco do painel em `manager_custom.conf` (o bloco é regerado no upgrade, seguido de `manager reload`); o simulador (`internal/amisim/proto.go`, `filterSet`) ganha o mesmo nome. `FullyBooted` e `Shutdown` são lidos no laço ao vivo do supervisor e viram `model.AsteriskSignal` (seção 11.1) sem passar pelos adaptadores. O bloco de `manager_custom.conf` do ADR-003 precisa de um `eventfilter` para cada um (`Event: Reload`, `Event: ModuleLoadReport`, `Event: FullyBooted`); os nomes exatos no Asterisk 18 do Issabel são confirmados na captura da homologação (S10).
+
+**rc.8 (ADR-008): eventos de fila e agente**, classe de leitura `agent`: `QueueCallerJoin`, `QueueCallerLeave`, `QueueCallerAbandon`, `QueueMemberStatus`, `QueueMemberPause`, `QueueMemberAdded`, `QueueMemberRemoved`, `AgentCalled`, `AgentConnect`, `AgentComplete`, `AgentRingNoAnswer`. O `%post` (`packaging/scripts/postinstall`, função que monta o bloco) passa o `read` para `system,call,agent` e acrescenta **um `eventfilter = Event: <Nome>` para cada um dos onze**, só no bloco do painel; o upgrade regrava o bloco e faz `manager reload` (como na rc.7). A nota de eventos do `postinstall` (comentário do topo da função) lista os onze e o motivo. O simulador (`internal/amisim/proto.go`, `filterSet`) passa a ter **exatamente** a lista do bloco: os 14 da fase 1, `Reload`, `ModuleLoadReport`, `FullyBooted`, `Shutdown` e os onze da rc.8. Bloco vigente, na ordem:
+
+```
+read = system,call,agent
+write = system,reporting
+...
+eventfilter = Event: Shutdown
+eventfilter = Event: QueueCallerJoin
+eventfilter = Event: QueueCallerLeave
+eventfilter = Event: QueueCallerAbandon
+eventfilter = Event: QueueMemberStatus
+eventfilter = Event: QueueMemberPause
+eventfilter = Event: QueueMemberAdded
+eventfilter = Event: QueueMemberRemoved
+eventfilter = Event: AgentCalled
+eventfilter = Event: AgentConnect
+eventfilter = Event: AgentComplete
+eventfilter = Event: AgentRingNoAnswer
+```
+
+Uso no daemon: `QueueCallerJoin`, `QueueCallerLeave`, `QueueCallerAbandon`, `QueueMember*` e `AgentConnect` viram eventos normalizados (seção 11.6); `QueueCallerLeave`, `QueueCallerAbandon` e `AgentComplete` também agendam a `QueueStatus` da fila (seção 11.6, "Reconciliação"); `AgentCalled` e `AgentRingNoAnswer` são lidos e descartados na rc.8 (o estado do agente vem do `QueueMemberStatus`). As respostas da `QueueStatus` (`QueueParams`, `QueueMember`, `QueueEntry`, `QueueStatusComplete`) são resposta de action e não passam pelo eventfilter.
 
 Os eventos da tecnologia inativa nunca chegam (o módulo não está carregado), então a união não custa nada. Motivo de não montar o filtro por tecnologia: ADR-003. As respostas de action em lista (`EndpointList`, `ContactList`, `PeerEntry`, `DeviceStateChange` de lista, `CoreShowChannel`) não passam pelo eventfilter.
 
@@ -944,7 +1098,7 @@ O inventário vem dos endpoints/peers **configurados** (`PJSIPShowEndpoints` / `
 - lista **vazia** quando já havia ramais é confirmada por uma segunda leitura 3 s depois antes de valer (lista vazia durante recarga pode ser transitória);
 - log de toda releitura, nível Info: `inventario de ramais relido motivo=reload entraram=2 sairam=1 ficaram=810 aguardando_fim_de_chamada=0`.
 
-**Pendente (sem teste automatizado e sem medição).** O inventário incremental (`InventoryListed`, `reconcile`/`removeExt`/`tomb`/`gone`, `removed` no delta, `DoList`/`IsEmptyList`, `IsExtension`, filtro `OnlyListed`, manutenção da latência na releitura) foi entregue **sem testes automatizados novos** por decisão do usuário nesta rodada, e nada foi compilado nem executado; os testes existentes só foram ajustados por leitura. Também não foi medido o custo de CPU e de tempo da goroutine `live` (releitura bloqueia a tradução de eventos enquanto lê, o que cresce com o número de ramais) com 10.000 ramais: fica para a medição na VM. Cobertura a escrever quando liberado: criar, apagar, apagar com chamada ativa, renomear, servidor sem ramais, rajada de `Reload`, fantasma do `DeviceStateList`, falha parcial da releitura.
+**Pendente (sem teste automatizado e sem medição).** O inventário incremental (`InventoryListed`, `reconcile`/`removeExt`/`tomb`/`gone`, `removed` no delta, `DoList`/`IsEmptyList`, `IsExtension`, filtro `OnlyListed`, manutenção da latência na releitura) foi entregue **sem testes automatizados novos** por decisão do usuário nesta rodada, e nada foi compilado nem executado; os testes existentes só foram ajustados por leitura. Também não foi medido o custo de CPU e de tempo da goroutine `live` (releitura bloqueia a tradução de eventos enquanto lê, o que cresce com o número de ramais) com 10.000 ramais: fica para a medição na VM. Conferência ao vivo no servidor (rc.8, D12: não há teste automatizado no repositório): criar, apagar, apagar com chamada ativa, renomear, servidor sem ramais, rajada de `Reload`, fantasma do `DeviceStateList`, falha parcial da releitura.
 
 **Nome.** Depois da leitura, se o motivo foi recarga ou entrou ramal novo, o ciclo de nomes (`PJSIPShowEndpoint`/`SIPshowpeer`, taxa `ami.name_fill_per_second`) recomeça com os **recém-chegados primeiro**. Nome editado no PBX é pego quando o `Callerid` já vem na lista de endpoints (se a captura mostrar que vem) ou na passada de nomes da recarga; sem isso, no ciclo de 6 h.
 
@@ -1014,11 +1168,12 @@ O mesmo arquivo com `;` (`Suporte;2000-2099`) também é aceito, desde que o arq
 
 - UTF-8, BOM aceito. Delimitador `,` ou `;`, detectado na primeira linha de dados e fixo para o arquivo (Excel em português exporta com `;`).
 - Linhas vazias e linhas que começam com `#` são ignoradas. Cabeçalho opcional: só é pulado se a primeira linha de dados for exatamente `grupo<delim>ramal` (sem diferenciar maiúsculas). Qualquer outra linha é dado.
-- `grupo`: 1 a 64 caracteres depois do trim (`store.MaxGroupNameRunes`, a mesma constante que as rotas `create` e `update` validam), diferente de `Sem grupo` (exceto em linha de um ramal, que é ignorada, ver abaixo), só com o espaço comum U+0020 (NBSP U+00A0, U+3000 e os outros separadores Zs são recusados; nas pontas o trim os remove), sem caractere de controle (Cc, inclui C1), de formatação (Cf: marcas bidirecionais U+202A a U+202E e U+2066 a U+2069, largura zero U+200B/E/F, U+061C, U+FEFF) nem separador de linha ou de parágrafo (Zl, Zp: U+2028/2029); é a mesma regra do `<usuario>` do `sub` (seção 3.3). Grupo que não existe é criado.
+- `grupo`: 1 a 64 caracteres depois do trim (`store.MaxGroupNameRunes`, a mesma constante que as rotas `create` e `update` validam), diferente de `Sem grupo` (exceto em linha de um ramal, que é ignorada, ver abaixo) e, desde a rc.8, diferente de `Todos os ramais` (nome reservado da tela, D17 do `desvios.md`; sem diferenciar maiúsculas; erro `"Todos os ramais" e nome reservado`), só com o espaço comum U+0020 (NBSP U+00A0, U+3000 e os outros separadores Zs são recusados; nas pontas o trim os remove), sem caractere de controle (Cc, inclui C1), de formatação (Cf: marcas bidirecionais U+202A a U+202E e U+2066 a U+2069, largura zero U+200B/E/F, U+061C, U+FEFF) nem separador de linha ou de parágrafo (Zl, Zp: U+2028/2029); é a mesma regra do `<usuario>` do `sub` (seção 3.3). Grupo que não existe é criado.
 - `ramal_ou_faixa`: só dígitos (`2150`, **um ramal**) ou `inicio-fim` com `inicio <= fim` (**faixa**). Comparação numérica nas faixas.
 - **Um ramal por linha (`Suporte,2150`) é vínculo manual**: grava o par (número como texto, grupo) em `extension_groups`. Desde a rc.7 ele **soma** à faixa (ADR-006): o ramal fica no grupo da linha e continua nos grupos das faixas que o contêm. Faixa `N-M` continua sendo faixa do grupo (para uma faixa de um número só use `2150-2150`). Como o vínculo é pelo texto digitado, `02150` (zero à esquerda) vira vínculo manual de `02150`; ramal com zero à esquerda ou nome não numérico nunca cai numa faixa (seção 13).
 - **`Sem grupo,2150`**: aceito e **ignorado** (conta em `ignored`), para arquivos antigos continuarem importando; "Sem grupo" é implícito e não tem vínculo. `Sem grupo,2000-2999` continua erro. A linha não cria grupo nenhum.
 - **Pertença** (CSV, CLI, API e tela): o ramal está em todo grupo de faixa que o contém mais todo grupo de vínculo manual; sem nenhum, em `"Sem grupo"`.
+- **`Todos os ramais` reservado (rc.8).** A regra mora num ponto só, `store.ValidGroupName`, que vale para `create`, `new_name` do `update`, CSV pela API (`400 invalid_csv`/`bad_request`) e pela CLI (`group import`, código 1). Sem migração: grupo antigo com esse nome continua no banco, aparece, pode ser **renomeado** e **excluído** (a validação só olha o nome **novo**; `update` e `delete` acham o grupo atual sem validar o nome dele) e continua aceito em `assign` (`validAssignGroup` não muda). Na subida, se o catálogo tiver esse nome, log Warn uma vez: `grupo com nome reservado "Todos os ramais"; renomeie pela tela`.
 - **O mesmo ramal em várias linhas** é aceito (um vínculo por grupo). Linha repetida (mesmo grupo sem diferenciar maiúsculas e mesmo valor) é ignorada sem erro, e também a linha cujo vínculo ou faixa idêntica já existe no banco.
 - **Faixas**: faixas de grupos diferentes podem se sobrepor. Faixas do **mesmo grupo** que se cruzam (no arquivo, ou com as faixas que o grupo já tem quando não há `--replace`) são erro, exceto a faixa idêntica, que é ignorada: `linhas N e M: faixas A-B e C-D do grupo "X" se sobrepoem` ou `linha N: faixa A-B cruza a faixa C-D ja gravada no grupo "X"`. Total de faixas por grupo depois da importação até 1.000 (contando as que já existiam).
 - Tudo ou nada: qualquer erro rejeita o arquivo inteiro e lista até 20 linhas. Com `--replace`, apaga todos os grupos (faixas e vínculos manuais saem por cascade) e importa na mesma transação. **Sem `--replace` a importação só acrescenta**: nunca apaga nem troca vínculo ou faixa existente; grupo citado que não existe é criado. A importação grava uma linha de auditoria (`import`: linhas, `replace`, faixas, vínculos e ignoradas).
@@ -1233,9 +1388,28 @@ CREATE INDEX reg_system_events_at ON reg_system_events(at);
 
 Notas da versão 4:
 - **Expand e contract na mesma versão, de propósito.** `extension_groups` é reconstruída (contract) porque a chave muda; não existe janela em que dois binários usem o mesmo banco (o serviço para no `rpm -U`). O rollback depende do `painel.db.bak-v3` (seção 15.7).
-- **Retenção fixa de 30 dias** para `reg_events`, `reg_hourly` e `reg_system_events` (constante, não segue `history.retention_days`): uma vez por dia (e na subida), `DELETE ... WHERE at < agora - 30 d` (`hour <` no agregado). Não há tabela de intervalo aberto: o intervalo fora do ar aberto vive no estado e se perde num restart do **daemon** (ADR-007, alternativa E).
-- **Gravação de um lote** (uma transação, a cada 2 s ou 500 ocorrências, o que vier antes; `rev` = maior `rev` gravada + 1, lida na subida): (1) `INSERT` em `reg_events`; (2) upsert em `reg_hourly` da hora de cada ocorrência (`ON CONFLICT(number, hour) DO UPDATE` somando o contador do tipo ou `system_events`, `last_drop_at = max(...)` para queda contada, `last_ip`/`last_port` quando a ocorrência tem endereço, `name` quando conhecido, `rev`); (3) para cada fechamento de intervalo fora do ar, upsert de `down_s` em cada hora entre o início e o fim (só os segundos daquela hora, no máximo as últimas 720 horas; soma com teto, `min(3600, down_s + excluded.down_s)`, para um erro de conta nunca derrubar o lote no `CHECK`); (4) `INSERT` em `reg_system_events` dos sinais; (5) para cada ramal do lote, `DELETE FROM reg_events WHERE number = ? AND id < (SELECT id FROM reg_events WHERE number = ? ORDER BY id DESC LIMIT 1 OFFSET 199)` (fica com as 200 mais novas). Falha: rollback, `write_errors++`, log Warn, o lote é descartado.
+- **Retenção fixa de 30 dias** para `reg_events`, `reg_hourly` e `reg_system_events` (constante, não segue `history.retention_days`): uma vez por dia (e na subida), `DELETE ... WHERE at < agora - 30 d` (`hour <` no agregado). rc.8: **em blocos**, para não segurar a única conexão: `reg_events` e `reg_system_events` com `DELETE FROM <t> WHERE id IN (SELECT id FROM <t> WHERE at < ? LIMIT 5000)`; `reg_hourly` (WITHOUT ROWID) com `DELETE FROM reg_hourly WHERE (number, hour) IN (SELECT number, hour FROM reg_hourly WHERE hour < ? LIMIT 5000)`; cada bloco é um comando (autocommit) com prazo de 15 s, repetido até apagar menos de 5.000 linhas; entre blocos a conexão volta ao pool. Falha num bloco: log Warn, para a limpeza e tenta de novo no dia seguinte (dado velho a mais não é perda). Não há tabela de intervalo aberto: o intervalo fora do ar aberto vive no estado e se perde num restart do **daemon** (ADR-007, alternativa E).
+- **Gravação de um lote, rc.8 (ADR-007, nota rc.8).** O gravador junta notas como antes (a cada 2 s ou 500 notas, o que vier antes) e **divide o lote em sublotes por custo** antes de gravar. Custo de uma nota em comandos SQL: ocorrência (`Kind`) = 2 (insert e upsert); fechamento de intervalo (`DownFrom`) = número de horas entre `DownFrom` e `At`, no máximo 720; sinal = 1; mais 1 por ramal distinto do sublote (o corte de 200). Notas entram na ordem em que chegaram; uma nota nunca é partida; o sublote fecha quando a próxima nota passaria de **5.000** (constante `reglog.SubBatchCost`); nota sozinha acima do teto vai num sublote só dela. Cada sublote é **uma transação** com a sua própria `rev` (`rev` + 1 por sublote) e o prazo de 15 s de sempre. Sublote que falha (rollback) é **repetido uma vez** logo em seguida (nova transação, mesma `rev`). Falhou de novo: `write_errors++`, `lost_events += notas do sublote`, `lost_since`/`lost_until` ajustados (seção 4.4) e log Warn `relatorio de registro: ocorrencias perdidas` com `ocorrencias` (quantidade), `de` e `ate` (primeiro e último `At` do sublote, RFC 3339) e `erro`. A perda **nunca** é silenciosa. Repetição que deu certo: log Info `relatorio de registro: sublote gravado na segunda tentativa`. Um único escritor no daemon: todo acesso de escrita usa o mesmo `*store.Store` (pool de uma conexão, `SetMaxOpenConns(1)`), com `busy_timeout(5000)` e `_txlock=immediate` no DSN; nenhum `sql.Open` de escrita novo. Conteúdo de cada sublote, igual ao lote da rc.7:
+- **Gravação de um lote, conteúdo** (`rev` = maior `rev` gravada + 1, lida na subida): (1) `INSERT` em `reg_events`; (2) upsert em `reg_hourly` da hora de cada ocorrência (`ON CONFLICT(number, hour) DO UPDATE` somando o contador do tipo ou `system_events`, `last_drop_at = max(...)` para queda contada, `last_ip`/`last_port` quando a ocorrência tem endereço, `name` quando conhecido, `rev`); (3) para cada fechamento de intervalo fora do ar, upsert de `down_s` em cada hora entre o início e o fim (só os segundos daquela hora, no máximo as últimas 720 horas; soma com teto, `min(3600, down_s + excluded.down_s)`, para um erro de conta nunca derrubar o lote no `CHECK`); (4) `INSERT` em `reg_system_events` dos sinais; (5) para cada ramal do lote, `DELETE FROM reg_events WHERE number = ? AND id < (SELECT id FROM reg_events WHERE number = ? ORDER BY id DESC LIMIT 1 OFFSET 199)` (fica com as 200 mais novas). Falha: rollback e a regra de repetição do item anterior (até a rc.7 o lote inteiro era descartado na primeira falha).
 - **Tamanho esperado** com 10.000 ramais e 30 dias: `reg_events` até 2 milhões de linhas (teto de 200 por ramal); `reg_hourly` proporcional a ramal x hora com ocorrência (dezenas de milhares em operação normal).
+
+Versão 5 (rc.8: nome da fila, ADR-009; `PRAGMA user_version = 5`, aplicada por migração sobre a v4). Só aditiva.
+
+```sql
+-- Nome dado pelo painel a uma fila do Asterisk (a chave e o identificador do AMI, ex.: '600').
+-- Sem linha = sem nome (a tela mostra "Fila 600"). updated_by = subject da sessao que gravou.
+CREATE TABLE queue_names (
+  queue      TEXT    PRIMARY KEY CHECK (length(queue) BETWEEN 1 AND 64),
+  name       TEXT    NOT NULL CHECK (length(name) BETWEEN 1 AND 64 AND name = trim(name)),
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT    NOT NULL CHECK (length(updated_by) BETWEEN 1 AND 128)
+) STRICT, WITHOUT ROWID;
+```
+
+Notas da versão 5:
+- **Um backup só por subida.** O `store.migrate` faz o `VACUUM INTO painel.db.bak-v<versão inicial>` **uma vez**, antes do laço, e aplica cada migração numa transação própria (`internal/store/store.go:86-95` na tag `v0.1.2-rc.7`; a rc.8 não muda essa forma). Banco 3 (rc.6, o caso do usuário) passa por 3, 4 e 5 na mesma subida e gera **só** `painel.db.bak-v3`; banco 4 (rc.7) gera `painel.db.bak-v4`. Falha da 4 para 5 depois de a 3 para 4 passar: o banco fica no esquema 4, o daemon não sobe e o `.bak-v3` continua valendo para o rollback (seção 15.7).
+- Lida inteira na subida e depois de cada escrita (`LoadQueueNames`), entregue ao estado como `QueueNamesLoaded` (seção 11.1). Sem retenção: uma linha por fila nomeada.
+- `painel-ramais version` passa a dizer `schema 5`.
 
 Todo nome que entra (callerid do Asterisk, display name do telefone, cache antigo, nome do outro lado da chamada) passa por `model.CleanName`: sem caracteres de controle ou de formatação (categorias Unicode `C*`: C0/C1, bidi U+202A..202E e U+2066..2069, largura zero, BOM), espaços colapsados e no máximo 64 caracteres. A tela da fase 2 deve mostrar nomes só como texto (nunca `innerHTML`) e com CSP estrita. Ao fim de cada sincronização completa o daemon expurga do cache os ramais que não existem mais no PBX (lista vazia não expurga).
 
@@ -1258,7 +1432,8 @@ Os adaptadores `sip` e `pjsip` traduzem mensagens AMI nestes tipos. O supervisor
 
 | Tipo | Campos | Efeito no estado |
 |---|---|---|
-| `AMIDisconnected` | `Reason` | todos os ramais para `unknown`, `calls` vazias, `ami_connected=false`, epoch novo |
+| `AMIDisconnected` | `Reason` | todos os ramais para `unknown`, `calls` vazias, `ami_connected=false`, epoch novo; rc.8: projeção de chamadas e de filas vazia (o `Reset` leva `calls: []` e `queues: []`) |
+| `QueueNamesLoaded` | `Names map[string]string` (fila para nome; ausente = sem nome) | rc.8: troca os nomes das filas; cada fila cujo `name` mudou fica suja e vai no próximo delta; **sem epoch novo** (emitido pelo `cmd` na subida e depois de cada `POST /api/queues/rename`) |
 | `SyncStarted` | `Technology`, `AsteriskVersion`, `Reason` (`connect` ou `overflow`) | começa estado de montagem separado; a visão publicada continua a anterior |
 | `SyncFinished` | (nenhum) | troca a visão pela montada, `ami_connected=true`, epoch novo |
 | `NamesLoaded` | `Names map[string]string` | cache de nomes (número para callerid); só preenche ramal sem nome; sem epoch novo (emitido pelo `cmd` na subida) |
@@ -1282,18 +1457,20 @@ Regra do epoch: mudança em massa (queda do AMI, fim de sincronização) gera ep
 
 | Tipo | Campos | Evento AMI |
 |---|---|---|
-| `ChannelCreated` | `Uniqueid`, `Linkedid`, `Channel`, `Endpoint` (vazio se Local ou outro), `IsLocal`, `CallerNum`, `CallerName`, `Exten`, `Up bool`, `BridgeID` (só no snapshot), `Duration` (só no snapshot), `Dialed` (só no snapshot: `Application=AppDial`/`(Outgoing Line)`, canal destino de um Dial), `DialData` (só no snapshot: argumentos do Dial, quando `Application=Dial`) | `Newchannel`, `CoreShowChannel` |
-| `ChannelStateChanged` | `Uniqueid`, `State` (`down`, `ring`, `ringing`, `up`, `busy`, `other`) | `Newstate` |
-| `CallerIDChanged` | `Uniqueid`, `Num`, `Name` | `NewCallerid` |
-| `ConnectedLineChanged` | `Uniqueid`, `Num`, `Name` | `NewConnectedLine` |
-| `DialStarted` | `SrcUniqueid`, `DstUniqueid` | `DialBegin` |
+| `ChannelCreated` | `Uniqueid`, `Linkedid`, `Channel`, `Endpoint` (vazio se Local ou outro), `IsLocal`, `CallerNum`, `CallerName`, `Exten`, `Up bool`, `BridgeID` (só no snapshot), `Duration` (só no snapshot), `Dialed` (só no snapshot: `Application=AppDial`/`(Outgoing Line)`, canal destino de um Dial), `DialData` (só no snapshot: argumentos do Dial, quando `Application=Dial`), `Queue` (rc.8, só no snapshot: primeiro argumento do `ApplicationData` quando `Application=Queue`) | `Newchannel`, `CoreShowChannel` |
+| `ChannelStateChanged` | `Uniqueid`, `Linkedid` (rc.8), `State` (`down`, `ring`, `ringing`, `up`, `busy`, `other`) | `Newstate` |
+| `CallerIDChanged` | `Uniqueid`, `Linkedid` (rc.8), `Num`, `Name` | `NewCallerid` |
+| `ConnectedLineChanged` | `Uniqueid`, `Linkedid` (rc.8), `Num`, `Name` | `NewConnectedLine` |
+| `DialStarted` | `SrcUniqueid`, `DstUniqueid`, `SrcLinkedid` (rc.8, `Linkedid`), `DstLinkedid` (rc.8, `DestLinkedid`), `DialString` (rc.8, `DialString`) | `DialBegin` |
 | `DialEnded` | `SrcUniqueid`, `DstUniqueid`, `Status` | `DialEnd` |
-| `BridgeEntered` | `BridgeID`, `Uniqueid` | `BridgeEnter` |
-| `BridgeLeft` | `BridgeID`, `Uniqueid` | `BridgeLeave` |
-| `HoldChanged` | `Uniqueid`, `OnHold bool` | `Hold`, `Unhold` |
+| `BridgeEntered` | `BridgeID`, `Uniqueid`, `Linkedid` (rc.8) | `BridgeEnter` |
+| `BridgeLeft` | `BridgeID`, `Uniqueid`, `Linkedid` (rc.8) | `BridgeLeave` |
+| `HoldChanged` | `Uniqueid`, `Linkedid` (rc.8), `OnHold bool` | `Hold`, `Unhold` |
 | `ChannelHungup` | `Uniqueid`, `Cause` | `Hangup` |
 
 `Endpoint` sai do nome do canal: `PJSIP/2001-0000002a` e `SIP/2001-0000002a` viram `2001`. Essa extração é a única parte de chamada que muda entre as tecnologias; a tradução dos eventos de chamada é compartilhada em `ami/calls`.
+
+**`Linkedid` atualizado (rc.8, ADR-008).** `Linkedid` vazio no evento = sem mudança. Não vazio e diferente do guardado: o estado move o canal de grupo (`byLinked`) **antes** de aplicar o resto do evento, dentro do mesmo `mutate` (os ramais afetados antes e depois incluem os dois grupos). No `DialStarted`, `SrcLinkedid` vale para o canal de origem e `DstLinkedid` para o de destino. `ChannelHungup` não muda grupo. Quem atualiza é só `internal/state/channels.go`; `internal/state/view.go` não muda na rc.8.
 
 Restauração por snapshot: o `CoreShowChannels` não traz os `DialBegin`. No fim da sincronização o `state` refaz as relações de Dial por Linkedid (quem executa `Dial` casado com o canal `AppDial` pelo argumento do Dial; o que não casa por nome liga quando só resta um par). `Dialed` mantém a direção `outbound` de chamada de saída restaurada. `hold` não vem do `CoreShowChannels` (limite do protocolo): chamada em espera volta como `talking`. Com vários Dial sem casar por nome e vários destinos soltos no mesmo Linkedid, o peer fica `unknown` até atender.
 
@@ -1304,7 +1481,9 @@ Fila entre leitor AMI e estado: canal com capacidade 65536. A goroutine leitora 
 | Tipo | Campos | Quando |
 |---|---|---|
 | `Batch` | `Epoch`, `FromVersion`, `ToVersion`, `AMIConnected`, `Extensions []Extension`, `Removed []string` (números que saíram, ordenados, disjuntos de `Extensions`; cada remoção conta uma mudança na versão), `Groups []Group` (catálogo completo, só quando mudou; `nil` = não mudou; a versão avança pelo menos 1 mesmo sem ramal afetado) | a cada 250 ms com mudança |
-| `Reset` | `Epoch`, `Version`, `AMIConnected`, `Technology`, `Extensions []Extension` (todos), `Groups []Group` (catálogo, para o hub servir `/api/groups` e o `groups` do snapshot) | a cada epoch novo |
+| `Reset` | `Epoch`, `Version`, `AMIConnected`, `Technology`, `Extensions []Extension` (todos), `Groups []Group` (catálogo, para o hub servir `/api/groups` e o `groups` do snapshot), rc.8: `Calls []LiveCall` e `Queues []Queue` (todos, nunca `nil`) | a cada epoch novo |
+
+rc.8 (ADR-008): `Batch` ganha `Calls []LiveCall` (mudadas, estado completo), `CallsRemoved []string`, `Queues []Queue` (mudadas, completas), `QueuesRemoved []string`; `nil`/vazio = nada daquele tipo, e o hub só escreve a chave no delta quando a lista tem item (seção 5.2). O hub guarda as duas projeções (mapa por `id` e por `queue`) para o snapshot e para a rota de renomear (existência da fila). `ToVersion - FromVersion` = mudanças de ramal (como antes) + itens das quatro listas novas; o lote sai se **qualquer** das listas (ramais, removidos, catálogo, chamadas, chamadas removidas, filas, filas removidas) tiver item.
 
 `Extension` e `Call` do `model` têm as tags JSON da seção 2: o formato da seção 2 é o próprio `json.Marshal` desses tipos. rc.7: `Extension` troca `Group`/`GroupManual` por `Groups`, `RangeGroups`, `ManualGroups []string` (tags `groups`, `range_groups`, `manual_groups`, nunca `nil` no JSON) e ganha `DownSince *time.Time` com tag `json:"-"` (fora do snapshot e do delta; o hub o guarda para a seção 4.7 montar `down_open_since`).
 
@@ -1323,8 +1502,34 @@ Fila entre leitor AMI e estado: canal com capacidade 65536. A goroutine leitora 
 **No gravador** (`internal/reglog`, goroutine própria, criado e ligado pelo `cmd`):
 - O `cmd` implementa `OnReg` como envio **sem bloqueio** (`select` com `default`) num canal de 16.384 `RegNote`; cheio, descarta e soma `dropped`. Constante, não configurável.
 - Lote a cada 2 s ou 500 itens, o que vier antes, numa transação (seção 10, "Gravação de um lote"); no desligamento grava o que sobrou. Limpeza da retenção de 30 dias uma vez por dia e na subida.
-- Expõe `model.RegStatus{QueueLen, QueueCap int; Dropped, WriteErrors uint64}`, injetado no `api.Server` como `RegStatus func() model.RegStatus` (o `api` não importa `reglog`); `suppressed_until` vem de `Stats.SuppressedUntil`.
+- rc.8: o lote é gravado em sublotes por custo, com uma repetição e perda contada (seção 10, "Gravação de um lote, rc.8"); a limpeza é em blocos de 5.000.
+- Expõe `model.RegStatus{QueueLen, QueueCap int; Dropped, WriteErrors uint64}` (rc.8: mais `LostEvents uint64` e `LostSince, LostUntil time.Time`, zero = nenhuma perda), injetado no `api.Server` como `RegStatus func() model.RegStatus` (o `api` não importa `reglog`); `suppressed_until` vem de `Stats.SuppressedUntil`.
 - As rotas da seção 4.7 leem do `store` (consultas novas) e da projeção do hub (nome, grupos, presença e `DownSince` atuais).
+
+### 11.6 Filas e projeção de chamadas (rc.8, ADR-008)
+
+**Eventos normalizados de fila** (tradução em `internal/ami/queues`, comum às duas tecnologias, chamada no laço ao vivo do supervisor ao lado do `Translate` do adaptador):
+
+| Tipo | Campos | Evento AMI |
+|---|---|---|
+| `QueueCallerJoined` | `Queue`, `Uniqueid`, `CallerNum`, `CallerName` | `QueueCallerJoin` |
+| `QueueCallerLeft` | `Queue`, `Uniqueid` | `QueueCallerLeave`, `QueueCallerAbandon` |
+| `QueueMemberChanged` | `Queue`, `Member QueueMember` | `QueueMemberStatus`, `QueueMemberPause`, `QueueMemberAdded` |
+| `QueueMemberRemoved` | `Queue`, `Interface` | `QueueMemberRemoved` |
+| `QueueAgentConnected` | `Queue`, `Uniqueid` (canal do chamador) | `AgentConnect` |
+| `QueuesListed` | `Full bool`, `Queue string` (só com `Full = false`), `Queues []QueueSnapshot`, `Unsupported bool` | resposta da `QueueStatus` |
+
+`QueueMember{Interface, StateInterface, Name, PausedReason string; Status, CallsTaken int; Paused, InCall bool}` (eventos: `Interface`, `StateInterface`, `MemberName`, `Status`, `Paused`, `PausedReason`, `InCall`, `CallsTaken`; `QueueStatus`: `Location` no lugar de `Interface`, `Name` no lugar de `MemberName`). `QueueSnapshot{Queue string; Completed, Abandoned, ServiceLevel int; ServiceLevelPerf float64; Members []QueueMember; Entries []QueueEntry}`; `QueueEntry{Uniqueid, CallerNum, CallerName string; Wait time.Duration}`. Todo texto passa por `model.CleanName`. `AgentCalled`, `AgentComplete` e `AgentRingNoAnswer` não geram evento normalizado.
+
+**No estado** (goroutine única, nunca bloqueia; os dois tipos moram no `State`, em arquivos novos de `internal/state`, fora da `view`):
+- Filas: mapa por `queue`. `QueueCallerJoined` cria a fila se não existe (`stats_at: null`) e insere ou atualiza a entrada pelo `Uniqueid` (idempotente). `QueueCallerLeft` remove a entrada (ausente: nada). `QueueMemberChanged` insere ou substitui o membro pela `Interface`; `QueueMemberRemoved` remove. `QueueAgentConnected` marca o Uniqueid como "atendido via fila X" (vale até o `Hangup` do canal). `QueuesListed{Full: true}` substitui **todas** as filas (as ausentes saem); `{Full: false}` substitui só `Queue` (sem `QueueParams` na resposta: a fila sai). `Unsupported: true` deixa a lista vazia. Cada fila alterada fica suja; a mudança das entradas também suja a chamada do chamador.
+- Chamadas: mapa por `Linkedid` com o que é guardado na primeira montagem (origem externa ou ramal, `started_at`) e a última `LiveCall` publicada. Cada evento de canal aplicado na visão **publicada** marca como sujo o `Linkedid` dos canais citados antes e depois de aplicar (e, em `BridgeEntered`/`BridgeLeft`, o dos canais daquela bridge); evento de fila marca o `Linkedid` do canal do chamador. Eventos aplicados na visão em montagem não marcam nada: no `SyncFinished` a projeção inteira é refeita da visão nova (o `Reset` leva tudo). `InventoryListed` que mudou o inventário marca todas as chamadas.
+- `Flush`: para cada `Linkedid` sujo, remonta a linha em O(k) (k = canais do grupo), compara com a publicada e põe em `Calls` (mudou ou nova) ou `CallsRemoved` (sumiu); o mesmo para as filas sujas. Depois reavalia as chamadas que esperam o prazo de 1 s do "Local sem par" (seção 2.3) e registra o log. A versão avança pela soma da seção 11.4.
+
+**Reconciliação com `QueueStatus`** (no laço ao vivo do supervisor, mesma goroutine que traduz os eventos e lê o inventário: o que chega durante a leitura é aplicado depois da lista, então os eventos de fila precisam ser idempotentes como descrito acima):
+- **Completa** (sem parâmetro): logo depois de cada sincronização (`connect` e `overflow`), depois de cada releitura de inventário com motivo `reload`, e a cada **10 min** (constante `queueFullEvery`, ticker próprio). Prazo de 30 s.
+- **Por fila** (`Queue: <fila>`): `QueueCallerLeave`, `QueueCallerAbandon` ou `AgentComplete` marcam a fila como pendente; a cada volta do `poll` (250 ms) roda para cada fila pendente cuja última leitura (completa ou por fila) tem 30 s ou mais (constante `queueMinGap`). Prazo de 10 s.
+- **Erro**: resposta `Error` cujo texto contém `Invalid/unknown command` (sem diferenciar maiúsculas) na completa = módulo de filas ausente: `QueuesListed{Full: true, Unsupported: true}`, log Info uma vez por sessão, `queues.unsupported = true`. Qualquer outro erro (ou prazo): `queues.refresh_errors++`, log Warn com `fila` (vazio na completa) e `erro`; o estado continua como estava (nada é apagado por erro). Queda da conexão durante a leitura segue o caminho normal de reconexão.
 
 ---
 
@@ -1341,6 +1546,7 @@ internal/state/        estado em memória, correlação de canais, versão, epoc
 internal/model/        tipos: Extension, Call, enums, eventos normalizados, Batch, Reset
 internal/ami/          conexão, framing, login, allowlist de actions, leitura sem bloqueio
 internal/ami/calls/    tradução dos eventos de chamada (comum a sip e pjsip)
+internal/ami/queues/   rc.8: tradução dos eventos de fila e leitura da QueueStatus (comum a sip e pjsip)
 internal/ami/sip/      adaptador chan_sip
 internal/ami/pjsip/    adaptador chan_pjsip
 internal/history/      amostrador por minuto (gap, retenção); importa model e store
@@ -1351,19 +1557,19 @@ internal/config/       leitura e validação do config.yaml
 internal/depcheck/     verificação de dependências (arquivos, resultado de login AMI, chave do Issabel e item do menu no `menu.db`, lido com o driver sqlite do store)
 instalar.py            instalador (raiz do repositório; Python 3.6, stdlib)
 tools/bundle.py        monta dist/painel-ramais-<versao>.tar.gz (modo 0755 e LF garantidos; seção 15.1); tools/check-lf.ps1
-tests/                 testes unitários do instalar.py (unittest)
 packaging/             nfpm.yaml, unit, scripts do RPM, httpd.conf.tmpl, config.yaml.example, LEIAME-INSTALACAO.md, grupos-exemplo.csv
 ```
 
 Grafo de importação interna (uma linha por pacote; `->` lista o que ele importa). Verificado sem ciclo por script (seção 14).
 
 ```deps
-cmd/painel-ramais -> internal/api, internal/state, internal/model, internal/ami, internal/ami/sip, internal/ami/pjsip, internal/store, internal/auth, internal/config, internal/depcheck, internal/history, internal/reglog, internal/web
+cmd/painel-ramais -> internal/api, internal/state, internal/model, internal/ami, internal/ami/sip, internal/ami/pjsip, internal/ami/queues, internal/store, internal/auth, internal/config, internal/depcheck, internal/history, internal/reglog, internal/web
 internal/api -> internal/state, internal/model, internal/store, internal/auth, internal/depcheck
 internal/state -> internal/model
 internal/ami/sip -> internal/ami, internal/ami/calls, internal/model
 internal/ami/pjsip -> internal/ami, internal/ami/calls, internal/model
 internal/ami/calls -> internal/ami, internal/model
+internal/ami/queues -> internal/ami, internal/model
 internal/ami ->
 internal/model ->
 internal/history -> internal/model, internal/store
@@ -1406,6 +1612,11 @@ Regras:
 | S11 | rc.7: o Asterisk 18 do Issabel manda `Event: Shutdown` (privilégio `system`) antes de parar e o `eventfilter = Event: Shutdown` o deixa passar; `FullyBooted` chega depois do Login e depois do boot | no servidor: `asterisk -rx "core restart gracefully"` com o painel ligado; `reg_system_events` deve ganhar `shutdown`, `ami_connected` e `fully_booted` | backend |
 | S12 | rc.7: `ContactStatus` traz a porta no `ViaAddress` (ou no `URI`) e `PeerStatus` no `Address` (`ip:porta`) | no servidor: `reg_events.port` preenchido depois de um telefone re-registrar; vazio não quebra nada | backend |
 | S10 | Nomes dos eventos AMI de recarga no Asterisk 18 do Issabel (`Reload`, `ModuleLoadReport`, `FullyBooted`, outro?) e se passam pelo `eventfilter`; se criar ou apagar ramal no IssabelPBX (Apply Config) gera `Reload` e quantos; texto exato da resposta de lista vazia (`No endpoints found`, `No AORs found`, `No contacts found`); se `EndpointList` traz `Callerid`; outros endpoints internos além de `dummy_endpoint` | captura da homologação: criar, renomear e apagar um ramal e aplicar a configuração com `capturar` rodando | backend |
+| S13 | rc.8: `DialBegin` traz `DialString` com o destino do Dial (`num@tronco` no PJSIP, `tronco/num` no SIP, `g0/num` no DAHDI) | chamada de saída no servidor: a linha de "Externas saintes" mostra o número discado; sem o campo, mostra o `Exten` do ramal | backend |
+| S14 | rc.8: depois de transferência assistida e cega, o canal que fica recebe o `Linkedid` da chamada mais antiga e um evento seguinte (`BridgeEnter`, `Newstate`, `NewConnectedLine`) o traz | transferir uma entrante de A para B: a linha mantém o `id`, mostra B, e a linha interna A para B some | backend |
+| S15 | rc.8: nomes, campos e privilégio `agent` dos eventos de fila (seção 7.2, 11.6) e formato da resposta da `QueueStatus` (`QueueParams`, `QueueMember` com `Location`, `QueueEntry` com `Wait`, `QueueStatusComplete`) no Asterisk 18; `QueueStatus` sem privilégio de escrita | `instalar.py homologar` (`manager show event QueueCallerJoin` e os demais, `manager show command QueueStatus`) e uma ligação para uma fila com `capturar` rodando | backend |
+| S16 | rc.8: interface dos membros no Issabel (`Local/2001@from-queue/n`, `StateInterface` `hint:2001@ext-local` ou `PJSIP/2001`) | fila com agentes no servidor: a coluna de ramal dos agentes vem preenchida | backend |
+| S17 | rc.8: nome de canal DAHDI, IAX2 e Khomp (regra do tronco da seção 2.3) | chamada por cada tronco existente: o rótulo do tronco sai curto e legível | backend |
 
 ---
 
@@ -1414,6 +1625,8 @@ Regras:
 Script de conferência (rodado no scratchpad, fora do repositório): extrai os blocos `json`, `sql` e `deps` deste arquivo e confere que (a) todo bloco JSON faz parse, (b) cada endpoint e mensagem (snapshot, delta, hello, reload, health, history, groups, login, logout, token) tem exemplo, (c) a DDL roda num SQLite em memória e o trigger rejeita faixa sobreposta, (d) o grafo não tem ciclo e as folhas não importam pacote interno (o bundle agora é `tools/bundle.py`, fora do grafo Go). As seções 15 a 17 (instalador, critérios, documentação) são texto e tabela; a conferência delas é a leitura contra o adendo. Resultado registrado no retorno do tech-lead de 2026-10-13.
 
 rc.7 (2026-10-19): as seções 2.1, 4.6, 4.7, 9, 10 (versão 4), 11.5 e 12 foram conferidas **só por leitura**, sem executar nada (regra do usuário: nenhum teste no PC dele; a validação é ao vivo no servidor). A DDL da versão 4 não foi rodada em SQLite; o @revisor a confere por leitura contra a `ddlV4` do código, e a primeira subida no servidor é a prova (se falhar, a migração é uma transação: o banco continua na versão 3, o daemon não sobe e o `instalar.py rollback` reinstala a rc.6 sem precisar do `.bak-v3`).
+
+rc.8 (2026-10-19): as seções 0 (D11, D12), 1, 1.2, 2.2 a 2.4, 4.1, 4.4, 4.8, 5.2, 7.1, 7.2, 9, 10 (versão 5 e gravação em sublotes), 11.1, 11.3, 11.4, 11.5, 11.6, 12, 13, 15.5 e 15.7 foram conferidas **só por leitura** (D12: não há mais teste automatizado no repositório; nada foi executado). Os 32 blocos JSON do documento fazem parse (script `node` de leitura do próprio documento, sem tocar no produto); o @revisor confere `json.Marshal` dos tipos novos contra eles e a `ddlV5` contra o bloco SQL. A DDL da versão 5 não foi rodada.
 
 ---
 
@@ -1432,7 +1645,7 @@ Origem: `docs/ADENDO-FASE-1-INSTALADOR.md`. Substitui o `discovery.sh`, que não
 
 - Python 3.6 ou superior, só biblioteca padrão, sem pip.
 - Proibido (não existe no 3.6): `dataclasses`, `subprocess.run(capture_output=...)` e `text=` (usar `stdout=PIPE, stderr=PIPE, universal_newlines=True`), `from __future__ import annotations`, operador `:=`, `datetime.fromisoformat`, `asyncio.run`.
-- Conferência no desenvolvimento: `vermin --target=3.6- instalar.py tools/bundle.py` sem violação (resultado em 2026-10-13: mínimo 3.5, venv em `.tools/venv`). **Exceção de tamanho:** o `instalar.py` passa de 800 linhas (cerca de 980). Não foi dividido porque o instalador precisa funcionar a partir de um único arquivo executável copiado do bundle, com a primeira linha poliglota (`sh`/`python`) e testes que fazem `mock.patch` das funções do módulo; dividir em módulo auxiliar mudaria o `sys.path` do `platform-python` e a forma de patch. Aceito como exceção.
+- Conferência no desenvolvimento: `vermin --target=3.6- instalar.py tools/bundle.py` sem violação (resultado em 2026-10-13: mínimo 3.5, venv em `.tools/venv`). **Exceção de tamanho:** o `instalar.py` passa de 800 linhas (cerca de 980). Não foi dividido porque o instalador precisa funcionar a partir de um único arquivo executável copiado do bundle, com a primeira linha poliglota (`sh`/`python`); dividir em módulo auxiliar mudaria o `sys.path` do `platform-python`. Aceito como exceção. (rc.8: os testes em `tests/` foram removidos, D12; a conferência é `vermin` e `ast.parse`, sem executar.)
 - Primeiras linhas poliglotas: o `sh` executa o próprio arquivo com `python3` se existir, senão com `/usr/libexec/platform-python` (presente no Rocky 8 mínimo); para o Python as mesmas linhas são uma string sem efeito. Forma de referência: em 2026-10-13 o `sh` do Git Bash escolheu o `python3` falso quando existia e o `platform-python` falso quando não, repassando os argumentos, e o Python 3.12 executou o arquivo; falta confirmar no Rocky 8 mínimo (A7):
 
 ```
@@ -1512,6 +1725,8 @@ Upgrade que muda o esquema do banco (rc.4 para rc.5: schema 2 para 3, tabelas `e
 
 Upgrade rc.6 para rc.7 (schema 3 para 4, seção 10, versão 4): uma migração só, com o backup `painel.db.bak-v3` antes; vínculos manuais com grupo migram sem perda, "Sem grupo" manual é descartado (log Warn com a lista), `reg_meta.since` recebe a hora do upgrade. O `%post` regrava o bloco AMI com `eventfilter = Event: Shutdown` e faz `manager reload`. O `group import --replace` do instalador continua valendo (CSV antigo com `Sem grupo,N` é aceito e a linha ignorada). O `versao.txt` registra `schema 4`.
 
+Upgrade rc.6 para rc.8 (o caso do usuário: a rc.7 não foi instalada; schema 3 para 5): **uma** subida do daemon aplica 3 para 4 e 4 para 5, cada uma na sua transação, com **um** backup só, `painel.db.bak-v3` (seção 10, notas da versão 5); tudo o que a rc.7 fazia no upgrade vale aqui (vínculos manuais migram, "Sem grupo" manual descartado com log Warn, `reg_meta.since` = hora do upgrade). O `%post` regrava o bloco AMI com `read = system,call,agent`, o `eventfilter = Event: Shutdown` e os onze eventos de fila (seção 7.2) e faz `manager reload`. CSV do instalador com o nome `Todos os ramais` passa a ser recusado (seção 9). O `versao.txt` registra `schema 5`. De rc.7 para rc.8: só 4 para 5, backup `painel.db.bak-v4`.
+
 Falha do passo 3 em diante: não desfaz nada, mostra o passo, o erro e o comando para diagnosticar (`journalctl -u painel-ramais -n 50`, `./instalar.py status`, `httpd -t`), sai com 2.
 
 Idempotência:
@@ -1536,6 +1751,8 @@ Lê `GET http://127.0.0.1:<porta>/api/health` (porta do `config.yaml`) e `system
 6. `systemctl start painel-ramais`, espera o health como no passo 8 do `instalar`, troca `rpm-instalado/` e `rpm-anterior/`.
 
 Rollback da rc.7 (schema 4) para a rc.6 (schema 3): o passo 2 detecta o banco mais novo e o passo 5 restaura **automaticamente** o `painel.db.bak-v3` (o banco 4 fica guardado como `painel.db.rollback-<data>`). Antes da confirmação o plano mostra, com todas as letras: "o banco volta ao estado de antes da atualização; vínculos de ramal em vários grupos, o relatório de registros, e todo histórico, sessão, usuário e grupo gravados depois da atualização serão PERDIDOS". A rc.6 nunca abre banco 4: `store.migrate` recusa iniciar com "banco com esquema 4, este binario conhece ate 3 (downgrade nao suportado)" (conferido por leitura na tag `v0.1.2-rc.6`, `internal/store/store.go:66-67`). Sem o `.bak-v3`, o rollback sai com 2 sem mexer em nada (regra já existente).
+
+Rollback da rc.8 (schema 5) para a rc.6 (schema 3), o caso do usuário: igual ao anterior, restaurando o `painel.db.bak-v3`. O `instalar.py` muda **só** a condição e o texto do aviso específico: condição `sch_ant == 3 and sch_db >= 4` (era `sch_db == 4`); texto "ATENCAO: voltando para a rc.6 (esquema 3); o banco esta no esquema N. O banco volta ao estado de antes da atualizacao (painel.db.bak-v3). Os vinculos de ramal em mais de um grupo, o relatorio de registros, os nomes de fila e tudo o que foi gravado depois da atualizacao (historico, sessoes, usuarios e grupos) serao PERDIDOS." (`N` = `sch_db`; a lista de perdas da rc.7 continua, acrescida de "os nomes de fila"). O aviso genérico que vem depois continua. A rc.6 nunca abre banco 4 ou 5 (recusa na subida). Rollback da rc.8 para a rc.7 (quem instalou a rc.7 antes): restaura `painel.db.bak-v4` pelo caminho genérico (perde os nomes de fila e o que foi gravado depois).
 
 Um nível só de rollback. Voltar da rc.5 (schema 3) para a rc.4 (schema 2) restaura `painel.db.bak-v2`: as atribuições manuais de ramal, a auditoria de grupos e todas as alterações de grupo, usuário e histórico feitas depois do upgrade são **perdidas** (o binário da rc.4 recusa abrir banco schema 3). O plano do rollback avisa isso quando detecta schema mais novo.
 
@@ -1608,7 +1825,7 @@ Suposição nova, **S9**: o nome do pacote que marca "Issabel 5 presente" (candi
 8. Formato do snapshot e dos deltas para a fase 2 (resumo e link para as seções 2, 4 e 5 deste contrato)
 9. Atualização, rollback, remoção e limpeza total
 10. Solução de problemas: `/api/health` e `deps`, `journalctl`, AMI não conecta, include ausente, `httpd -t` falhou, SELinux, cookie `Secure` em `http://`, porta ocupada, banco com esquema mais novo que o binário
-11. Desenvolvimento: alvos `build`, `test`, `rpm`, `bundle` (Makefile e `build.ps1`), simulador, teste de carga, LF e `.gitattributes`, `vermin`
+11. Desenvolvimento: alvos `build`, `rpm`, `bundle`, `all`, `release` do `build.ps1` (rc.8: o alvo `test` saiu, D12), simulador, teste de carga (só na VM), LF e `.gitattributes`, `vermin`
 
 `LEIAME-INSTALACAO.md` (vai no bundle, para técnico de campo):
 1. Copiar e extrair o tar.gz

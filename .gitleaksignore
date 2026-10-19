@@ -1,13 +1,6 @@
-# Falsos positivos do gitleaks (generic-api-key): vetores de teste e exemplos de documentacao.
-# Sao chaves/tokens de EXEMPLO publicados no plano e no CONTRATOS (bytes 0x00-0x3f, tokens com exp=1791902460,
-# ja vencidos em 2026-10-13); nenhum segredo real. Fingerprint inclui o numero da linha: se o arquivo mudar de
-# linha, rode `gitleaks detect --no-git` e atualize aqui (nunca ignore um achado sem conferir que e vetor de teste).
-internal/config/config_unix_test.go:generic-api-key:12
-internal/config/config_unix_test.go:generic-api-key:14
-internal/api/sec_test.go:generic-api-key:40
-internal/auth/token_test.go:generic-api-key:13
-internal/auth/token_test.go:generic-api-key:17
-internal/auth/token_test.go:generic-api-key:21
-internal/auth/token_test.go:generic-api-key:27
-internal/api/tela_test.go:generic-api-key:16
-docs/CONTRATOS.md:generic-api-key:238
+# Falsos positivos do gitleaks (generic-api-key): exemplos de documentacao.
+# E o token de EXEMPLO do CONTRATOS 3.3 (assinado com a chave de exemplo 0x00-0x3f, exp=1791902460,
+# ja vencido em 2026-10-13); nenhum segredo real. Fingerprint inclui o numero da linha: se o arquivo mudar de
+# linha, rode `gitleaks detect --no-git` e atualize aqui (nunca ignore um achado sem conferir que e exemplo).
+# rc.8: os *_test.go foram removidos do repositorio (D12 do CONTRATOS), e as linhas deles sairam daqui.
+docs/CONTRATOS.md:generic-api-key:328
