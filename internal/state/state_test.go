@@ -335,8 +335,8 @@ func TestGroupsAndUnknownEndpoints(t *testing.T) {
 	if !ok || len(r.Groups) != 2 || r.Epoch != epoch || len(r.Extensions) != 1 || r.ToVersion <= r.FromVersion {
 		t.Fatalf("GroupsLoaded gera Batch com o catalogo, no mesmo epoch: %+v", r)
 	}
-	if h.ext("2001").Group != "Suporte" || h.ext("2002").Group != model.NoGroup {
-		t.Errorf("grupos: %s, %s", h.ext("2001").Group, h.ext("2002").Group)
+	if g1, g2 := h.ext("2001").Groups, h.ext("2002").Groups; !sameNames(g1, []string{"Suporte"}) || !sameNames(g2, []string{model.NoGroup}) {
+		t.Errorf("grupos: %v, %v", g1, g2)
 	}
 	// Evento de endpoint desconhecido cria o ramal no epoch atual; tronco nao vira ramal.
 	h.feed(model.RegistrationChanged{At: h.step(), Name: "2099", State: model.RegRegistered}, model.RegistrationChanged{At: h.step(), Name: "tronco2", State: model.RegRegistered})
@@ -346,8 +346,8 @@ func TestGroupsAndUnknownEndpoints(t *testing.T) {
 	}
 	cases := map[string]string{"2000": "Suporte", "2001": "Suporte", "2002": model.NoGroup, "5": "Baixos", "05": model.NoGroup, "abc": model.NoGroup, "99999999999999999999": model.NoGroup}
 	for n, want := range cases {
-		if got := groupFor(h.s.groups, n); got != want {
-			t.Errorf("groupFor(%q) = %q, queria %q", n, got, want)
+		if got, _, _ := h.s.gi.resolve(n); !sameNames(got, []string{want}) {
+			t.Errorf("resolve(%q) = %v, queria [%q]", n, got, want)
 		}
 	}
 	if st := h.s.Stats(); st.Trunks != 2 || st.ByGroup["Suporte"].Registered != 1 {

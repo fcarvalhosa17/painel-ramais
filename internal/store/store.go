@@ -27,9 +27,23 @@ var (
 // pelo busy_timeout.
 // ponytail: uma conexao; subir o pool se a leitura de historico atrapalhar o login.
 type Store struct {
-	db   *sql.DB
-	path string
+	db     *sql.DB
+	path   string
+	report MigrationReport
 }
+
+// MigrationReport traz o que a migracao descartou, para quem abriu o banco (daemon ou CLI) registrar
+// no log. A migracao 3->4 nao leva os vinculos manuais de "Sem grupo" (group_id NULL): "Sem grupo" e
+// implicito desde a rc.7 (ADR-006). Sample guarda ate 20 numeros.
+type MigrationReport struct {
+	NoGroupDropped int
+	NoGroupSample  []string
+}
+
+// MigrationReport devolve o que a migracao feita por este Open descartou (zero se nao migrou).
+func (s *Store) MigrationReport() MigrationReport { return s.report }
+
+const migrationSampleMax = 20
 
 // Open abre (e migra) <dataDir>/painel.db. Banco com esquema mais novo que o
 // binario recusa abrir (downgrade nao suportado).
@@ -53,7 +67,7 @@ func Open(ctx context.Context, dataDir string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 // migrations[i] leva o banco da versao i para i+1. So para frente.
-var migrations = []string{ddlV1, ddlV2, ddlV3}
+var migrations = []string{ddlV1, ddlV2, ddlV3, ddlV4}
 
 // SchemaVersion e o PRAGMA user_version que este binario conhece (uma migracao por versao).
 var SchemaVersion = len(migrations)
@@ -88,13 +102,45 @@ func (s *Store) applyMigration(ctx context.Context, from int) error {
 		return err
 	}
 	defer tx.Rollback()
+	var rep MigrationReport
+	if from == 3 { // v4: antes de reconstruir extension_groups, conta o que nao migra
+		if rep, err = noGroupLinks(ctx, tx); err != nil {
+			return err
+		}
+	}
 	if _, err := tx.ExecContext(ctx, migrations[from]); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", from+1)); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if rep.NoGroupDropped > 0 {
+		s.report = rep
+	}
+	return nil
+}
+
+// noGroupLinks le os vinculos "Sem grupo" manual (group_id NULL) da v3, na transacao da migracao.
+func noGroupLinks(ctx context.Context, tx *sql.Tx) (MigrationReport, error) {
+	var rep MigrationReport
+	rs, err := tx.QueryContext(ctx, "SELECT number FROM extension_groups WHERE group_id IS NULL ORDER BY number")
+	if err != nil {
+		return rep, fmt.Errorf("ler vinculos Sem grupo: %w", err)
+	}
+	defer rs.Close()
+	for rs.Next() {
+		var n string
+		if err := rs.Scan(&n); err != nil {
+			return rep, err
+		}
+		if rep.NoGroupDropped++; len(rep.NoGroupSample) < migrationSampleMax {
+			rep.NoGroupSample = append(rep.NoGroupSample, n)
+		}
+	}
+	return rep, rs.Err()
 }
 
 // backup copia o banco antes de migrar: painel.db.bak-v<versao antiga>.
@@ -209,4 +255,89 @@ CREATE INDEX group_audit_at ON group_audit(at);
 -- Auditoria so cresce: UPDATE e barrado; DELETE continua permitido (expurgo por retencao).
 CREATE TRIGGER group_audit_immutable BEFORE UPDATE ON group_audit
 BEGIN SELECT RAISE(ABORT, 'auditoria imutavel'); END;
+`
+
+// v4 (rc.7): ramal em N grupos (ADR-006) e relatorio de registro (ADR-007), numa migracao so, com o
+// backup painel.db.bak-v3 antes. Identica ao bloco SQL da versao 4 da secao 10 do CONTRATOS.
+const ddlV4 = `
+-- 1) N:N. Chave (number, group_id), sem NULL: "Sem grupo" manual deixa de existir.
+CREATE TABLE extension_groups_v4 (
+  number     TEXT    NOT NULL CHECK (length(number) BETWEEN 1 AND 64),
+  group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT    NOT NULL CHECK (length(updated_by) BETWEEN 1 AND 128),
+  PRIMARY KEY (number, group_id)
+) STRICT, WITHOUT ROWID;
+INSERT INTO extension_groups_v4 (number, group_id, updated_at, updated_by)
+  SELECT number, group_id, updated_at, updated_by FROM extension_groups WHERE group_id IS NOT NULL;
+DROP TABLE extension_groups;
+ALTER TABLE extension_groups_v4 RENAME TO extension_groups;
+CREATE INDEX extension_groups_group_id ON extension_groups(group_id);
+
+-- 2) Faixas de grupos diferentes podem se sobrepor; do mesmo grupo, nao.
+--    A mensagem continua contendo "faixa sobreposta" (o codigo procura esse texto).
+DROP TRIGGER group_ranges_no_overlap;
+CREATE TRIGGER group_ranges_no_overlap_same_group BEFORE INSERT ON group_ranges
+WHEN EXISTS (SELECT 1 FROM group_ranges r
+             WHERE r.group_id = NEW.group_id
+               AND NEW.range_start <= r.range_end AND r.range_start <= NEW.range_end)
+BEGIN SELECT RAISE(ABORT, 'faixa sobreposta no mesmo grupo'); END;
+
+-- 3) history: quedas por minuto (grupo e total '') para o grafico da aba Registros.
+--    NULL nas linhas anteriores a v4 e em minuto de lacuna (gap = 1); >= 0 nos demais.
+ALTER TABLE history ADD COLUMN lost_registration  INTEGER CHECK (lost_registration  IS NULL OR lost_registration  >= 0);
+ALTER TABLE history ADD COLUMN became_unreachable INTEGER CHECK (became_unreachable IS NULL OR became_unreachable >= 0);
+
+-- 4) Relatorio de registro.
+-- Data de instalacao da versao com relatorio ("Dados desde ..."), gravada uma vez pela migracao.
+CREATE TABLE reg_meta (
+  id    INTEGER PRIMARY KEY CHECK (id = 1),
+  since INTEGER NOT NULL
+) STRICT;
+INSERT INTO reg_meta (id, since) VALUES (1, CAST(strftime('%s', 'now') AS INTEGER));
+
+-- Ocorrencia bruta. No maximo 200 por ramal (o gravador apaga as mais antigas a cada lote).
+-- system = 1: transicao dentro da janela de 120 s apos Shutdown, FullyBooted ou conexao do AMI.
+CREATE TABLE reg_events (
+  id         INTEGER PRIMARY KEY,
+  at         INTEGER NOT NULL,
+  number     TEXT    NOT NULL CHECK (length(number) BETWEEN 1 AND 64),
+  kind       TEXT    NOT NULL CHECK (kind IN ('lost_registration', 'registered', 'became_unreachable', 'reachable_again')),
+  system     INTEGER NOT NULL CHECK (system IN (0, 1)),
+  ip         TEXT    CHECK (ip IS NULL OR length(ip) BETWEEN 7 AND 15),
+  port       INTEGER CHECK (port IS NULL OR port BETWEEN 1 AND 65535),
+  user_agent TEXT    CHECK (user_agent IS NULL OR length(user_agent) BETWEEN 1 AND 256)
+) STRICT;
+CREATE INDEX reg_events_number_id ON reg_events(number, id);
+CREATE INDEX reg_events_at        ON reg_events(at);
+
+-- Agregado por hora e ramal. Contadores so de system = 0; system_events conta os de sistema.
+-- name: ultimo nome conhecido (o relatorio nao depende do cache extension_names, que o pruneNames apaga).
+-- rev: lote de gravacao que tocou a linha por ultimo (cursor da secao 4.7.2).
+CREATE TABLE reg_hourly (
+  number             TEXT    NOT NULL CHECK (length(number) BETWEEN 1 AND 64),
+  hour               INTEGER NOT NULL CHECK (hour % 3600 = 0),
+  name               TEXT    CHECK (name IS NULL OR length(name) BETWEEN 1 AND 128),
+  lost_registration  INTEGER NOT NULL DEFAULT 0 CHECK (lost_registration  >= 0),
+  registered         INTEGER NOT NULL DEFAULT 0 CHECK (registered         >= 0),
+  became_unreachable INTEGER NOT NULL DEFAULT 0 CHECK (became_unreachable >= 0),
+  reachable_again    INTEGER NOT NULL DEFAULT 0 CHECK (reachable_again    >= 0),
+  system_events      INTEGER NOT NULL DEFAULT 0 CHECK (system_events      >= 0),
+  down_s             INTEGER NOT NULL DEFAULT 0 CHECK (down_s BETWEEN 0 AND 3600),
+  last_drop_at       INTEGER,
+  last_ip            TEXT    CHECK (last_ip IS NULL OR length(last_ip) BETWEEN 7 AND 15),
+  last_port          INTEGER CHECK (last_port IS NULL OR last_port BETWEEN 1 AND 65535),
+  rev                INTEGER NOT NULL CHECK (rev >= 1),
+  PRIMARY KEY (number, hour)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX reg_hourly_hour ON reg_hourly(hour);
+CREATE INDEX reg_hourly_rev  ON reg_hourly(rev);
+
+-- Sinais do sistema que abrem a janela de supressao.
+CREATE TABLE reg_system_events (
+  id   INTEGER PRIMARY KEY,
+  at   INTEGER NOT NULL,
+  kind TEXT    NOT NULL CHECK (kind IN ('shutdown', 'fully_booted', 'ami_connected'))
+) STRICT;
+CREATE INDEX reg_system_events_at ON reg_system_events(at);
 `

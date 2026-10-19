@@ -159,6 +159,9 @@ func peerEntry(m ami.Message) model.RegistrationChanged {
 	reg := model.RegistrationChanged{At: m.At, Name: m.Get("ObjectName"), State: model.RegUnregistered}
 	if ip := m.Get("IPaddress"); ip != "-none-" {
 		reg.IP = ip
+		if p, err := strconv.Atoi(m.Get("IPport")); err == nil && p >= 1 && p <= 65535 {
+			reg.Port = p
+		}
 	}
 	status := m.Get("Status")
 	switch {
@@ -209,10 +212,13 @@ func (a *Adapter) peerStatus(m ami.Message) []model.Event {
 		a.fresh[name] = struct{}{}
 	}
 	reg.At, reg.Name, reg.LatencyMs = m.At, name, nil
+	reg.Live = true // so o PeerStatus ao vivo conta no relatorio de registro (ADR-007)
 	switch m.Get("PeerStatus") {
 	case "Registered":
 		reg.State = model.RegRegistered
-		reg.IP = calls.First(calls.HostOnly(m.Get("Address")), reg.IP)
+		if host, port := calls.HostPort(m.Get("Address")); host != "" {
+			reg.IP, reg.Port = host, port
+		}
 	case "Reachable", "Lagged":
 		reg.State = model.RegRegistered
 		if ms, err := strconv.Atoi(m.Get("Time")); err == nil {
@@ -221,7 +227,7 @@ func (a *Adapter) peerStatus(m ami.Message) []model.Event {
 	case "Unreachable":
 		reg.State = model.RegUnreachable
 	case "Unregistered", "Rejected":
-		reg.State, reg.IP, reg.UserAgent = model.RegUnregistered, "", ""
+		reg.State, reg.IP, reg.Port, reg.UserAgent = model.RegUnregistered, "", 0, ""
 	default:
 		return nil // Unknown (sem qualify): sem informação nova
 	}

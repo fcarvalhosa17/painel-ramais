@@ -96,7 +96,7 @@ func TestCompareView(t *testing.T) {
 	want := View{Number: "1", Registration: "registered", IP: "192.0.2.1", DeviceState: "inuse",
 		Calls: []amisim.CallView{{ID: "9.1", Direction: "inbound", State: "talking", StartedAt: now, AnsweredAt: now, Peer: amisim.PeerView{Kind: "external", Number: "119"}}}}
 	got := want
-	got.Technology, got.Group = "pjsip", "Sem grupo"
+	got.Technology, got.Groups = "pjsip", []string{"Sem grupo"}
 	if d := compareView(got, want, "pjsip"); len(d) != 0 {
 		t.Fatalf("iguais divergiram: %v", d)
 	}

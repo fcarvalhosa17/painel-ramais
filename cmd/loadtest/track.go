@@ -326,8 +326,8 @@ func compareView(got, want View, tech string) []Diff {
 	if got.Technology != tech {
 		add("technology %q, esperado %q", got.Technology, tech)
 	}
-	if got.Group != "Sem grupo" {
-		add("group %q, esperado \"Sem grupo\"", got.Group)
+	if len(got.Groups) != 1 || got.Groups[0] != "Sem grupo" {
+		add("groups %q, esperado [\"Sem grupo\"]", got.Groups)
 	}
 	if got.Registration != want.Registration {
 		add("registration %q, esperado %q", got.Registration, want.Registration)

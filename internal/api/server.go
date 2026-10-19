@@ -70,6 +70,9 @@ type Options struct {
 	// ReloadGroups relê os grupos do banco e os entrega ao estado (o caminho do SIGHUP);
 	// nil nos testes que nao precisam dele.
 	ReloadGroups func(context.Context) error
+	// RegStatus e a foto da fila do gravador do relatorio de registro (/api/health, "registrations");
+	// nil = zerada (testes). A API nao importa o pacote reglog.
+	RegStatus func() model.RegStatus
 	// StillAdmin confere no acl.db do Issabel, a cada escrita de grupo, se o usuario continua
 	// no grupo administrator (IssabelACL). nil so nos testes; o serve.go sempre liga.
 	StillAdmin func(ctx context.Context, user string) (bool, error)
@@ -113,6 +116,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/groups/import", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsImport))))
 	mux.HandleFunc("/api/groups/delete", s.api(http.MethodPost, s.session(s.adminOnly(s.groupsDelete))))
 	mux.HandleFunc("/api/history", s.api(http.MethodGet, s.session(s.history)))
+	mux.HandleFunc("/api/registrations/summary", s.api(http.MethodGet, s.session(s.registrationsSummary)))
+	mux.HandleFunc("/api/registrations/extension", s.api(http.MethodGet, s.session(s.registrationsExtension)))
+	mux.HandleFunc("/api/registrations/series", s.api(http.MethodGet, s.session(s.registrationsSeries)))
+	mux.HandleFunc("/api/registrations", s.api(http.MethodGet, s.session(s.registrations)))
 	mux.HandleFunc("/api/health", s.api(http.MethodGet, s.localOnly(s.health)))
 	mux.HandleFunc("/debug", s.method(http.MethodGet, s.localOnly(s.session(s.debug))))
 	mux.HandleFunc("/ws", s.method(http.MethodGet, s.session(s.ws)))

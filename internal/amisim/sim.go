@@ -231,7 +231,7 @@ type ExtView struct {
 	Number       string     `json:"number"`
 	Name         string     `json:"name"`
 	Technology   string     `json:"technology"`
-	Group        string     `json:"group,omitempty"`
+	Groups       []string   `json:"groups,omitempty"`
 	Registration string     `json:"registration"`
 	IP           string     `json:"ip"`
 	UserAgent    string     `json:"user_agent"`

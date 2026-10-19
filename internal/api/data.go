@@ -179,13 +179,26 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 			"total": st.Total.Total(), "registered": st.Total.Registered, "unregistered": st.Total.Unregistered,
 			"unreachable": st.Total.Unreachable, "unknown": st.Total.Unknown,
 		},
-		"trunks": st.Trunks, "active_calls": st.ActiveCalls, "ws_clients": pub.Clients, "deps": out,
+		"trunks": st.Trunks, "active_calls": st.ActiveCalls, "ws_clients": pub.Clients,
+		"registrations": s.healthRegistrations(st.SuppressedUntil), "deps": out,
 	}
 	code := http.StatusOK
 	if status != "ok" {
 		code = http.StatusServiceUnavailable
 	}
 	writeJSON(w, code, mustJSON(envelope{Success: true, Data: data}))
+}
+
+// healthRegistrations e o bloco "registrations" do /api/health (fila do gravador do relatorio; nao muda o status).
+func (s *Server) healthRegistrations(suppressedUntil time.Time) map[string]any {
+	var rs model.RegStatus
+	if s.RegStatus != nil {
+		rs = s.RegStatus()
+	}
+	return map[string]any{
+		"queue_len": rs.QueueLen, "queue_cap": rs.QueueCap, "dropped": rs.Dropped, "write_errors": rs.WriteErrors,
+		"suppressed_until": sinceOrNil(suppressedUntil),
+	}
 }
 
 func sinceOrNil(t time.Time) *string {

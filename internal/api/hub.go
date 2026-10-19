@@ -330,6 +330,46 @@ func (h *Hub) Groups() ([]byte, bool) {
 	return raw, ok
 }
 
+// ExtInfo e o que o relatorio de registro (CONTRATOS 4.7) le da projecao: nome, grupos atuais e o
+// inicio do intervalo fora do ar ainda aberto. Groups e DownSince sao somente leitura.
+type ExtInfo struct {
+	Name      string
+	Groups    []string
+	DownSince *time.Time
+}
+
+func infoOf(e *entry) ExtInfo {
+	i := ExtInfo{Groups: e.ext.Groups, DownSince: e.ext.DownSince}
+	if e.ext.Name != nil {
+		i.Name = *e.ext.Name
+	}
+	return i
+}
+
+// Infos devolve nome, grupos e DownSince de todos os ramais da projecao atual. false se o hub parou.
+// ponytail: copia o mapa inteiro a cada chamada (10 mil ramais, uma chamada a cada 5 s por aba aberta
+// custa microssegundos); se a medicao reprovar, vira um indice atualizado no applyBatch.
+func (h *Hub) Infos() (map[string]ExtInfo, bool) {
+	var out map[string]ExtInfo
+	ok := h.do(func() {
+		out = make(map[string]ExtInfo, len(h.exts))
+		for n, e := range h.exts {
+			out[n] = infoOf(e)
+		}
+	})
+	return out, ok
+}
+
+// Info devolve os dados de um ramal (present = existe na projecao). ok false se o hub parou.
+func (h *Hub) Info(number string) (info ExtInfo, present, ok bool) {
+	ok = h.do(func() {
+		if e := h.exts[number]; e != nil {
+			info, present = infoOf(e), true
+		}
+	})
+	return info, present, ok
+}
+
 type rangeJSON struct {
 	Start int64 `json:"start"`
 	End   int64 `json:"end"`
@@ -360,8 +400,10 @@ func (h *Hub) buildGroups() []byte {
 		}
 	}
 	for _, n := range h.sortedOrder() {
-		g := get(h.exts[n].ext.Group)
-		g.Extensions = append(g.Extensions, n)
+		for _, name := range h.exts[n].ext.Groups { // N:N: o ramal aparece em cada grupo dele
+			g := get(name)
+			g.Extensions = append(g.Extensions, n)
+		}
 	}
 	if g := by[model.NoGroup]; g != nil && len(g.Extensions) == 0 {
 		delete(by, model.NoGroup)

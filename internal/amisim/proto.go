@@ -84,7 +84,7 @@ func (c *conn) wants(name, priv string) bool {
 var filterSet = map[string]bool{
 	"ContactStatus": true, "PeerStatus": true, "DeviceStateChange": true, "Newchannel": true, "Newstate": true,
 	"NewCallerid": true, "NewConnectedLine": true, "DialBegin": true, "DialEnd": true, "BridgeEnter": true,
-	"BridgeLeave": true, "Hangup": true, "Hold": true, "Unhold": true, "Reload": true,
+	"BridgeLeave": true, "Hangup": true, "Hold": true, "Unhold": true, "Reload": true, "Shutdown": true,
 }
 
 func (c *conn) writeLoop() {

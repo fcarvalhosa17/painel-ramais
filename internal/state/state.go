@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"sort"
 	"sync/atomic"
 	"time"
 
@@ -29,6 +28,9 @@ type Options struct {
 	// inventario de ramais: reason (reload, periodica...), quantos entraram, sairam e ficaram, e
 	// quantos apagados no PBX seguem na tela ate o fim da ultima chamada (pending).
 	OnInventory func(reason string, added, removed, kept, pending int)
+	// OnReg recebe as ocorrencias do relatorio de registro (CONTRATOS 11.5), na goroutine do estado: so pode
+	// enfileirar, nunca bloquear nem tocar em banco.
+	OnReg func(model.RegNote)
 }
 
 // Stats e a foto agregada publicada a cada lote, lida sem bloquear o estado.
@@ -41,7 +43,13 @@ type Stats struct {
 	ConnectedSince  time.Time // zero se desconectado
 	LastDisconnect  time.Time
 	Total           model.Counts
-	ByGroup         map[string]model.Counts // inclui grupos sem ramal e "Sem grupo"
+	ByGroup         map[string]model.Counts // inclui grupos sem ramal e "Sem grupo"; o ramal conta em cada grupo dele (N:N)
+	// RegTotal e RegByGroup acumulam, desde a subida, as ocorrencias de registro contadas (system = 0);
+	// o ramal soma em cada grupo dele no momento da ocorrencia. SuppressedUntil: fim da janela de evento
+	// do sistema em curso (zero = sem janela).
+	RegTotal        model.RegCounts
+	RegByGroup      map[string]model.RegCounts
+	SuppressedUntil time.Time
 	Trunks          int
 	ActiveCalls     int
 	EventsPerSec    float64
@@ -59,10 +67,10 @@ type State struct {
 
 	// A partir daqui, so a goroutine de Run (ou o teste) toca nos campos.
 	cur, building *view
-	groups        []model.GroupRange // faixas de todos os grupos, ordenadas por inicio (busca binaria)
-	catalog       []model.Group      // catalogo completo, inclui grupo sem faixa e sem ramal
-	manual        map[string]string  // vinculo manual: numero -> grupo ("Sem grupo" incluso); nunca mutado, so trocado
-	groupsChanged bool               // o catalogo mudou desde o ultimo lote: o proximo Batch o leva
+	gi            *groupIdx     // resolucao de grupos (faixas por grupo + vinculos manuais); imutavel, so trocada
+	catalog       []model.Group // catalogo completo, inclui grupo sem faixa e sem ramal
+	groupsChanged bool          // o catalogo mudou desde o ultimo lote: o proximo Batch o leva
+	rc            *regCtx       // relatorio de registro (janela de sistema, contadores, saida)
 	hints         map[string]string
 	onName        func(number, name string)
 	onSync        func(numbers []string)
@@ -89,6 +97,8 @@ func New(pattern *regexp.Regexp, in <-chan model.Event, opt Options) *State {
 	if s.now == nil {
 		s.now = time.Now
 	}
+	s.gi = newGroupIdx(nil, nil)
+	s.rc = newRegCtx(s.now, opt.OnReg)
 	if s.interval <= 0 {
 		s.interval = 250 * time.Millisecond
 	}
@@ -149,7 +159,10 @@ func (s *State) Apply(ev model.Event) {
 	switch e := ev.(type) {
 	case model.AMIDisconnected:
 		s.onDisconnected(e)
+	case model.AsteriskSignal:
+		s.rc.openWindow(e.At, e.Kind) // Shutdown ou FullyBooted: janela de evento do sistema
 	case model.SyncStarted:
+		s.rc.syncReason = e.Reason
 		s.building = s.newView()
 		s.building.isBuilding = true
 		s.building.tech = e.Technology
@@ -203,6 +216,7 @@ func (s *State) onSyncFinished(e model.SyncFinished) {
 	if s.building == nil {
 		return
 	}
+	old := s.cur
 	s.cur, s.building = s.building, nil
 	s.cur.isBuilding = false // virou a publicada: nao lembra mais de Hangups
 	s.cur.hungup = nil
@@ -214,6 +228,10 @@ func (s *State) onSyncFinished(e model.SyncFinished) {
 			nums = append(nums, n)
 		}
 		s.onSync(nums)
+	}
+	s.rc.carryDown(old, s.cur, e.At)          // intervalo fora do ar aberto atravessa a sincronizacao
+	if s.rc.syncReason == model.SyncConnect { // conexao nova (inclusive a primeira): janela de sistema
+		s.rc.openWindow(e.At, model.SignalAMIConnect)
 	}
 	s.connected = true
 	s.connectedAt = e.At
@@ -228,6 +246,7 @@ func (s *State) onInventoryListed(e model.InventoryListed) {
 	if !s.connected || s.building != nil {
 		return
 	}
+	s.cur.at = e.At
 	added, removed, kept, pending := s.cur.reconcile(e.Names)
 	if removed > 0 && s.onSync != nil {
 		s.onSync(s.cur.extNumbers()) // expurga do cache de nomes os ramais que sairam do PBX
@@ -237,8 +256,8 @@ func (s *State) onInventoryListed(e model.InventoryListed) {
 	}
 }
 
-// onGroups troca catalogo e vinculos manuais SEM mudar o epoch: cada ramal cujo grupo (ou
-// group_manual) mudou fica sujo e vai no proximo delta; o catalogo vai junto se mudou.
+// onGroups troca catalogo e vinculos manuais SEM mudar o epoch: cada ramal cujo groups, range_groups
+// ou manual_groups mudou fica sujo e vai no proximo delta; o catalogo vai junto se mudou.
 func (s *State) onGroups(e model.GroupsLoaded) {
 	// Copia propria, nunca nil: Batch.Groups == nil significa "catalogo nao mudou", entao um catalogo
 	// que ficou vazio (ultimo grupo apagado) precisa sair como [] e nao como nil.
@@ -246,16 +265,10 @@ func (s *State) onGroups(e model.GroupsLoaded) {
 	if !sameCatalog(s.catalog, catalog) {
 		s.groupsChanged = true
 	}
-	var flat []model.GroupRange
-	for _, g := range catalog {
-		for _, r := range g.Ranges {
-			flat = append(flat, model.GroupRange{Start: r.Start, End: r.End, Name: g.Name})
-		}
-	}
-	s.catalog, s.groups, s.manual = catalog, sortedRanges(flat), e.Manual
-	s.cur.setGroups(s.groups, s.manual)
+	s.catalog, s.gi = catalog, newGroupIdx(catalog, e.Manual)
+	s.cur.setGroups(s.gi)
 	if s.building != nil {
-		s.building.setGroups(s.groups, s.manual)
+		s.building.setGroups(s.gi)
 	}
 }
 
@@ -277,7 +290,8 @@ func sameCatalog(a, b []model.Group) bool {
 }
 
 func (s *State) newView() *view {
-	v := newView(s.pattern, s.groups, s.manual)
+	v := newView(s.pattern, s.gi)
+	v.rc = s.rc
 	v.hints, v.onName, v.onNoPeer = s.hints, s.onName, s.onNoPeer
 	v.onPrune = func() {
 		if s.onSync != nil {
@@ -297,12 +311,6 @@ func (s *State) onNames(e model.NamesLoaded) {
 	if s.building != nil {
 		s.building.applyHints()
 	}
-}
-
-func sortedRanges(in []model.GroupRange) []model.GroupRange {
-	out := append([]model.GroupRange(nil), in...)
-	sort.Slice(out, func(i, j int) bool { return out[i].Start < out[j].Start })
-	return out
 }
 
 // Flush fecha o lote da janela: um Reset (se houve epoch novo), um Batch (se
@@ -354,6 +362,7 @@ func (s *State) publishStats() {
 		Trunks: len(s.cur.trunks), EventsPerSec: float64(total) / 60, LagMs: s.lagMs,
 	}
 	st.Total, st.ByGroup = s.cur.counts(s.catalog)
+	st.RegTotal, st.RegByGroup, st.SuppressedUntil = s.rc.total, s.rc.byGroupCopy(), s.rc.suppressedUntil(now)
 	st.ActiveCalls = s.cur.activeCalls()
 	s.stats.Store(st)
 }

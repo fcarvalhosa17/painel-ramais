@@ -151,12 +151,12 @@ func TestParseCSV(t *testing.T) {
 func TestImportGroups(t *testing.T) {
 	s := open(t)
 	rows, _ := parse(t, "Suporte,2000-2099\nSuporte,2150\nVendas,3000-3999\n")
-	if err := s.ImportGroups(ctx, "t", rows, false, now); err != nil {
+	if _, err := s.ImportGroups(ctx, "t", rows, false, now); err != nil {
 		t.Fatal(err)
 	}
 	// Sobreposicao com o que existe rejeita tudo (inclusive a linha valida).
 	more, _ := parse(t, "Novo,5000\nOutro,2050-2060\n")
-	err := s.ImportGroups(ctx, "t", more, false, now)
+	_, err := s.ImportGroups(ctx, "t", more, false, now)
 	if !errors.Is(err, ErrOverlap) || !strings.Contains(err.Error(), "linha 2") {
 		t.Fatalf("sobreposicao: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestImportGroups(t *testing.T) {
 	}
 	// replace troca tudo; o grupo que sumiu do arquivo some do banco.
 	rep, _ := parse(t, "Diretoria,4000-4000\nsuporte,2000-2000\n")
-	if err := s.ImportGroups(ctx, "t", rep, true, now); err != nil {
+	if _, err := s.ImportGroups(ctx, "t", rep, true, now); err != nil {
 		t.Fatal(err)
 	}
 	gs, _ = s.ListGroups(ctx)
@@ -178,7 +178,7 @@ func TestImportGroups(t *testing.T) {
 		t.Fatalf("ranges ordenadas por inicio: %+v", rr)
 	}
 	// Mesmo CSV de novo no replace: mesmo resultado (idempotente para o instalar.py).
-	if err := s.ImportGroups(ctx, "t", rep, true, now); err != nil {
+	if _, err := s.ImportGroups(ctx, "t", rep, true, now); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.DeleteGroup(ctx, "t", "DIRETORIA", now); err != nil {

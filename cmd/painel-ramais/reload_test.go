@@ -19,7 +19,7 @@ func TestConcurrentGroupReloadsEndWithLatestState(t *testing.T) {
 	ctx := context.Background()
 	set := func(start int64) {
 		rows := []store.GroupRow{{Line: 1, Name: "G", Start: start, End: start + 5}}
-		if err := st.ImportGroups(ctx, "t", rows, true, time.Now()); err != nil {
+		if _, err := st.ImportGroups(ctx, "t", rows, true, time.Now()); err != nil {
 			t.Fatal(err)
 		}
 	}

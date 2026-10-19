@@ -136,7 +136,7 @@ func TestSIGHUPReloadsGroups(t *testing.T) {
 	before := d.state.Stats().Epoch
 
 	rows, _ := store.ParseGroupsCSV(strings.NewReader("Suporte,2000-2099\n"))
-	if err := d.st.ImportGroups(ctx, "t", rows, true, time.Now()); err != nil {
+	if _, err := d.st.ImportGroups(ctx, "t", rows, true, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	hup <- syscall.SIGHUP

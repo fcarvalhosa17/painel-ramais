@@ -49,12 +49,19 @@ type (
 		Names map[string]string
 	}
 	// GroupsLoaded entrega o catalogo COMPLETO de grupos (inclui grupo sem ramal e sem faixa) e os
-	// vinculos manuais ramal -> grupo (NoGroup = "Sem grupo" manual; ausente = sem vinculo manual).
-	// Quem envia nao pode alterar Manual depois de enviar. Nao muda o epoch.
+	// vinculos manuais ramal -> grupos (rc.7, N:N; ausente = sem vinculo manual). Quem envia nao pode
+	// alterar Manual depois de enviar. Nao muda o epoch.
 	GroupsLoaded struct {
 		At     time.Time
 		Groups []Group
-		Manual map[string]string
+		Manual map[string][]string
+	}
+	// AsteriskSignal e o aviso de que o Asterisk esta desligando (SignalShutdown) ou terminou de subir
+	// (SignalFullyBooted), lido pelo supervisor no laco ao vivo (CONTRATOS 11.1). Abre a janela de
+	// evento do sistema do relatorio de registro. Nao muda epoch nem versao.
+	AsteriskSignal struct {
+		At   time.Time
+		Kind string
 	}
 	// InventoryListed e a lista COMPLETA de endpoints/peers do PBX numa releitura (recarga do
 	// Asterisk ou ciclo periodico). Vem ANTES dos EndpointSeen/RegistrationChanged da mesma
@@ -75,14 +82,19 @@ type (
 		CallerIDName string
 		Technology   Technology
 	}
-	// RegistrationChanged substitui State, IP, UserAgent e LatencyMs do ramal.
+	// RegistrationChanged substitui State, IP, UserAgent e LatencyMs do ramal. Port (0 = desconhecida)
+	// so alimenta o relatorio de registro. Live = true SO no evento ao vivo (ContactStatus e
+	// PeerStatus); snapshot, releitura e qualquer outro caminho deixam false e nunca contam no
+	// relatorio (ADR-007).
 	RegistrationChanged struct {
 		At        time.Time
 		Name      string
 		State     Registration
 		IP        string
+		Port      int
 		UserAgent string
 		LatencyMs *int
+		Live      bool
 	}
 	DeviceStateChanged struct {
 		At    time.Time
@@ -163,6 +175,7 @@ func (e AMIDisconnected) EventTime() time.Time      { return e.At }
 func (e SyncStarted) EventTime() time.Time          { return e.At }
 func (e SyncFinished) EventTime() time.Time         { return e.At }
 func (e GroupsLoaded) EventTime() time.Time         { return e.At }
+func (e AsteriskSignal) EventTime() time.Time       { return e.At }
 func (e NamesLoaded) EventTime() time.Time          { return e.At }
 func (e InventoryListed) EventTime() time.Time      { return e.At }
 func (e EndpointSeen) EventTime() time.Time         { return e.At }

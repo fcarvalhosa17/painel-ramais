@@ -3,7 +3,6 @@ package state
 import (
 	"regexp"
 	"sort"
-	"strconv"
 	"time"
 
 	"painel-ramais/internal/model"
@@ -14,21 +13,25 @@ type extState struct {
 	name    string
 	reg     model.Registration
 	ip, ua  string
+	port    int // porta do contato (0 = desconhecida); so alimenta o relatorio de registro
 	latency *int
 	device  model.DeviceState
-	group   string
-	manual  bool // o grupo vem de atribuicao manual (vence a faixa)
-	calls   []model.Call
+	// Grupos (ADR-006): groups = uniao de rangeGroups e manualGroups, nunca vazia ("Sem grupo");
+	// as listas nunca sao mutadas, so trocadas (o hub as le de outra goroutine).
+	groups, rangeGroups, manualGroups []string
+	calls                             []model.Call
 	// gone: o ramal sumiu do PBX (releitura) mas ainda tem chamada; sai do estado no Hangup.
 	gone bool
+	// downSince: inicio do intervalo fora do ar ainda aberto (relatorio de registro, ADR-007); zero = fechado.
+	downSince time.Time
 }
 
 // view e um conjunto completo de estado. O estado mantem uma view publicada e,
 // durante a sincronizacao, uma segunda em montagem.
 type view struct {
 	pattern  *regexp.Regexp
-	groups   []model.GroupRange
-	manual   map[string]string // vinculo manual numero -> grupo; compartilhado com o State, so leitura
+	gi       *groupIdx // resolucao de grupos (N:N); compartilhada com o State, so leitura
+	rc       *regCtx   // relatorio de registro; compartilhado com o State (nil so em teste de view solta)
 	tech     model.Technology
 	asterisk string
 	at       time.Time // hora do evento em processamento
@@ -58,9 +61,9 @@ type view struct {
 	onPrune     func()                     // chamado quando um ramal gone sai no Hangup (expurgo do cache de nomes)
 }
 
-func newView(p *regexp.Regexp, groups []model.GroupRange, manual map[string]string) *view {
+func newView(p *regexp.Regexp, gi *groupIdx) *view {
 	return &view{
-		pattern: p, groups: groups, manual: manual,
+		pattern: p, gi: gi,
 		exts: map[string]*extState{}, trunks: map[string]struct{}{}, dirty: map[string]struct{}{},
 		removed: map[string]struct{}{}, tomb: map[string]struct{}{},
 		chans: map[string]*channel{}, byLinked: map[string]map[string]struct{}{},
@@ -112,6 +115,9 @@ func (v *view) reconcile(listed []string) (added, removed, kept, pending int) {
 
 // removeExt tira o ramal do estado e registra a remocao para o proximo lote.
 func (v *view) removeExt(n string) {
+	if x := v.exts[n]; x != nil {
+		v.closeDown(x, v.at) // ramal apagado do PBX: o intervalo fora do ar fecha na hora da remocao
+	}
 	delete(v.exts, n)
 	delete(v.dirty, n)
 	delete(v.hints, n) // numero reaproveitado por outra pessoa nao herda o nome antigo
@@ -162,8 +168,9 @@ func (v *view) ensureExt(name string) (e *extState, created bool) {
 	if _, dead := v.tomb[name]; dead {
 		return nil, false
 	}
-	grp, man := v.resolveGroup(name)
-	e = &extState{number: name, name: v.hints[name], reg: model.RegUnknown, device: model.DevUnknown, group: grp, manual: man}
+	all, rng, man := v.gi.resolve(name)
+	e = &extState{number: name, name: v.hints[name], reg: model.RegUnknown, device: model.DevUnknown,
+		groups: all, rangeGroups: rng, manualGroups: man}
 	v.exts[name] = e
 	delete(v.removed, name) // saiu e voltou na mesma janela: o lote leva o estado inteiro, sem removed
 	v.markDirty(name)
@@ -214,10 +221,14 @@ func (v *view) onRegistration(e model.RegistrationChanged) {
 	if x == nil {
 		return
 	}
+	v.noteRegistration(x, e) // relatorio de registro: precisa do estado anterior, antes de gravar o novo
+	if e.IP != "" && e.Port != 0 {
+		x.port = e.Port
+	}
 	if x.reg == e.State && x.ip == e.IP && x.ua == e.UserAgent && intPtrEq(x.latency, e.LatencyMs) {
 		return
 	}
-	x.reg, x.ip, x.ua, x.latency = e.State, e.IP, e.UserAgent, e.LatencyMs
+	x.reg, x.ip, x.port, x.ua, x.latency = e.State, e.IP, e.Port, e.UserAgent, e.LatencyMs
 	v.markDirty(x.number)
 }
 
@@ -260,41 +271,17 @@ func (v *view) markUnknown() {
 	v.changes = 0
 }
 
-// setGroups troca faixas e vinculos manuais; so os ramais cujo grupo ou group_manual mudou ficam
-// sujos (viram delta). Nao mexe no epoch.
-func (v *view) setGroups(g []model.GroupRange, manual map[string]string) {
-	v.groups, v.manual = g, manual
+// setGroups troca a resolucao de grupos; so os ramais cujo groups, range_groups ou manual_groups mudou
+// ficam sujos (viram delta). Nao mexe no epoch.
+func (v *view) setGroups(gi *groupIdx) {
+	v.gi = gi
 	for _, x := range v.exts {
-		if grp, man := v.resolveGroup(x.number); grp != x.group || man != x.manual {
-			x.group, x.manual = grp, man
+		all, rng, man := gi.resolve(x.number)
+		if !sameNames(all, x.groups) || !sameNames(rng, x.rangeGroups) || !sameNames(man, x.manualGroups) {
+			x.groups, x.rangeGroups, x.manualGroups = all, rng, man
 			v.markDirty(x.number)
 		}
 	}
-}
-
-// resolveGroup aplica a precedencia: vinculo manual (inclusive "Sem grupo" manual) > faixa > "Sem grupo".
-func (v *view) resolveGroup(number string) (group string, manual bool) {
-	if g, ok := v.manual[number]; ok {
-		return g, true
-	}
-	return groupFor(v.groups, number), false
-}
-
-// groupFor acha o grupo por busca binaria. Ramal nao numerico, com zero a
-// esquerda ou fora de faixa fica em "Sem grupo".
-func groupFor(groups []model.GroupRange, number string) string {
-	if len(number) == 0 || len(number) > 18 || (number[0] == '0' && len(number) > 1) {
-		return model.NoGroup
-	}
-	n, err := strconv.ParseInt(number, 10, 64)
-	if err != nil {
-		return model.NoGroup
-	}
-	i := sort.Search(len(groups), func(i int) bool { return groups[i].Start > n }) - 1
-	if i >= 0 && n <= groups[i].End {
-		return groups[i].Name
-	}
-	return model.NoGroup
 }
 
 func (x *extState) model(tech model.Technology) model.Extension {
@@ -302,11 +289,17 @@ func (x *extState) model(tech model.Technology) model.Extension {
 	if calls == nil {
 		calls = []model.Call{}
 	}
-	return model.Extension{
-		Number: x.number, Name: model.StrPtr(x.name), Technology: tech, Group: x.group, GroupManual: x.manual,
+	e := model.Extension{
+		Number: x.number, Name: model.StrPtr(x.name), Technology: tech,
+		Groups: x.groups, RangeGroups: x.rangeGroups, ManualGroups: x.manualGroups,
 		Registration: x.reg, IP: model.StrPtr(x.ip), UserAgent: model.StrPtr(x.ua), LatencyMs: x.latency,
 		DeviceState: x.device, Calls: calls,
 	}
+	if !x.downSince.IsZero() {
+		t := x.downSince
+		e.DownSince = &t
+	}
+	return e
 }
 
 func (v *view) allExtensions() []model.Extension {
@@ -337,9 +330,11 @@ func (v *view) counts(catalog []model.Group) (model.Counts, map[string]model.Cou
 		by[g.Name] = model.Counts{}
 	}
 	for _, x := range v.exts {
-		c := by[x.group]
-		add(&c, x)
-		by[x.group] = c
+		for _, g := range x.groups { // o ramal conta em cada grupo dele (N:N) e uma vez no total
+			c := by[g]
+			add(&c, x)
+			by[g] = c
+		}
 		add(&total, x)
 	}
 	return total, by

@@ -147,7 +147,7 @@ func (e *env) login() map[string]string {
 }
 
 func ext(n, group string, reg model.Registration) model.Extension {
-	return model.Extension{Number: n, Technology: model.TechPJSIP, Group: group, Registration: reg, DeviceState: model.DevNotInUse, Calls: []model.Call{}}
+	return model.Extension{Number: n, Technology: model.TechPJSIP, Groups: []string{group}, Registration: reg, DeviceState: model.DevNotInUse, Calls: []model.Call{}}
 }
 
 func (e *env) reset(epoch string, version uint64, exts ...model.Extension) {

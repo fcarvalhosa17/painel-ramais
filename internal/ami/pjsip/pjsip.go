@@ -23,6 +23,7 @@ const prefix = "PJSIP"
 type contact struct {
 	state model.Registration // registered ou unreachable
 	ip    string
+	port  int
 	ua    string
 	lat   *int
 }
@@ -256,7 +257,9 @@ func (a *Adapter) contactStatus(m ami.Message) []model.Event {
 		}
 		a.setLocked(name, m.Get("URI"), c)
 	}
-	return []model.Event{a.aggregateLocked(name, m.At)}
+	ev := a.aggregateLocked(name, m.At)
+	ev.Live = true // so o ContactStatus ao vivo conta no relatorio de registro (ADR-007)
+	return []model.Event{ev}
 }
 
 func (a *Adapter) addLocked(it ami.Message) {
@@ -306,7 +309,7 @@ func aggregate(cs map[string]contact, name string, at time.Time) model.Registrat
 			break
 		}
 	}
-	ev.IP, ev.UserAgent, ev.LatencyMs = best.ip, best.ua, best.lat
+	ev.IP, ev.Port, ev.UserAgent, ev.LatencyMs = best.ip, best.port, best.ua, best.lat
 	return ev
 }
 
@@ -315,9 +318,9 @@ func parseContact(m ami.Message, status, via string) contact {
 	if strings.EqualFold(status, "Unreachable") {
 		c.state = model.RegUnreachable
 	}
-	c.ip = calls.HostOnly(via)
+	c.ip, c.port = calls.HostPort(via)
 	if c.ip == "" {
-		c.ip = uriHost(calls.First(m.Get("URI"), m.Get("Uri")))
+		c.ip, c.port = uriHostPort(calls.First(m.Get("URI"), m.Get("Uri")))
 	}
 	if us, err := strconv.ParseInt(m.Get("RoundtripUsec"), 10, 64); err == nil && us > 0 {
 		ms := int((us + 500) / 1000)
@@ -326,11 +329,11 @@ func parseContact(m ami.Message, status, via string) contact {
 	return c
 }
 
-// uriHost extrai o host de "sip:2001@192.0.2.23:5060;ob".
-func uriHost(uri string) string {
+// uriHostPort extrai host e porta de "sip:2001@192.0.2.23:5060;ob".
+func uriHostPort(uri string) (string, int) {
 	_, rest, ok := strings.Cut(uri, ":")
 	if !ok {
-		return ""
+		return "", 0
 	}
 	if _, after, found := strings.Cut(rest, "@"); found {
 		rest = after
@@ -338,5 +341,5 @@ func uriHost(uri string) string {
 	if i := strings.IndexAny(rest, ";?>"); i >= 0 {
 		rest = rest[:i]
 	}
-	return calls.HostOnly(rest)
+	return calls.HostPort(rest)
 }

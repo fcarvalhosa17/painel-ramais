@@ -94,7 +94,7 @@ func IsExtension(pattern *regexp.Regexp, name string) bool {
 	return name != "" && !IsInternalEndpoint(name) && pattern.MatchString(name)
 }
 
-// NoGroup e o nome do grupo de ramais fora de qualquer faixa.
+// NoGroup e o nome do "grupo" implicito do ramal sem nenhum vinculo (nem faixa, nem manual).
 const NoGroup = "Sem grupo"
 
 // Stamp e um instante serializado como RFC 3339 UTC com milissegundos.
@@ -141,17 +141,23 @@ type Call struct {
 
 // Extension e um ramal (CONTRATOS.md secao 2.1). Calls nunca e nil.
 type Extension struct {
-	Number       string       `json:"number"`
-	Name         *string      `json:"name"`
-	Technology   Technology   `json:"technology"`
-	Group        string       `json:"group"`
-	GroupManual  bool         `json:"group_manual"` // true: o grupo vem de atribuicao manual (vence a faixa)
+	Number     string     `json:"number"`
+	Name       *string    `json:"name"`
+	Technology Technology `json:"technology"`
+	// Groups e a uniao ordenada de RangeGroups e ManualGroups; nunca vazia: sem nenhum vinculo vale
+	// ["Sem grupo"]. As tres listas nunca sao nil (ADR-006, CONTRATOS 2.1).
+	Groups       []string     `json:"groups"`
+	RangeGroups  []string     `json:"range_groups"`
+	ManualGroups []string     `json:"manual_groups"`
 	Registration Registration `json:"registration"`
 	IP           *string      `json:"ip"`
 	UserAgent    *string      `json:"user_agent"`
 	LatencyMs    *int         `json:"latency_ms"`
 	DeviceState  DeviceState  `json:"device_state"`
 	Calls        []Call       `json:"calls"`
+	// DownSince: inicio do intervalo fora do ar ainda aberto (relatorio de registro, ADR-007). Fora
+	// do JSON do snapshot e do delta; o hub o guarda para montar down_open_since.
+	DownSince *time.Time `json:"-"`
 }
 
 // StrPtr devolve nil para texto vazio (JSON null).
@@ -160,12 +166,6 @@ func StrPtr(s string) *string {
 		return nil
 	}
 	return &s
-}
-
-// GroupRange e uma faixa numerica de um grupo.
-type GroupRange struct {
-	Start, End int64
-	Name       string
 }
 
 // Range e uma faixa numerica sem nome; Group e um grupo do catalogo (pode ter zero faixas).
@@ -192,11 +192,17 @@ func (c Counts) Total() int { return c.Registered + c.Unregistered + c.Unreachab
 // MaxNameRunes e o tamanho maximo de um nome de ramal (em caracteres).
 const MaxNameRunes = 64
 
+// MaxUserAgentRunes e o teto do user agent guardado no relatorio de registro.
+const MaxUserAgentRunes = 256
+
 // CleanName normaliza um nome vindo de fora (display name do telefone e texto livre):
 // tira caracteres de controle e de formatacao (categorias C*: C0/C1, bidi U+202A..202E e
 // U+2066..2069, largura zero), troca qualquer espaco por espaco simples, apara as pontas
 // e limita a MaxNameRunes caracteres (sem cortar no meio de um caractere).
-func CleanName(s string) string {
+func CleanName(s string) string { return CleanText(s, MaxNameRunes) }
+
+// CleanText e o CleanName com teto proprio de caracteres (max).
+func CleanText(s string, max int) string {
 	var b strings.Builder
 	space := false
 	n := 0
@@ -207,11 +213,11 @@ func CleanName(s string) string {
 		case unicode.In(r, unicode.C):
 			// descartado
 		default:
-			if n >= MaxNameRunes {
+			if n >= max {
 				return b.String()
 			}
 			if space {
-				if n+1 >= MaxNameRunes {
+				if n+1 >= max {
 					return b.String()
 				}
 				b.WriteByte(' ')

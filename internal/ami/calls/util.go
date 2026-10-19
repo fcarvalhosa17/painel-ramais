@@ -3,6 +3,7 @@ package calls
 import (
 	"context"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -43,6 +44,20 @@ func HostOnly(s string) string {
 		return h
 	}
 	return s
+}
+
+// HostPort separa "192.0.2.23:5060" em host e porta (1 a 65535). Sem porta valida a porta vale 0 e o
+// host e o proprio texto.
+func HostPort(s string) (host string, port int) {
+	h, p, err := net.SplitHostPort(s)
+	if err != nil {
+		return s, 0
+	}
+	n, err := strconv.Atoi(p)
+	if err != nil || n < 1 || n > 65535 {
+		return h, 0
+	}
+	return h, n
 }
 
 // First devolve o primeiro texto não vazio.

@@ -39,6 +39,19 @@ const (
 //     que foi lido antes do snapshot da sessao).
 var reloadEvents = []string{"Reload", "ModuleLoadReport", "FullyBooted"}
 
+// asteriskSignal diz se o evento e um sinal do ciclo de vida do Asterisk que abre a janela de
+// evento do sistema do relatorio de registro (CONTRATOS 7.2 e 11.1): Shutdown (desligando) ou
+// FullyBooted (terminou de subir). "" para qualquer outro evento.
+func asteriskSignal(name string) string {
+	switch {
+	case strings.EqualFold(name, "Shutdown"):
+		return model.SignalShutdown
+	case strings.EqualFold(name, "FullyBooted"):
+		return model.SignalFullyBooted
+	}
+	return ""
+}
+
 func isReloadEvent(name string) bool {
 	for _, e := range reloadEvents {
 		if strings.EqualFold(name, e) {
@@ -332,6 +345,9 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 			if !ok {
 				return c.Err()
 			}
+			if sig := asteriskSignal(m.Event()); sig != "" { // inclusive o FullyBooted logo apos o Login
+				emit(model.AsteriskSignal{At: m.At, Kind: sig})
+			}
 			if isReloadEvent(m.Event()) && m.At.After(since) {
 				s.log.Debug("evento de recarga do Asterisk; releitura agendada", "evento", m.Event())
 				deb.note(time.Now())
@@ -358,8 +374,12 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 				reason = "nova tentativa"
 			}
 		case <-c.Done():
-			// Esvazia o que ainda esta na fila antes de reportar a queda.
+			// Esvazia o que ainda esta na fila antes de reportar a queda (o Shutdown costuma ser o
+			// ultimo evento antes de o socket fechar).
 			for m := range c.Events() {
+				if sig := asteriskSignal(m.Event()); sig != "" {
+					emit(model.AsteriskSignal{At: m.At, Kind: sig})
+				}
 				for _, ev := range ad.Translate(m) {
 					emit(ev)
 				}

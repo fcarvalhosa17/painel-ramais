@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"painel-ramais/internal/depcheck"
 	"painel-ramais/internal/history"
 	"painel-ramais/internal/model"
+	"painel-ramais/internal/reglog"
 	"painel-ramais/internal/state"
 	"painel-ramais/internal/store"
 	"painel-ramais/internal/web"
@@ -72,6 +74,7 @@ type daemon struct {
 	cfg     *config.Config
 	log     *slog.Logger
 	st      *store.Store
+	reg     *reglog.Writer // gravador do relatorio de registro (fila propria, fora da goroutine do estado)
 	state   *state.State
 	hub     *api.Hub
 	sup     *supervisor
@@ -104,9 +107,15 @@ func newDaemon(cfg *config.Config, hup <-chan os.Signal) (*daemon, error) {
 	if err != nil {
 		return nil, err
 	}
+	if rep := st.MigrationReport(); rep.NoGroupDropped > 0 {
+		log.Warn("vinculos \"Sem grupo\" manual descartados na migracao (o ramal volta a seguir as faixas)",
+			"quantidade", rep.NoGroupDropped, "ramais", strings.Join(rep.NoGroupSample, ","))
+	}
 	d := &daemon{cfg: cfg, log: log, st: st, hupChan: hup, fatal: make(chan error, 8),
 		events: make(chan model.Event, eventQueueSize), names: make(chan [2]string, 4096), prune: make(chan []string, 1)}
-	d.state = state.New(cfg.Pattern, d.events, state.Options{OnName: d.onName, OnSync: d.onSync, OnNoPeer: d.onNoPeer, OnInventory: d.onInventory})
+	d.reg = reglog.New(st, log.Warn)
+	d.state = state.New(cfg.Pattern, d.events, state.Options{OnName: d.onName, OnSync: d.onSync, OnNoPeer: d.onNoPeer,
+		OnInventory: d.onInventory, OnReg: d.reg.Enqueue}) // Enqueue nunca bloqueia: fila cheia descarta e conta
 	d.hub = api.NewHub(log, nil)
 	d.sup = newSupervisor(ami.Config{Address: cfg.AMI.Address, Username: cfg.AMI.Username, Secret: amiSecret},
 		cfg.Technology, cfg.AMI.NameFillPerSecond, cfg.Pattern, log)
@@ -126,7 +135,7 @@ func newDaemon(cfg *config.Config, hup <-chan os.Signal) (*daemon, error) {
 	d.deps.Check() // chave do Issabel carregada antes de aceitar o primeiro token
 	d.srv = api.New(api.Options{
 		Store: st, Verifier: verifier, Limiter: nameLimiter(), Hub: d.hub,
-		Stats: d.state.Stats, AMI: d.sup.Status, Deps: d.deps.Results,
+		Stats: d.state.Stats, AMI: d.sup.Status, Deps: d.deps.Results, RegStatus: d.reg.Status,
 		SessionTTL: cfg.Auth.SessionTTL, RetentionDays: cfg.History.RetentionDays, Version: version, Log: log,
 		Static:       web.Static(),
 		ReloadGroups: func(ctx context.Context) error { return reloadAfterRequest(ctx, st, d.events) },
@@ -190,6 +199,7 @@ func (d *daemon) start() {
 		return nil
 	})
 	d.run("depcheck", func() error { d.deps.Run(ctx, depCheckEvery); return nil })
+	d.run("registros", func() error { d.reg.Run(ctx); return nil })
 	d.run("historico", func() error { runHistory(ctx, d.st, d.state, d.cfg, d.log); return nil })
 	d.run("nomes", func() error { runNameCache(ctx, d.st, d.names, d.prune, d.log); return nil })
 	d.run("manutencao", func() error { housekeep(ctx, d.st, d.log, d.cfg.History.RetentionDays); return nil })
@@ -323,7 +333,7 @@ func runHistory(ctx context.Context, st *store.Store, s *state.State, cfg *confi
 		Source: func() history.Sample {
 			stats := s.Stats()
 			return history.Sample{
-				Total: stats.Total, Groups: stats.ByGroup,
+				Total: stats.Total, Groups: stats.ByGroup, RegTotal: stats.RegTotal, RegByGroup: stats.RegByGroup,
 				Gap: history.IsGap(stats.AMIConnected, stats.LastDisconnect, time.Now().Truncate(time.Minute)),
 			}
 		},
