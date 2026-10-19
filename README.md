@@ -50,7 +50,7 @@ espaço em disco, SELinux, `manager.conf` incluindo o `manager_custom.conf`) e d
 Tudo como **root** no PBX:
 
 ```sh
-cd /root
+cd /dados
 command -v git >/dev/null || dnf install -y git
 git clone https://repo.camvoip.com.br/cambox/cambox-asterisk18/painel-operacoes.git painel-ramais
 cd painel-ramais
@@ -99,7 +99,7 @@ Para o caso de o menu do Issabel não estar disponível, o instalador cria o usu
 3. No PBX, como root:
 
 ```sh
-cd /root
+cd /dados
 sha256sum -c SHA256SUMS --ignore-missing    # a linha do tar.gz deve terminar em ": OK"
 tar xzf painel-ramais-<versao>.tar.gz
 cd painel-ramais-<versao>
@@ -158,7 +158,7 @@ pacote faz a atualização.
 ### Voltar para a versão anterior (rollback)
 
 ```sh
-cd /root/painel-ramais
+cd /dados/painel-ramais
 ./instalar.py rollback
 ```
 
