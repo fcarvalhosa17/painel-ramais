@@ -1,8 +1,8 @@
 # Relatorio de carga: Painel de Ramais, Fase 1
 
-Gerado por `cmd/loadtest` em 2026-10-13 20:49. **Medido no Windows** (windows/amd64, go1.27.2).
+Medicao historica de 2026-10-13 20:49 (ferramentas removidas na rc.9, recuperaveis pela tag `v0.1.2-rc.8`). **Medido no Windows** (windows/amd64, go1.27.2).
 
-Oraculo: `cmd/amisim` embutido no mesmo processo do cliente WebSocket (mesmo relogio). O simulador foi escrito a partir do protocolo AMI do Asterisk 13/16/18 e de `docs/CONTRATOS.md`, sem importar `internal/ami` nem `internal/state`.
+Oraculo: simulador de AMI embutido no mesmo processo do cliente WebSocket (mesmo relogio). O simulador foi escrito a partir do protocolo AMI do Asterisk 13/16/18 e de `docs/CONTRATOS.md`, sem importar `internal/ami` nem `internal/state`.
 
 ## Parametros desta execucao
 
@@ -182,9 +182,9 @@ Progresso (sip), nomes preenchidos por tempo desde o daemon pronto: 51.3 s=603; 
 
 Progresso (pjsip), nomes preenchidos por tempo desde o daemon pronto: 50.0 s=607; 100.2 s=2137; 150.4 s=3497; 200.6 s=4690; 250.8 s=5792; 300.9 s=6748; 351.1 s=7603; 401.3 s=8358; 451.5 s=9037; 501.7 s=9644; 551.9 s=10000; 602.1 s=10000; 632.2 s=10000.
 
-## "Com quem fala" sobre capturas reproduzidas (`amisim -replay`)
+## "Com quem fala" sobre capturas reproduzidas
 
-Cada captura de `testdata/capturas` e reproduzida pelo simulador (respostas na ordem de fila, eventos no tempo gravado dividido por 20) para o daemon real, que roda em `technology: auto`. Em cada ponto do arquivo o estado do cliente WebSocket tem de igualar o oraculo (`.esperado.json`): registro, dispositivo, nome e, por chamada, id, direcao, estado e com quem fala. **Todas as capturas atuais sao sinteticas** (ver `testdata/capturas/README.md`); capturas reais virao da homologacao.
+Cada captura de teste e reproduzida (respostas na ordem de fila, eventos no tempo gravado dividido por 20) para o daemon real, que roda em `technology: auto`. Em cada ponto do arquivo o estado do cliente WebSocket tem de igualar o oraculo (`.esperado.json`): registro, dispositivo, nome e, por chamada, id, direcao, estado e com quem fala. **Todas as capturas atuais sao sinteticas**; capturas reais virao da homologacao.
 
 | Captura | Tecnologia | Pontos ok / total | Actions fora da allowlist | Erro |
 |---|---|---|---|---|
@@ -428,13 +428,7 @@ Todos os cenarios parados no mesmo ponto, conexao AMI derrubada, o daemon recone
 - Memoria: o criterio "sem crescimento continuo" pede 30 min de carga em Linux; aqui foi uma execucao curta no Windows e a inclinacao acima nao e conclusiva.
 - CPU do daemon: medida pelo tempo de CPU do processo; o agendador e o custo de syscalls do Windows diferem do Linux. Refazer em Linux.
 - `rpm -i/-U/-e`, systemd, SELinux, Apache e `instalar.py`: fora do alcance deste teste (criterios C5, C6, A1 a A9).
-- Reproduzir em Linux (WSL2/container/Rocky), com o simulador e o cliente no mesmo processo:
-
-```
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o painel-ramais ./cmd/painel-ramais
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o loadtest ./cmd/loadtest
-./loadtest -daemon ./painel-ramais -duration 30m -out docs/relatorio-carga-linux.md
-```
+- Reproduzir em Linux: as ferramentas desta medicao foram removidas na rc.9 (recuperaveis pela tag `v0.1.2-rc.8`).
 
 ## Notas do oraculo
 

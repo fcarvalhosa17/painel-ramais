@@ -26,4 +26,4 @@ A view montada virava a publicada **sem desligar** `isBuilding`. Depois da prime
 
 ## Relacao com "em conversa" sem outro lado: nenhuma
 
-O `isBuilding` e a protecao de "em conversa" sem outro lado (`noPeer`/`onNoPeer`, calls.go) sao mecanismos independentes. O "em conversa sem outro lado" era um bug **pre-existente** de publicacao de estado, corrigido em 9c69b1a (nunca publicar "em conversa" sem o outro lado resolvido) e refinado em 8c00cec, 30bed0f e a44c4fc (protecao de 1 s, ultimo peer conhecido, contagem do loadtest). Nao foi causado nem corrigido pelo ajuste do `isBuilding`.
+O `isBuilding` e a protecao de "em conversa" sem outro lado (`noPeer`/`onNoPeer`, calls.go) sao mecanismos independentes. O "em conversa sem outro lado" era um bug **pre-existente** de publicacao de estado, corrigido em 9c69b1a (nunca publicar "em conversa" sem o outro lado resolvido) e refinado em 8c00cec, 30bed0f e a44c4fc (protecao de 1 s, ultimo peer conhecido, contagem do teste de carga). Nao foi causado nem corrigido pelo ajuste do `isBuilding`.

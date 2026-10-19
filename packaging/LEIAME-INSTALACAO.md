@@ -68,7 +68,10 @@ acesso root. O Python 3 nao precisa estar instalado (no Rocky 8 minimo o instala
 
 4. Conferir depois: `./instalar.py status`
 
-Rodar `instalar` de novo faz upgrade (guarda o RPM anterior). Voltar a versao anterior: `./instalar.py rollback`.
+Rodar `instalar` de novo faz upgrade (guarda o RPM anterior). Voltar a versao anterior: `./instalar.py rollback`
+(da rc.9 para a rc.8 restaura o backup automatico `painel.db.bak-v5`).
+Aviso de relogio: `./instalar.py verificar` e `status` avisam, sem bloquear, quando o relogio do servidor nao esta sincronizado
+(os tempos do painel ficam errados). Correcao: `systemctl enable --now chronyd && chronyc makestep`.
 Remover mantendo os dados: `./instalar.py remover`. Remover tudo: `./instalar.py remover --purge`
 (pede para digitar o nome do servidor; com `--sim` nao pergunta). Todo comando executado fica em `/var/log/painel-ramais/instalacao.log`.
 

@@ -38,6 +38,9 @@ A tela tem três abas:
 - Relógio do servidor sincronizado pelo serviço `chronyd`. Os horários gravados no relatório de registros vêm do relógio do PBX:
   com o relógio errado, os horários do relatório ficam errados. Para conferir: `timedatectl` deve mostrar
   `System clock synchronized: yes` e `systemctl status chronyd` deve mostrar `active (running)`.
+  O painel também mostra tempos (fora do ar há, último registro, períodos), que ficam errados com o relógio errado. O
+  `./instalar.py verificar` e o `status` avisam, sem bloquear nada, quando o relógio não está sincronizado. Para corrigir:
+  `systemctl enable --now chronyd && chronyc makestep`.
 
 O `./instalar.py verificar` confere o resto antes de instalar (versão do Asterisk, Apache com `mod_proxy_wstunnel`, porta 8790 livre,
 espaço em disco, SELinux, `manager.conf` incluindo o `manager_custom.conf`) e diz como corrigir cada item.
@@ -68,7 +71,7 @@ O que cada passo faz:
 
 Sobre o `--pre`: hoje só existem pré-releases, marcadas no GitHub como "NÃO HOMOLOGADA. Uso exclusivo em laboratório.". Sem o
 `--pre`, o comando procura uma versão estável, não acha e pede o `--pre`. Para instalar uma versão específica:
-`./instalar.py instalar --versao v0.1.2-rc.8`.
+`./instalar.py instalar --versao v0.1.2-rc.9`.
 
 Tudo o que o instalador executa fica em `/var/log/painel-ramais/instalacao.log` (a senha nunca é registrada).
 
@@ -91,7 +94,7 @@ Para o caso de o menu do Issabel não estar disponível, o instalador cria o usu
 ## 5. Instalação sem internet no PBX
 
 1. Num computador com internet, abra https://github.com/fcarvalhosa17/painel-ramais/releases, escolha a versão e baixe dois arquivos:
-   `painel-ramais-<versao>.tar.gz` e `SHA256SUMS` (exemplo de `<versao>`: `0.1.2-rc.8`).
+   `painel-ramais-<versao>.tar.gz` e `SHA256SUMS` (exemplo de `<versao>`: `0.1.2-rc.9`).
 2. Copie os dois para o `/root` do PBX, por exemplo: `scp painel-ramais-<versao>.tar.gz SHA256SUMS root@<ip-do-pbx>:/root/`
 3. No PBX, como root:
 
@@ -141,6 +144,8 @@ Depois da cópia:
   continua parado. Religue com `systemctl start painel-ramais.service` e corrija o problema antes de tentar de novo.
 - O banco é convertido para o formato da versão nova na primeira subida, e o próprio painel guarda um backup automático
   (`painel.db.bak-v<N>`), usado pelo rollback (seção 7).
+- Atualizando da rc.8 para a rc.9, o banco passa do esquema 5 para o 6 e o painel guarda sozinho `painel.db.bak-v5` na primeira
+  subida. Quem vem direto da rc.6 tem o `painel.db.bak-v3` e o banco passa do esquema 3 para o 6 numa subida só.
 - As telas abertas precisam ser abertas de novo pelo menu: a atualização encerra as sessões antigas.
 - Confira com `./instalar.py status` (seção 8).
 
@@ -160,9 +165,13 @@ cd /root/painel-ramais
   `/var/lib/painel-ramais-instalador/` e confere o SHA-256 dele antes de usar. Sem versão anterior guardada, o comando não muda nada.
 - Antes de executar, mostra o plano e pede confirmação. No fim, mostra o `status`.
 - Se o banco já está num formato mais novo do que a versão anterior entende, o rollback troca o banco pelo backup automático feito
-  na atualização: voltando da rc.8 para a rc.6, é o `painel.db.bak-v3`. O banco atual não é apagado: fica guardado como
+  na atualização. Da rc.9 para a rc.8 é o `painel.db.bak-v5`. O banco atual não é apagado: fica guardado como
   `painel.db.rollback-<data>`. Sem esse backup, o rollback não mexe em nada.
-- Ao voltar da rc.8 para a rc.6 **perde-se**: os nomes de fila, os vínculos de ramal em mais de um grupo, o relatório de registros
+- Sobre o `painel.db.bak-v3`: é a cópia do banco da rc.6 feita pela rc.8 na primeira subida. Só serve para ir da rc.8 para a rc.6
+  e não é usado a partir da rc.9.
+- Ao voltar da rc.9 para a rc.8 **perde-se**: o estado de registro persistente ("fora do ar há" e "último registro") e tudo o que foi
+  gravado depois da atualização.
+- Ao voltar da rc.8 para a rc.6 (só quando a rc.8 é a versão anterior guardada) **perde-se**: os nomes de fila, os vínculos de ramal em mais de um grupo, o relatório de registros
   e tudo o que foi gravado depois da atualização (histórico, sessões, usuários e grupos). O instalador avisa isso antes de pedir a
   confirmação.
 
@@ -197,24 +206,36 @@ journalctl -u painel-ramais -n 50 --no-pager
 - `curl .../api/health`: responde `HTTP 200` com `"status":"ok"`. `HTTP 503` com `"status":"degraded"` quer dizer AMI fora do ar ou
   alguma dependência com problema (veja a lista `deps`: o `detail` de cada item explica o problema). Campos da rc.8 que valem olhar: `live_calls`
   (chamadas ao vivo da aba Chamadas), `queues` (filas; `unsupported: true` quando o Asterisk não tem o módulo de filas) e
-  `registrations` (gravador do relatório; `lost_events` deve ficar em 0). Esse endereço só responde no próprio PBX.
+  `registrations` (gravador do relatório; `lost_events` deve ficar em 0). Da rc.9: `queues.events_received` (quantos eventos de
+  fila chegaram, por tipo), `queue.resyncs` (ressincronizações por estouro) e `registrations.decision_lines` (linhas de decisão de
+  contagem), entre outros; a lista completa está em `docs/CONTRATOS.md`. Esse endereço só responde no próprio PBX.
 - `systemctl status painel-ramais`: deve mostrar `active (running)`.
 - `journalctl -u painel-ramais`: log do serviço. Se a configuração estiver errada, o log diz qual chave.
+- Filtro de eventos AMI: o bloco do painel em `/etc/asterisk/manager_custom.conf` tem 29 linhas `eventfilter`. O `verificar` e o
+  `status` avisam se o bloco do servidor estiver incompleto. Para conferir:
+  `sed -n '/^; BEGIN painel-ramais/,/^; END painel-ramais/p' /etc/asterisk/manager_custom.conf | grep -c '^eventfilter'` deve
+  mostrar 29. Se as filas não atualizam, rode `./instalar.py status` (filtro AMI e eventos de fila recebidos) e, se faltar evento,
+  `./instalar.py instalar` e `systemctl restart painel-ramais`.
 - Se o item sumir do menu do Issabel (por exemplo, depois de uma atualização do Issabel): `./instalar.py menu`.
 
 Tabela de problemas comuns e onde olhar: `docs/referencia-tecnica.md`, seção 7.
 
 ## 9. Comportamentos normais que parecem defeito
 
-- **Contagem de registros pausa por 120 s depois de um reinício.** Quando o painel ou o Asterisk reinicia (ou a conexão AMI volta),
-  as quedas e registros dos 120 s seguintes não entram no ranking de instabilidade: ficam marcados como evento do sistema. Assim, um
-  reinício não aparece como se todos os ramais tivessem caído.
+- **Contagem de registros pausa por 120 s depois de um reinício real do Asterisk.** As quedas e registros dos 120 s seguintes não
+  entram no ranking de instabilidade: ficam marcados como evento do sistema. Assim, um reinício não aparece como se todos os ramais
+  tivessem caído. Reinício do painel ou volta da conexão AMI sem o Asterisk ter reiniciado não pausa a contagem.
 - **Ramais como "desconhecido".** Com o AMI fora do ar, os ramais aparecem como "desconhecido", nunca como "não registrado". O painel
   não sabe o estado real enquanto não houver AMI.
 - **Números das filas zerados ou baixos.** Atendidas, abandonadas e nível de serviço contam desde o último reinício do Asterisk (ou
   desde que as estatísticas da fila foram zeradas). A tela avisa isso.
 - **Relatório de registros sem dados antigos.** O relatório só tem dados desde que a versão com o relatório foi instalada; não existe
   histórico anterior. A tela mostra "Dados desde <data>". Os dados ficam guardados por 30 dias.
+- **Aba Registros (rc.9).** As colunas "Fora do ar há" e "Último registro" mostram o estado atual de cada ramal. A ordem padrão tem
+  três faixas, e o filtro "Ocultar fora desde antes da instalação" esconde quem já estava fora do ar antes de o painel existir.
+  "Fora desde antes da instalação do painel" usa a data do "Dados desde".
+- **Aba Chamadas (rc.9).** Canais auxiliares (como o ChanSpy) não contam como chamada, e a fila de nome `default` é ignorada.
+- **Tela de Ramais (rc.9).** A coluna de grupos mostra "X não registrados" e, quando houver, "Y inalcançáveis".
 - **Nomes dos ramais vazios logo depois de instalar.** Os nomes são buscados em segundo plano, 20 por segundo, para não sobrecarregar
   o Asterisk. Com muitos ramais leva alguns minutos; depois ficam guardados e aparecem logo após um reinício.
 - **Lista de filas vazia.** Em Asterisk sem o módulo de filas, a lista fica vazia, sem erro.
@@ -240,7 +261,7 @@ O que ele acrescenta ao servidor, além do próprio serviço (a remoção, seç�
 ## 11. Para saber mais
 
 - `docs/referencia-tecnica.md`: configuração (`config.yaml`), CLI do serviço, formato do CSV de grupos, API, segurança, tabela de
-  problemas comuns, roteiro de ensaio, relatório de carga e desenvolvimento.
+  problemas comuns, roteiro de ensaio, relatório de carga (histórico) e desenvolvimento.
 - `docs/CONTRATOS.md`: contratos exatos da API, do banco e do instalador (vale em caso de divergência).
 - `packaging/LEIAME-INSTALACAO.md`: opções avançadas do instalador (`--grupos`, `--respostas`, `--tecnologia`) e instalação em
   vários servidores.

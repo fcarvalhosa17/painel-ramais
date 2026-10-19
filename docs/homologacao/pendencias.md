@@ -73,14 +73,7 @@ O endpoint de debug do heap so servia aos testes de carga (workflows removidos e
 - `cmd/painel-ramais/serve.go:155`: `startDebug(ctx, d.log)`, a linha que liga o endpoint.
 - Variavel `PAINEL_DEBUG_ADDR`: so lida em `debug.go`; nenhuma unit systemd, README, LEIAME, doc ou
   script a define ou cita (conferido com busca no repositorio inteiro).
-- `cmd/loadtest` (`loadtest -heap`), que perde a fonte do heap:
-  - `cmd/loadtest/main.go:39` flag `-heap`; `cmd/loadtest/run.go:36` campo `heap` (comentario cita
-    `PAINEL_DEBUG_ADDR`);
-  - `cmd/loadtest/client.go:90` campo `dbg`; `cmd/loadtest/client.go:153-157` define
-    `PAINEL_DEBUG_ADDR` no ambiente do daemon;
-  - `cmd/loadtest/heap.go:16` comentario; `cmd/loadtest/heap.go:109` e `:115` `GET /debug/mem`
-    (`HeapStats`); `cmd/loadtest/heap.go:129` e `:135` `GET /debug/pprof/heap?gc=1` (`HeapProfile`);
-  - `cmd/loadtest/regime_test.go:23` e `:30` daemon falso com `/debug/mem` e `/debug/pprof/heap`.
+- A ferramenta de carga local, que lia o heap por esse endpoint, foi removida na rc.9 (recuperavel pela tag `v0.1.2-rc.8`).
 
 ### Decisao do usuario
 
@@ -89,9 +82,6 @@ O endpoint de debug do heap so servia aos testes de carga (workflows removidos e
    distribuido junto.
 2. Se for preciso manter para desenvolvimento, que seja por build tag (ex.: `//go:build debug`),
    fora do binario distribuido; o build de release nao passa a tag.
-3. `loadtest -heap`: se o loadtest local continuar, passa a ler o heap por outra via (ex.: o
-   `heap_live`/`heap_inuse` do `metrics.json`, sem GC forcado e sem perfil pprof) ou contra um
-   daemon compilado com a tag de desenvolvimento. Ajustar `regime_test.go` ao caminho escolhido.
 
 ### Criterio de aceite
 
@@ -101,7 +91,7 @@ O endpoint de debug do heap so servia aos testes de carga (workflows removidos e
 - `instalar.py status` continua mostrando o heap pelo `metrics.json` (linha "Heap Go: ... pos-GC").
 - Testes rapidos passam: `go vet ./...`, `go test ./...` e os testes do `instalar.py`
   (`tests/test_instalar.py`).
-- Docs que citarem o endpoint ajustadas (hoje so os comentarios de `cmd/loadtest` o citam).
+- Docs que citarem o endpoint ajustadas.
 
 ## Pendencia: privilegios AMI ilegiveis marcados como OK (lote pos-analise do pacote homologacao-*.tar.gz)
 

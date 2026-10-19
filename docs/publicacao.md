@@ -4,7 +4,7 @@
 - Commit varrido: `c1215b828bf4c1feacb770229ae13d53ebd57568` (`c1215b8`), único commit do histórico (`git rev-list --all` = 1; refs: `main`, `origin/main`, `origin/HEAD`; sem stash, sem tag)
 - Data da varredura: 2026-10-15
 - Commits posteriores: consultar `git log` (este arquivo não guarda hash de commit próprio).
-- Nota rc.8: este arquivo é o registro das varreduras feitas até a rc.7. Os achados e arquivos citados com `_test.go`, `testdata` de AMI e `tests/` descrevem o commit `c1215b8`; esses arquivos de teste foram **removidos do repositório na rc.8** e já não existem na árvore. O fluxo de publicação atual está na seção 7.
+- Nota rc.8: este arquivo é o registro das varreduras feitas até a rc.7. Os achados e arquivos citados com `_test.go`, `testdata` de AMI e `tests/` descrevem o commit `c1215b8`; esses arquivos de teste foram **removidos do repositório na rc.8** e já não existem na árvore. Na rc.9 também saíram as ferramentas de carga e de simulação de AMI e as capturas de teste (recuperáveis pela tag `v0.1.2-rc.8`). O fluxo de publicação atual está na seção 7.
 
 ## Registro franco
 
@@ -48,7 +48,7 @@ INF scanned ~1189854 bytes (1.19 MB) in 382ms
 WRN leaks found: 5
 ```
 
-Também rodei `gitleaks dir` sobre a árvore exportada do commit (`git archive c1215b8`), e ele deu os mesmos 5 achados. Rodei ainda `gitleaks dir testdata/capturas`, porque esses `.txt` são marcados como `binary` no `.gitattributes`: `no leaks found`.
+Também rodei `gitleaks dir` sobre a árvore exportada do commit (`git archive c1215b8`), e ele deu os mesmos 5 achados.
 
 Classificação dos 5 achados: **todos fictícios**.
 
@@ -60,14 +60,14 @@ Classificação dos 5 achados: **todos fictícios**.
 
 ## 2. Varredura manual (git grep + histórico)
 
-Como o histórico tem um commit só, `git log -p` equivale ao conteúdo da árvore em `c1215b8`. A busca foi feita com `git grep` em `c1215b8`. Os `.txt` de `testdata/capturas` foram varridos à parte com `grep -a`, porque o `git grep -I` pula arquivos com o atributo `binary`.
+Como o histórico tem um commit só, `git log -p` equivale ao conteúdo da árvore em `c1215b8`. A busca foi feita com `git grep` em `c1215b8`.
 
 | Categoria | Achados (arquivo:linha, commit c1215b8) | Classificação |
 |---|---|---|
-| Senhas e segredos em código | `cmd/loadtest/run.go:20` e `internal/amisim/sim.go:55` (`segredo-de-teste`), `cmd/amisim/main.go:29` (padrão da flag `-secret`), `cmd/loadtest/client.go:85` (`loadtest-senha-123`), `cmd/painel-ramais/capturar_test.go:17`, `daemon_test.go:92`, `supervisor_test.go:115`, `internal/ami/client_test.go:159`, `internal/api/api_test.go` (`uma-senha-longa`, `errada-errada`), `tests/test_instalar.py:326` (`senha-bem-longa`) | Fictício. São o simulador AMI e o teste de carga, que não entram no binário de produção (`cmd/painel-ramais` só importa `amisim` em teste). Os segredos reais (`secret`, `ami-secret`) são gerados no `%post`. |
+| Senhas e segredos em código | ferramentas de teste de AMI e de carga (`segredo-de-teste` e uma senha de exemplo), `cmd/painel-ramais/capturar_test.go:17`, `daemon_test.go:92`, `supervisor_test.go:115`, `internal/ami/client_test.go:159`, `internal/api/api_test.go` (`uma-senha-longa`, `errada-errada`), `tests/test_instalar.py:326` (`senha-bem-longa`) | Fictício. São o simulador AMI e o teste de carga, que nunca entraram no binário de produção. Os segredos reais (`secret`, `ami-secret`) são gerados no `%post`. |
 | Chaves privadas, tokens de nuvem/GitHub, hashes bcrypt reais | nenhum (`BEGIN ... PRIVATE KEY`, `ghp_`, `github_pat_`, `AKIA`, `xox?-`, `sk-`, `AIza`, `$2a$NN$...`) | n/a |
 | IPs privados de exemplo | `10.0.5.23/24/30/31/50` e `10.0.0.1/2/5/9` em `docs/CONTRATOS.md`, `README.md`, testes Go, `internal/ami/testdata`, comentários de `internal/ami/calls/util.go:21` e `internal/ami/pjsip/pjsip.go:215`, `tests/test_instalar.py:335` | Fictício (RFC 1918). Trocados por 192.0.2.0/24 (item 3), menos o `README.md`. |
-| IPs das capturas sintéticas | `10.1.1.x` em `testdata/capturas/*` e `cmd/painel-ramais/capturar_test.go:95` | Fictício: gerados pelo simulador (`internal/amisim`), conforme `testdata/capturas/README.md`. Não troquei: as capturas têm tamanho exato por quadro e teriam de ser regeneradas. |
+| IPs das capturas sintéticas | `10.1.1.x` nas capturas de teste da época | Fictício: gerados por simulador. Capturas e simulador foram removidos na rc.9 (recuperáveis pela tag `v0.1.2-rc.8`). |
 | IP público | `200.1.2.3` (tronco `trunk-acme`) em `internal/ami/testdata/sip/peers.txt:45` e `internal/ami/sip/sip_test.go:70` | Fictício, mas cai num bloco roteável real (LACNIC). Trocado por `203.0.113.3` (TEST-NET-3). |
 | IPs de documentação | `203.0.113.x`, `198.51.100.7`, `2001:db8::/32`, `fe80::...` | Fictício (faixas reservadas para documentação). |
 | Falsos positivos de IP | `108.86.0.20`, `1.0.11.23` (firmware no User-Agent de Yealink/Grandstream), `1.8.32.3` (versão do Asterisk), `10.200.x.y` / `fd00:200::` (destino da anonimização, é lógica), `127.0.0.1`, `0.0.0.0`, `255.255.255.255` | Não são endereços de ninguém. |
@@ -131,3 +131,5 @@ O repositório não tem testes automatizados: publicar é **compilar e empacotar
 4. `.uild.ps1 release -Version 0.1.2 -Pre rc.N` (antes, `-DryRun`): gera o binário (versão por `-ldflags -X main.version`), o RPM, o tar.gz e o `SHA256SUMS`, cria a tag `v0.1.2-rc.N` e publica a Release como **pré-release** (`--latest=false`) com a nota `NÃO HOMOLOGADA. Uso exclusivo em laboratório.`. O `build.ps1` não executa o binário nem testes.
 
 O teste real é feito no servidor, seguindo o `docs/homologacao/ROTEIRO-MANUAL.md`.
+
+rc.9: `.\build.ps1 release -Version 0.1.2 -Pre rc.9`; a atualizacao parte da rc.8 (esquema 5 para 6, backup `painel.db.bak-v5`).

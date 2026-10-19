@@ -422,6 +422,9 @@ e o bloqueio de `X-Forwarded-*` em `/api/health` e `/debug`. Acesso externo: só
 ### RPM de rollback e instalador
 
 - **Atualização rc.6 para rc.8 (a rc.7 não foi instalada):** uma subida do daemon migra o banco do esquema 3 para o 5 (3 para 4, depois 4 para 5, cada um na sua transação) e guarda **um** backup, `painel.db.bak-v3`. O `%post` regrava o bloco AMI (`read = system,call,agent`, `Event: Shutdown` e os onze eventos de fila) e faz `manager reload`. De rc.7 para rc.8 só há 4 para 5, com backup `painel.db.bak-v4`.
+- **Atualização rc.8 para rc.9 (caso comum):** uma subida do daemon migra o banco do esquema 5 para o 6 (`reg_state`) e guarda `painel.db.bak-v5`. Vindo da rc.6, passa de 3 para 6 numa subida só e o backup é o `.bak-v3`. O `%post` regrava o bloco AMI com os 29 `eventfilter`.
+- **Rollback rc.9 para rc.8:** o `./instalar.py rollback` restaura sozinho o `painel.db.bak-v5` (o banco atual fica como `painel.db.rollback-<data>`). Perde-se o estado de registro persistente ("fora do ar há", "último registro") e o que foi gravado depois da atualização. O `.bak-v3` (cópia do banco da rc.6 feita pela rc.8) não é usado a partir da rc.9.
+- **Relógio:** `./instalar.py verificar` e `status` avisam, sem bloquear, quando o relógio não está sincronizado; correção: `systemctl enable --now chronyd && chronyc makestep`.
 - **Rollback rc.8 para rc.6:** a rc.6 recusa banco de esquema 4 ou 5. O `./instalar.py rollback` restaura sozinho o `painel.db.bak-v3` (o banco atual fica como `painel.db.rollback-<data>`) e avisa antes de confirmar que serão perdidos: nomes de fila, vínculos de ramal em vários grupos, relatório de registros e tudo o que foi gravado depois da atualização (histórico, sessões, usuários, grupos). Sem o `.bak-v3`, o rollback não mexe em nada e sai com 2.
 - **Rollback rc.7 para rc.6:** a rc.7 usa o banco no esquema 4 e a rc.6 recusa abri-lo. O `./instalar.py rollback` restaura sozinho o `painel.db.bak-v3` (o banco 4 fica guardado como `painel.db.rollback-<data>`) e avisa antes de confirmar: vínculos de ramal em vários grupos, relatório de registros e tudo o que foi gravado depois da atualização (histórico, sessões, usuários, grupos) é perdido. Sem o `.bak-v3`, o rollback não mexe em nada e sai com 2.
 - O instalador guarda o RPM anterior em `/var/lib/painel-ramais-instalador/` (acessível só ao root, 0700), **aceito pelo usuário** (decisão 3). Antes do `rollback` confere o nome do pacote e o **SHA-256** gravado na instalação. `./instalar.py remover --purge` apaga esse diretório também.
@@ -458,7 +461,7 @@ O `rpm -e` remove binário, unit, conf do Apache e o bloco AMI. O booleano SELin
 ## 9. Roteiro de ensaio em Rocky Linux 8 (container ou VM)
 
 Pendente de execução: este repositório foi desenvolvido no Windows, sem Linux disponível. Rode em **Rocky 8 mínimo**,
-com o simulador (`cmd/amisim`, modos `sip` e `pjsip`) no lugar do Asterisk. Preparação: copie o bundle, extraia e entre na pasta.
+com um Asterisk de laboratório (modos `sip` e `pjsip`). Preparação: copie o bundle, extraia e entre na pasta.
 
 1. **Sem python3 (só Rocky 8 mínimo):** `rpm -q python3` deve dizer `package python3 is not installed`; `ls /usr/libexec/platform-python` existe.
    `./instalar.py verificar` deve rodar mesmo assim (primeira linha poliglota). Esperado: linhas `[OK   ] ...`, `[AVISO] ...`, `[ERRO ] ...` e
@@ -482,7 +485,7 @@ com o simulador (`cmd/amisim`, modos `sip` e `pjsip`) no lugar do Asterisk. Prep
 6. **`rpm -i / -U / -e` direto:** `rpm -i`, `rpm -U` (config e segredos preservados: compare `sha256sum` antes e depois) e `rpm -e`
    (binário, unit, `/etc/httpd/conf.d/painel-ramais.conf` e bloco AMI somem; `/var/lib/painel-ramais` e `/etc/painel-ramais` ficam).
 7. **Atualização simulada do Issabel:** reescreva `manager.conf` sem o include (`sed -i '/manager_custom/d' /etc/asterisk/manager.conf`), apague
-   `/etc/httpd/conf.d/painel-ramais.conf`, `systemctl restart httpd asterisk` (ou reinicie o simulador). Esperado: o serviço segue `active`,
+   `/etc/httpd/conf.d/painel-ramais.conf`, `systemctl restart httpd asterisk` (ou reinicie o Asterisk). Esperado: o serviço segue `active`,
    reconecta sozinho e, em até 60 s, `curl -s http://127.0.0.1:8790/api/health` mostra `manager_custom_include` e `apache_proxy_conf` com `"status":"fail"`
    e o `status` geral `degraded` (HTTP 503). `./instalar.py instalar` (mesma versão) corrige o Apache; o include do `manager.conf` é manual.
 8. **`status`:** `./instalar.py status` mostra versão, serviço, AMI, ramais por estado, clientes WS e cada dependência; saída 0 se `ok`, 2 se `degraded`.
@@ -490,12 +493,12 @@ com o simulador (`cmd/amisim`, modos `sip` e `pjsip`) no lugar do Asterisk. Prep
    versão anterior em `rpm -q painel-ramais` e dados preservados. Sem RPM anterior guardado, sai com 2 e não altera nada.
 10. **`remover` e `remover --purge`:** `./instalar.py remover --sim` mantém os dados; `./instalar.py remover --purge` pede o nome do servidor
     (`hostname`); com o nome certo apaga `/var/lib/painel-ramais` e `/etc/painel-ramais`.
-11. **Medições de CPU e memória do teste de carga** devem ser feitas em Linux; o relatório deve dizer onde cada medição foi feita.
+11. **Medições de CPU e memória** devem ser feitas em Linux; o registro deve dizer onde cada medição foi feita.
 
-## 10. Relatório de carga
+## 10. Relatório de carga (histórico)
 
-Resumo de `docs/relatorio-carga.md` (gerado por `cmd/loadtest` em 2026-10-13 20:49, daemon **0.1.1**). **Medido no Windows** (windows/amd64, go1.27.2; o binário
-do teste foi o build Windows do daemon, não o ELF do RPM), com o simulador de AMI (`cmd/amisim`) no mesmo processo do cliente WebSocket e o daemon como
+Resumo de `docs/relatorio-carga.md` (medição histórica de 2026-10-13 20:49, daemon **0.1.1**; ferramentas removidas na rc.9, recuperáveis pela tag `v0.1.2-rc.8`). **Medido no Windows** (windows/amd64, go1.27.2; o binário
+do teste foi o build Windows do daemon, não o ELF do RPM), com um AMI simulado no mesmo processo do cliente WebSocket e o daemon como
 processo separado. Cenário: 10.000 ramais, 400 chamadas simultâneas alvo, regime de ~10 min (inclui o preenchimento de nomes), rajada de 3.000 desregistros, AMI fora por 4 s.
 Números copiados do relatório:
 
@@ -517,50 +520,14 @@ Números copiados do relatório:
 | RSS no fim do regime / pico (Windows) | 64.6 MiB / 89.1 MiB | 75.4 MiB / 110.7 MiB |
 | CPU do daemon no regime (Windows, % de 1 núcleo) | 0.7% | 1.9% |
 
-**Capturas reproduzidas** (`amisim -replay`): "com quem fala" correto em **226/226** pontos em 10 capturas (**sintéticas**, geradas pelo simulador; capturas reais vêm da homologação), sem nenhuma action fora da allowlist.
-
 **Ressalvas registradas no relatório (leia a seção correspondente em `docs/relatorio-carga.md`):**
 - "nenhum estado fugaz errado visto no WS": RESSALVA (sip: 4 fugazes errados e 6 aceitos por terem só dispositivo/chamadas de instantes diferentes; pjsip: 3 e 3).
 - "memória sem crescimento contínuo": **NÃO CONCLUSIVO no Windows** (sip 0.79 MiB/min em 580 s; pjsip 0.37 MiB/min em 582 s de regime).
 
 **O que falta em Linux (não substituível pelo Windows):** a memória em 30 min e a CPU. Os números de memória e CPU acima são do Windows e valem só como ordem de grandeza.
-Para refazer em Linux (WSL2, container ou Rocky), com o binário do daemon e o `loadtest` compilados para linux/amd64:
-
-```sh
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o painel-ramais ./cmd/painel-ramais
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o loadtest ./cmd/loadtest
-./loadtest -daemon ./painel-ramais -duration 30m -out docs/relatorio-carga-linux.md
-```
-
+As ferramentas desta medição (simulador de AMI, gerador de carga e capturas de teste) foram removidas na rc.9 e são recuperáveis pela tag `v0.1.2-rc.8`.
 O relatório informa onde cada medição foi feita. Também ficam para Linux `rpm -i/-U/-e`, systemd, SELinux, Apache e `instalar.py` (seção 9).
-
-### Histórico dos testes de carga longos (decisão do usuário)
-
-O relatório acima fica como **histórico** (daemon 0.1.1, Windows). Dois testes longos no GitHub Actions foram **cancelados por decisão do usuário**, e a partir daqui
-os testes passam a ser feitos **na instalação no servidor**, seguindo `docs/homologacao/ROTEIRO-MANUAL.md`:
-
-- run `38804792199` (5 h): media o código **anterior** à correção do vazamento de `hungup` (`docs/nota-isbuilding.md`), então o seu resultado de memória não vale para a versão atual;
-- run `38823676967` (só `sip-30min`, código com a correção do `hungup`, antes da correção da última amostra): inclinação do HeapInuse de 16,87 MiB/h (run `38804792199`, código antigo)
-  para 1,08 MiB/h; esse valor é puxado pelo degrau de ~3 MiB da última amostra (cache do snapshot) e fica perto de 0 (-0,005 MiB/h) sem ela. Não é um critério de aceite cumprido;
-- run `38833482013`: com todas as correções; cancelado por decisão do usuário com o job `sip-30min` ainda em andamento, sem veredito.
-
-`cmd/loadtest` e `cmd/amisim` continuam no repositório como **ferramenta local** (os comandos acima). Para acompanhar a memória em produção, use `./instalar.py status`
-(seção "Acompanhar a memória nos primeiros dias" do `packaging/LEIAME-INSTALACAO.md`).
-
-### Reproduzir uma captura: `amisim -replay` e `loadtest -captures`
-
-```sh
-# simulador reproduzindo um arquivo de captura (CONTRATOS 18) em vez de simular; o daemon conecta no AMI do simulador
-go run ./cmd/amisim -replay testdata/capturas/sintetica-transferencia-pjsip.txt -speed 20 -listen 127.0.0.1:5038 -http 127.0.0.1:5039
-#   -speed 1 = tempo gravado; 0 = sem esperas
-
-# teste de carga: o "com quem fala" por reprodução roda sobre todas as capturas da pasta (padrão testdata/capturas)
-go run ./cmd/loadtest -captures testdata/capturas -replay-speed 20 -out docs/relatorio-carga.md
-#   -captures "" desliga essa parte
-```
-
-Os `.txt` de `testdata/capturas/` têm CRLF e tamanho exato por quadro, por isso o `.gitattributes` os marca como `binary` (o git não pode normalizá-los).
-Cada `.esperado.json` ao lado é o oráculo do ponto a ponto. Detalhes: `testdata/capturas/README.md`.
+Para acompanhar a memória em produção, use `./instalar.py status` (seção "Acompanhar a memória nos primeiros dias" do `packaging/LEIAME-INSTALACAO.md`).
 
 ## 11. Desenvolvimento
 
@@ -569,7 +536,7 @@ Compatibilidade do instalador com Python 3.6: `vermin --target=3.6- instalar.py 
 
 ### O que não roda automaticamente
 
-Nada roda no GitHub além da publicação da release feita pelo `.\build.ps1 release` (único caminho de publicação). O teste de RPM em Rocky 8 (`rpm -i/-U/-e`) só roda manual, num container Rocky: `tools/ci-build.sh <versao>` gera os RPMs e `tools/rpm-smoke.sh` os exercita. Instalação, upgrade, rollback e carga reais são feitos **no servidor**.
+Nada roda no GitHub além da publicação da release feita pelo `.\build.ps1 release` (único caminho de publicação). O teste de RPM em Rocky 8 (`rpm -i/-U/-e`) só roda manual, num container Rocky: `tools/ci-build.sh <versao>` gera os RPMs e `tools/rpm-smoke.sh` os exercita. Instalação, upgrade e rollback reais são feitos **no servidor**.
 
 ### Ferramentas de build reproduzíveis (sem administrador)
 
@@ -609,7 +576,6 @@ Comportamento decidido (chaves de configuração no `config.yaml`, ver seção 3
 - **Login e token:** login obrigatório para o painel e a API; token de entrada válido por 60 s e de uso único; `/api/health` só via localhost.
 - **Painel em TV de NOC, 24 h:** a sessão se renova sozinha enquanto houver WebSocket ativo. Expiração por **inatividade de 12 h: `auth.session_ttl: 12h`** (de 15m a 24h).
   Ao expirar, o WebSocket envia um aviso explícito antes de fechar, para a tela da Fase 2 mostrar isso em vez de congelar.
-- O teste de carga deve ser refeito com o preenchimento de nomes ativo (meta: p99 abaixo de 1 s).
 
 ## 13. Captura de AMI real: roteiro de chamadas (homologação)
 
@@ -617,7 +583,7 @@ O subcomando `painel-ramais capturar` está descrito no CONTRATOS, seção 18. T
 
 Na VM de homologação o caminho recomendado é `./instalar.py homologar`: roda esta captura junto de snapshots do painel e do Asterisk e mostra os passos abaixo no terminal (roteiro completo em `docs/homologacao/ROTEIRO-MANUAL.md`; análise do pacote com `tools/analisar_homologacao.py`).
 
-Objetivo: gravar o tráfego AMI de um Asterisk real durante um conjunto conhecido de chamadas, para que o simulador reproduza o arquivo e os testes de "com quem fala" rodem sobre dados reais (hoje as amostras foram escritas de memória). Texto para o README (seção de homologação); o formato do arquivo está no `docs/CONTRATOS.md`, seção 18.
+Objetivo: gravar o tráfego AMI de um Asterisk real durante um conjunto conhecido de chamadas, para conferir o "com quem fala" contra dados reais. Texto para o README (seção de homologação); o formato do arquivo está no `docs/CONTRATOS.md`, seção 18.
 
 ### Antes de começar
 
