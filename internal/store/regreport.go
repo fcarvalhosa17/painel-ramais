@@ -201,26 +201,45 @@ func (s *Store) RegSince(ctx context.Context) (time.Time, error) {
 	return time.Unix(n, 0).UTC(), nil
 }
 
-// PurgeReg apaga o que passou da retencao (before) em reg_events, reg_hourly e reg_system_events e
-// devolve quantas linhas.
+// regPurgeChunk e o tamanho de cada bloco da limpeza; regPurgeTimeout, o prazo de cada bloco (CONTRATOS 10).
+const (
+	regPurgeChunk   = 5000
+	regPurgeTimeout = 15 * time.Second
+)
+
+// PurgeReg apaga o que passou da retencao (before) em reg_events, reg_hourly e reg_system_events e devolve quantas
+// linhas. rc.8: em blocos de 5.000, cada um um comando (autocommit) com prazo de 15 s, repetido ate apagar menos
+// de 5.000; entre blocos a conexao unica volta ao pool (o apagao de uma vez so a segurava por tempo demais). Para
+// no primeiro erro e o devolve: dado velho a mais nao e perda, a limpeza tenta de novo no dia seguinte.
 func (s *Store) PurgeReg(ctx context.Context, before time.Time) (int64, error) {
 	var total int64
-	for _, q := range []struct {
-		sql string
-		arg int64
-	}{
-		{"DELETE FROM reg_events WHERE at < ?", before.Unix()},
-		{"DELETE FROM reg_hourly WHERE hour < ?", before.Unix()},
-		{"DELETE FROM reg_system_events WHERE at < ?", before.Unix()},
+	for _, q := range []struct{ sql string }{
+		{"DELETE FROM reg_events WHERE id IN (SELECT id FROM reg_events WHERE at < ? LIMIT 5000)"},
+		{"DELETE FROM reg_system_events WHERE id IN (SELECT id FROM reg_system_events WHERE at < ? LIMIT 5000)"},
+		{"DELETE FROM reg_hourly WHERE (number, hour) IN (SELECT number, hour FROM reg_hourly WHERE hour < ? LIMIT 5000)"},
 	} {
-		res, err := s.db.ExecContext(ctx, q.sql, q.arg)
-		if err != nil {
-			return total, err
+		for {
+			n, err := s.purgeChunk(ctx, q.sql, before.Unix())
+			total += n
+			if err != nil {
+				return total, err
+			}
+			if n < regPurgeChunk {
+				break
+			}
 		}
-		n, _ := res.RowsAffected()
-		total += n
 	}
 	return total, nil
+}
+
+func (s *Store) purgeChunk(ctx context.Context, query string, before int64) (int64, error) {
+	cctx, cancel := context.WithTimeout(ctx, regPurgeTimeout)
+	defer cancel()
+	res, err := s.db.ExecContext(cctx, query, before)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 // RegRow e o agregado de um ramal no periodo (soma de reg_hourly).

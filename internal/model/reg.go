@@ -37,9 +37,23 @@ type RegNote struct {
 // RegCounts acumula, desde a subida do daemon, as ocorrencias contadas (system = 0).
 type RegCounts struct{ Lost, Unreachable uint64 }
 
-// RegStatus e a foto da fila do gravador de registros (vai para /api/health).
+// RegStatus e a foto da fila do gravador de registros (vai para /api/health). rc.8: WriteErrors conta
+// sublotes perdidos; LostEvents = notas perdidas neles, desde a subida; LostSince e LostUntil = menor e maior At
+// entre elas (zero = nenhuma perda).
 type RegStatus struct {
 	QueueLen, QueueCap int
 	Dropped            uint64
 	WriteErrors        uint64
+	LostEvents         uint64
+	LostSince          time.Time
+	LostUntil          time.Time
+}
+
+// QueueHealth e a foto da leitura de filas (QueueStatus) para o /api/health (rc.8, CONTRATOS 4.4): LastFullAt =
+// ultima QueueStatus completa lida com sucesso (zero = nenhuma); RefreshErrors = QueueStatus (completa ou por
+// fila) que falharam desde a subida; Unsupported = a ultima completa respondeu que a action nao existe.
+type QueueHealth struct {
+	LastFullAt    time.Time
+	RefreshErrors uint64
+	Unsupported   bool
 }
