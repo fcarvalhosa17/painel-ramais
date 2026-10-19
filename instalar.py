@@ -1264,11 +1264,11 @@ def cmd_rollback(args):
         if como_dono(["test", "-f", bak])[0] != 0:
             raise Falha("O banco esta no esquema %d, mais novo que o da versao anterior (%d), e nao existe o backup %s. "
                         "Rollback nao e seguro; nada foi alterado." % (sch_db, sch_ant, bak))
-        if sch_ant == 3 and sch_db == 4:
-            # rc.7 (esquema 4) para a rc.6 (esquema 3): a rc.6 recusa abrir banco 4, entao o .bak-v3 e restaurado sempre
-            dizer("ATENCAO: voltando da rc.7 (banco no esquema 4) para a rc.6 (esquema 3). O banco volta ao estado de antes da "
-                  "atualizacao (%s). Os vinculos de ramal em mais de um grupo, o relatorio de registros e tudo o que foi gravado "
-                  "depois da atualizacao (historico, sessoes, usuarios e grupos) serao PERDIDOS." % os.path.basename(bak))
+        if sch_ant == 3 and sch_db >= 4:
+            # rc.7 ou rc.8 (esquema 4 ou 5) para a rc.6 (esquema 3): a rc.6 recusa abrir banco 4 ou 5, entao o .bak-v3 e restaurado sempre
+            dizer("ATENCAO: voltando para a rc.6 (esquema 3); o banco esta no esquema %d. O banco volta ao estado de antes da "
+                  "atualizacao (%s). Os vinculos de ramal em mais de um grupo, o relatorio de registros, os nomes de fila e tudo o que "
+                  "foi gravado depois da atualizacao (historico, sessoes, usuarios e grupos) serao PERDIDOS." % (sch_db, os.path.basename(bak)))
         dizer("ATENCAO: o banco sera trocado pelo backup %s. O historico, as sessoes e as mudancas de usuario e de grupo "
               "feitas depois do upgrade serao PERDIDOS." % os.path.basename(bak))
     dir_do_root_seguro(INSTALADOR_DIR)

@@ -1,10 +1,10 @@
-# Equivalente ao Makefile. Uso: .\build.ps1 [build|test|rpm|bundle|all|release] [-Version 0.1.1] [-Pre rc.N] [-DryRun]
+# Equivalente ao Makefile. Uso: .\build.ps1 [build|rpm|bundle|all|release] [-Version 0.1.1] [-Pre rc.N] [-DryRun]
 # Pre-release: -Version 0.1.2 -Pre rc.1 (ou -Version 0.1.2-rc.1). Tag v0.1.2-rc.1; RPM Version 0.1.2, Release 0.1.rc.1
 # (rpmvercmp: 0.1.2-1 final > 0.1.2-0.1.rc.1 > 0.1.1-1; sem til no nome do arquivo, que o GitHub reescreve). Release com --prerelease.
-# release: gera RPM + tar.gz + dist/SHA256SUMS (so compila e empacota; nao roda go test), cria a tag v<Version> e publica a Release via gh. Com -DryRun nao cria tag nem Release.
+# release: gera RPM + tar.gz + dist/SHA256SUMS (so compila e empacota), cria a tag v<Version> e publica a Release via gh. Com -DryRun nao cria tag nem Release.
 # Ferramentas: go e nfpm do PATH ou de .tools\ (go\bin\go.exe, nfpm.exe, nfpm\nfpm.exe).
 param(
-    [ValidateSet('build', 'test', 'rpm', 'bundle', 'all', 'release')][string]$Target = 'build',
+    [ValidateSet('build', 'rpm','bundle', 'all', 'release')][string]$Target = 'build',
     [string]$Version = '0.1.1',  # fonte unica: vai para o binario (-X main.version), o RPM (VERSION) e o bundle
     [string]$Pre = '',           # sufixo de pre-release, formato rc.N (vazio = versao final)
     [switch]$DryRun              # so vale em release: roda as conferencias e o build, sem tag nem Release
@@ -52,11 +52,6 @@ function Build {
     }
     finally { $env:GOOS, $env:GOARCH, $env:CGO_ENABLED = $old }
     Write-Host 'OK: dist/painel-ramais (linux/amd64)'
-}
-
-function Test {
-    $go = Find-Tool 'go' @('.tools\go\bin\go.exe') 'Instale o Go ou extraia em .tools\go.'
-    Invoke-Checked $go @('test', './...')
 }
 
 function Rpm {
@@ -144,7 +139,6 @@ function Release {
 try {
     switch ($Target) {
         'build' { Build }
-        'test'  { Test }
         'rpm'   { Rpm }
         'bundle' { Rpm; Bundle }
         'all'   { Rpm; Bundle }

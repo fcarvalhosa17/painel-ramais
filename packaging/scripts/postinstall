@@ -38,6 +38,10 @@ chmod 0600 "$CONF_DIR/secret" "$CONF_DIR/ami-secret"
 # NOTA: os eventos Reload, ModuleLoadReport e FullyBooted (reloadEvents no supervisor do daemon) disparam a releitura dos ramais (decisao 4). Desde a rc.7
 # o Shutdown (Asterisk desligando) tambem entra no eventfilter: o daemon abre a janela de evento do sistema do relatorio de registro (ADR-007). Confirmar no Asterisk real se `read = system,call`
 # entrega o Reload (docs/ROTEIRO-CAPTURA.md, item 12); se nao entregar, a rede de seguranca e o ami.inventory_refresh (padrao 10 min).
+# rc.8 (ADR-008): os onze eventos de fila e agente (QueueCallerJoin, QueueCallerLeave, QueueCallerAbandon, QueueMemberStatus, QueueMemberPause,
+# QueueMemberAdded, QueueMemberRemoved, AgentCalled, AgentConnect, AgentComplete, AgentRingNoAnswer) sao da classe de leitura `agent`: por isso
+# `read = system,call,agent`. So leitura (a classe `write` nao muda); alimentam a aba Chamadas e o painel de filas. AgentCalled e AgentRingNoAnswer
+# entram no filtro mas o daemon os descarta nesta versao. Mesma regra do bloco: so aqui, entre os marcadores, nunca em manager.conf.
 # --- bloco AMI em manager_custom.conf (nunca manager.conf) ---
 ami_block() {
   cat <<AMIEOF
@@ -47,7 +51,7 @@ $BEGIN_MARK
 secret = $(cat "$CONF_DIR/ami-secret")
 deny = 0.0.0.0/0.0.0.0
 permit = 127.0.0.1/255.255.255.255
-read = system,call
+read = system,call,agent
 write = system,reporting
 writetimeout = 5000
 displayconnects = no
@@ -69,6 +73,17 @@ eventfilter = Event: Reload
 eventfilter = Event: ModuleLoadReport
 eventfilter = Event: FullyBooted
 eventfilter = Event: Shutdown
+eventfilter = Event: QueueCallerJoin
+eventfilter = Event: QueueCallerLeave
+eventfilter = Event: QueueCallerAbandon
+eventfilter = Event: QueueMemberStatus
+eventfilter = Event: QueueMemberPause
+eventfilter = Event: QueueMemberAdded
+eventfilter = Event: QueueMemberRemoved
+eventfilter = Event: AgentCalled
+eventfilter = Event: AgentConnect
+eventfilter = Event: AgentComplete
+eventfilter = Event: AgentRingNoAnswer
 $END_MARK
 AMIEOF
 }
