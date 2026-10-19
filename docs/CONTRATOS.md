@@ -2,7 +2,7 @@
 
 **Data**: 2026-10-13
 **Origem**: `docs/PROMPT-FASE-1.md` e `docs/ADENDO-FASE-1-INSTALADOR.md` (especificação do usuário, mesmo peso; o adendo troca o `discovery.sh` pelo `instalar.py verificar`). Em conflito, a especificação vence e este documento é corrigido.
-**Decisões de arquitetura ligadas**: `docs/adr/ADR-001-protocolo-websocket.md` (Aceito), `docs/adr/ADR-002-sessao-e-token-hmac.md` (PROPOSTO, aguarda o usuário), `docs/adr/ADR-003-pacote-rpm-e-integracao-issabel.md` (Proposto, aguarda spike em Rocky 8 e 9), `docs/adr/ADR-004-tela-e-menu-do-issabel.md` (Proposto; fase 2: tela, menu do Issabel, chave própria do Issabel e acesso de emergência), `docs/adr/ADR-005-grupos-editaveis-manual-sobre-faixa.md` (substituído em parte pelo ADR-006), `docs/adr/ADR-006-ramal-em-n-grupos.md` e `docs/adr/ADR-007-relatorio-de-registro.md` (Aceitos, rc.7), `docs/adr/ADR-008-chamadas-e-filas-ao-vivo.md` e `docs/adr/ADR-009-nome-da-fila-esquema-5.md` (Aceitos, rc.8). Planos: `docs/plans/2026-10-16-fase2-menu-issabel.md`, `docs/plans/2026-10-19-rc7-n-grupos-e-registros.md` e `docs/plans/2026-10-19-rc8-chamadas-e-filas.md`.
+**Decisões de arquitetura ligadas**: `docs/adr/ADR-001-protocolo-websocket.md` (Aceito), `docs/adr/ADR-002-sessao-e-token-hmac.md` (PROPOSTO, aguarda o usuário), `docs/adr/ADR-003-pacote-rpm-e-integracao-issabel.md` (Proposto, aguarda spike em Rocky 8 e 9), `docs/adr/ADR-004-tela-e-menu-do-issabel.md` (Proposto; fase 2: tela, menu do Issabel, chave própria do Issabel e acesso de emergência), `docs/adr/ADR-005-grupos-editaveis-manual-sobre-faixa.md` (substituído em parte pelo ADR-006), `docs/adr/ADR-006-ramal-em-n-grupos.md` e `docs/adr/ADR-007-relatorio-de-registro.md` (Aceitos, rc.7), `docs/adr/ADR-008-chamadas-e-filas-ao-vivo.md` e `docs/adr/ADR-009-nome-da-fila-esquema-5.md` (Aceitos, rc.8), `docs/adr/ADR-010-estado-de-registro-persistente.md` e `docs/adr/ADR-011-decisoes-operacionais-rc9.md` (Aceitos, rc.9). Planos: `docs/plans/2026-10-16-fase2-menu-issabel.md`, `docs/plans/2026-10-19-rc7-n-grupos-e-registros.md`, `docs/plans/2026-10-19-rc8-chamadas-e-filas.md` e `docs/plans/2026-10-19-rc9-registros-e-filas.md`.
 
 Este documento é a fonte única dos formatos trocados entre as partes do coletor, e entre o coletor e quem o consome (fase 2: tela e item no menu do Issabel). Quem implementa não inventa campo: campo novo entra aqui primeiro.
 
@@ -23,9 +23,9 @@ Valem para todos os agentes. Reabrir só com o usuário.
 | D7 | Histórico por minuto. Minuto sem AMI (ou sem daemon) sai como `gap: true` com contagens `null`, nunca como queda de registros. | seções 4.3, 10 |
 | D8 | Chaves JSON e valores de enum em inglês, `snake_case`. Datas em RFC 3339 UTC com milissegundos (`2026-10-13T14:30:00.000Z`). | todas |
 | D9 | O `instalar.py` orquestra e valida; nunca edita `manager_custom.conf`, Apache, SELinux nem o SQLite. Integração com o sistema é do `%post` do RPM; usuário e grupos, da CLI do daemon. | seção 15, ADR-003 |
-| D10 | Relatório de registro (rc.7, ADR-007): só transição ao vivo conta; janela de 120 s depois de `Shutdown`, `FullyBooted` ou conexão do AMI vira evento do sistema; gravação em lote fora da goroutine do estado; retenção fixa de 30 dias. rc.8: sublotes por custo, uma repetição, perda contada no health. | seções 4.7, 10, 11 |
+| D10 | Relatório de registro (rc.7, ADR-007): só transição ao vivo conta; gravação em lote fora da goroutine do estado; retenção fixa de 30 dias. rc.8: sublotes por custo, uma repetição, perda contada no health. rc.9 (ADR-010, ADR-011): a pausa de 120 s (janela de sistema) abre só num reinício real do Asterisk (`Shutdown`, ou `FullyBooted` com `Uptime` abaixo de 120 s ou sem o campo) e vale só para os contadores; o estado "fora do ar" (`down_since`, `last_reg`) é persistente em `reg_state` (esquema 6) e nunca inventa tempo; cada decisão de contagem vai ao log com limite por segundo e resumo. | seções 4.7, 10, 11 |
 | D11 | Chamadas e filas ao vivo (rc.8, ADR-008): uma linha por chamada, `id` = `Linkedid`; ramal é quem está no inventário, qualquer outro canal não Local é externo; projeção no estado, publicada no mesmo delta com chaves opcionais (`calls`, `calls_removed`, `queues`, `queues_removed`); tudo em memória. Filas só por `QueueStatus` e eventos de classe `agent`. Nome da fila no banco do painel (esquema 5, ADR-009). | seções 2.3, 2.4, 4.1, 4.8, 5.2, 7, 10, 11.6 |
-| D12 | Sem teste automatizado no repositório (rc.8, decisão do usuário): critério de pronto é compilar (`go build` com `GOOS=linux ./...`, `go vet ./...`, `node --check`) e conferir por leitura; o teste é ao vivo no servidor. `testdata/capturas` e `cmd/loadtest` ficam (ferramenta de carga na VM, nunca no PC do usuário). | seções 7.1, 12, 14 |
+| D12 | Sem teste automatizado no repositório (rc.8, decisão do usuário): critério de pronto é compilar (`go build` com `GOOS=linux ./...`, `go vet ./...`, `node --check`) e conferir por leitura; o teste é ao vivo no servidor. rc.9 (ADR-011, decisão 8): `cmd/loadtest`, `cmd/amisim`, `internal/amisim` e `testdata/capturas` saem do repositório (nada os usa); `internal/capture` fica (`capturar`, `filtrar`, `homologar`). | seções 7.1, 12, 14 |
 
 ---
 
@@ -230,7 +230,7 @@ Uma linha por **chamada** (não por ramal nem por canal), para a aba Chamadas. V
 
 **Número discado** (do `DialString`, ou do destino do `DialData` sem o prefixo de tecnologia): com `@`, o texto antes do `@` (`011987654321@operadora_x`); sem `@` e com `/`, o texto depois da última `/` (`operadora_x/011987654321`, `g0/011987654321`); sem os dois, o texto inteiro. Vale só se casar `^[0-9+*#]{1,32}$`; senão passa para a reserva seguinte.
 
-**Ramal ou externo.** Canal Local: nunca ramal nem externo (transparente). Canal com endpoint da tecnologia ativa presente no inventário do estado: ramal. Qualquer outro canal: externo.
+**Ramal ou externo.** Canal Local: nunca ramal nem externo (transparente). Canal com endpoint da tecnologia ativa presente no inventário do estado: ramal. **Canal auxiliar** (rc.9, ADR-011 decisão 4; nome que começa, com estas maiúsculas, por `Snoop/`, `CBAnn/`, `CBRec/`, `Announcer/`, `Recorder/`, `Bridge/`, `Message/`, `MulticastRTP/` ou `UnicastRTP/`): descartado na tradução (`calls.IsAuxChannel`, em `Translate` pelo `Channel` e, no `DialBegin`, também pelo `DestChannel`; em `FromCoreShowChannel`), nunca entra no estado, nunca é chamada, ramal ou externo e não conta em nada; a chamada principal (por exemplo a interna espionada) segue normal. Qualquer outro canal: externo.
 
 **"Outro lado desconhecido"** (texto da tela, sem campo próprio): `internal` com `extensions` de tamanho 1 e `queue` nulo; `inbound` com `extensions` vazio e `queue` nulo. Se a chamada tem canal Local e fica assim por 1 s seguido, o daemon registra **uma vez** por `id` o log Info `chamada com Local sem par` com `uniqueid` (o canal Local), `linkedid` e `canal` (nome do canal Local). Sem canal Local (URA pura) ou com externo do outro lado: sem log.
 
@@ -281,7 +281,7 @@ Vai no snapshot (`queues`, seção 4.1) e no delta (`queues`, `queues_removed`, 
 
 **Derivados no navegador (o servidor não manda, para não haver duas fontes):** aguardando = `entries.length`; maior espera desde = `entries[0].since` (contada ao vivo); agentes livres, em atendimento, pausados e indisponíveis = contagem de `members[].state` (`free`, `busy`, `paused`, `unavailable`; cada membro conta em um só). "Aguardando em fila" do topo da aba = número de linhas da 2.3 com `state: queued`.
 
-**Quais filas aparecem.** Toda fila da última `QueueStatus` completa, mais as que aparecerem por evento depois dela. Fila vazia ou sem agente continua na lista. Fila que some de uma `QueueStatus` completa (ou cuja `QueueStatus` individual volta sem `QueueParams`) sai em `queues_removed`. AMI fora: `queues: []` (o `Reset` da queda leva a lista vazia).
+**Quais filas aparecem.** Toda fila da última `QueueStatus` completa, mais as que aparecerem por evento depois dela, **exceto a fila de nome exato `default`** (rc.9, ADR-011 decisão 9: `model.IgnoredQueue`, comparação exata com diferença de maiúsculas, aplicada na tradução de `QueueStatus`, de eventos e do `ApplicationData` do snapshot; não entra no estado, em `queues.count`, em `events_received` nem no "Aguardando em fila"; a chamada que está nela é tratada como sem fila; log Info uma vez por processo). Fila vazia ou sem agente continua na lista. Fila que some de uma `QueueStatus` completa (ou cuja `QueueStatus` individual volta sem `QueueParams`) sai em `queues_removed`. AMI fora: `queues: []` (o `Reset` da queda leva a lista vazia).
 
 ---
 
@@ -538,7 +538,7 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
       "reconnects": 1
     },
     "events_per_s": 142.5,
-    "queue": { "len": 3, "cap": 65536, "overflows": 0 },
+    "queue": { "len": 3, "cap": 65536, "overflows": 0, "resyncs": 0, "resync_min_gap_s": 30, "last_resync_at": null },
     "lag_ms": 4,
     "epoch": "1791900000123-3",
     "version": 48213,
@@ -546,9 +546,9 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
     "trunks": 4,
     "active_calls": 312,
     "ws_clients": 7,
-    "registrations": { "queue_len": 0, "queue_cap": 16384, "dropped": 0, "write_errors": 0, "lost_events": 0, "lost_since": null, "lost_until": null, "suppressed_until": null },
+    "registrations": { "queue_len": 0, "queue_cap": 16384, "dropped": 0, "write_errors": 0, "lost_events": 0, "lost_since": null, "lost_until": null, "suppressed_until": null, "pause_reason": null, "decision_lines": 1520, "decision_summarized": { "pausa": 3000 } },
     "live_calls": 298,
-    "queues": { "count": 6, "last_full_at": "2026-10-13T14:25:00.000Z", "refresh_errors": 0, "unsupported": false },
+    "queues": { "count": 6, "last_full_at": "2026-10-13T14:25:00.000Z", "refresh_errors": 0, "unsupported": false, "full_reads": 14, "last_full_ms": 840, "full_min_gap_s": 30, "held_dropped": 0, "events_received": { "QueueCallerJoin": 120, "QueueCallerLeave": 118, "QueueCallerAbandon": 2, "QueueMemberStatus": 950, "QueueMemberPause": 12, "QueueMemberAdded": 4, "QueueMemberRemoved": 3, "AgentCalled": 130, "AgentConnect": 110, "AgentComplete": 109, "AgentRingNoAnswer": 20 } },
     "deps": [
       { "name": "ami_user", "status": "ok", "detail": "login aceito em 2026-10-13T08:00:01Z", "checked_at": "2026-10-13T14:30:00.000Z" },
       { "name": "manager_custom_include", "status": "ok", "detail": "manager.conf inclui manager_custom.conf e o bloco painel-ramais está presente", "checked_at": "2026-10-13T14:30:00.000Z" },
@@ -580,6 +580,11 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
 - `registrations` (rc.7, ADR-007): fila do gravador do relatório de registro (seção 11.5). `queue_len` e `queue_cap` (16384, constante); `dropped`: ocorrências descartadas porque a fila estava cheia, desde a subida do daemon; `write_errors`: lotes que falharam ao gravar (o lote é perdido e o erro sai no log Warn); `suppressed_until`: fim da janela de evento do sistema em curso (RFC 3339) ou `null`. Nenhum destes campos muda o `status` (não é `degraded`). rc.8 (seção 10, "Gravação de um lote"): `write_errors` passa a contar **sublotes perdidos** (falharam na tentativa e na repetição); `lost_events` = notas perdidas nesses sublotes (ocorrências, fechamentos de intervalo e sinais), desde a subida; `lost_since` e `lost_until` = menor e maior `At` entre as notas perdidas desde a subida (RFC 3339) ou `null` quando nada se perdeu. `dropped` (fila cheia) continua separado.
 - `live_calls` (rc.8): quantidade de linhas da projeção de chamadas (seção 2.3). Pode diferir de `active_calls`, que conta `Linkedid` com canal de ramal ou tronco da tecnologia ativa (não conta chamada só de DAHDI/IAX2).
 - `queues` (rc.8): `count` = filas na projeção (seção 2.4); `last_full_at` = última `QueueStatus` completa lida com sucesso (RFC 3339) ou `null`; `refresh_errors` = `QueueStatus` (completa ou por fila) que falharam desde a subida; `unsupported` = `true` quando a última `QueueStatus` completa respondeu que a action não existe (módulo de filas não carregado: lista vazia, sem erro). Nenhum destes campos muda o `status`.
+- rc.9 (ADR-011), todos desde a subida do daemon e sem mudar o `status`:
+  - `queue.resyncs` = ressincronizações por estouro feitas (hoje igual a `overflows`, que continua); `queue.resync_min_gap_s` = intervalo mínimo atual entre duas ressincronizações por estouro (30 a 300); `queue.last_resync_at` = última (RFC 3339) ou `null`.
+  - `registrations.pause_reason` = `"asterisk_restart"` enquanto `suppressed_until` não é `null`, senão `null`; `registrations.decision_lines` = linhas Info de decisão de contagem escritas; `registrations.decision_summarized` = objeto motivo para quantidade de decisões que ficaram só no resumo (limite por segundo ou canal cheio), só motivos acima de zero, `{}` quando nenhum (seção 11.5, "Log de decisões").
+  - `queues.full_reads` = `QueueStatus` completas lidas com sucesso; `queues.last_full_ms` = duração da última completa em ms (`0` antes da primeira); `queues.full_min_gap_s` = intervalo mínimo atual entre completas (30 a 600); `queues.held_dropped` = eventos de fila guardados durante uma leitura e descartados por passar do teto de 50.000 (seção 11.6).
+  - `queues.events_received` = objeto nome do evento AMI para quantidade, contado no laço ao vivo do supervisor **antes** de qualquer descarte do tradutor, para os onze eventos de fila e agente da seção 7.2 (chave só depois do primeiro evento daquele nome; `{}` quando nenhum); eventos da fila `default` não contam (seção 2.4). Serve para conferir no servidor se cada evento passa pelo `eventfilter`. O contrato de filas fica aberto a complemento depois do teste do usuário.
 
 ### 4.5 GET /debug (só localhost, exige sessão)
 
@@ -665,6 +670,16 @@ Quatro rotas `GET`, só leitura, com sessão obrigatória de **qualquer papel** 
 
 `to` = agora. Outro valor: `400 bad_request` ("period deve ser 24h, 7d ou 30d"). Todo `data` traz `period`, `from`, `to` e `since` (RFC 3339 UTC com ms). `since` é `reg_meta.since` (seção 10): quando a versão com o relatório foi instalada. A tela mostra "Dados desde <since>" e, se `since > from`, deixa claro que o período está incompleto.
 
+**Cabeçalho rc.9** (ADR-010, ADR-011), também em todo `data` das quatro rotas:
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `paused_until` | data ou null | fim da pausa da contagem em curso (`Stats.SuppressedUntil`, o mesmo valor de `registrations.suppressed_until` do health); `null` sem pausa |
+| `pause_reason` | string ou null | `"asterisk_restart"` quando `paused_until` não é `null`; senão `null` |
+| `state_unknown_since` | data ou null | AMI fora: hora da queda da conexão (`Stats.LastDisconnect`); `null` com o AMI conectado. Enquanto não é `null`, o estado de registro é desconhecido e a tela congela os relógios |
+
+Tela: com `paused_until` no futuro (relógio do navegador corrigido pelo `server_time`), a aba Registros e o bloco "Instabilidade de registro (24 h)" da aba Ramais mostram "Contagem de registros pausada até HH:MM (Asterisk reiniciado)" (hora local do navegador); o aviso some quando a hora passa ou o campo volta `null`. Com `state_unknown_since`, a aba Registros mostra "Estado de registro desconhecido desde HH:MM (painel sem conexão com o Asterisk)". O bloco da aba Ramais lê o `summary` a cada 30 s (o aviso pode chegar com até 30 s de atraso); a aba Registros, a cada 5 s.
+
 **Linha de ramal** (`row`): o mesmo objeto em `/api/registrations` e em `/api/registrations/extension`.
 
 ```json
@@ -682,7 +697,12 @@ Quatro rotas `GET`, só leitura, com sessão obrigatória de **qualquer papel** 
   "last_ip": "192.0.2.23",
   "last_port": 5060,
   "down_s": 7260,
-  "down_open_since": null
+  "down_gap": false,
+  "down_since": "2026-10-19T13:42:10.000Z",
+  "down_kind": "observed",
+  "down_count_from": "2026-10-19T13:42:10.000Z",
+  "last_registered": "2026-10-19T08:01:12.000Z",
+  "last_registered_exact": true
 }
 ```
 
@@ -696,10 +716,19 @@ Quatro rotas `GET`, só leitura, com sessão obrigatória de **qualquer papel** 
 | `system_events` | inteiro | transições do ramal dentro da janela de sistema, no período (informativo, fora do ranking) |
 | `last_drop_at` | data ou null | última `lost_registration` ou `became_unreachable` (não sistema) no período |
 | `last_ip`, `last_port` | string ou null, inteiro ou null | IPv4 e porta da ocorrência mais recente do período que tinha endereço; endereço que não é IPv4 nunca é gravado |
-| `down_s` | inteiro | segundos fora do ar **já fechados** dentro do período (o fechamento distribui os segundos pelas horas do intervalo, então o valor nunca passa do tamanho do período) |
-| `down_open_since` | data ou null | início do intervalo fora do ar ainda aberto (ramal caído agora); `null` se não está caído, se o intervalo não foi aberto por queda contada, ou se `removed` |
+| `down_s` | inteiro | segundos fora do ar **já fechados** dentro do período (o fechamento distribui os segundos pelas horas do trecho, então o valor nunca passa do tamanho do período). rc.9: sai do intervalo único "fora do ar" do ADR-010 (inclui trechos dentro da pausa) e nunca conta tempo em que o painel ou o AMI estavam parados |
+| `down_gap` | booleano | rc.9: `true` se algum trecho do período foi cortado porque o painel ou o AMI estavam parados, inclusive o trecho fechado com tamanho zero quando não há como provar até quando o painel viu o ramal fora (`max(reg_hourly.down_gap)` do período; seção 11.5, item 3) |
+| `down_since` | data ou null | rc.9: início do "fora do ar" atual (`registration` `unregistered` ou `unreachable`, o que vier primeiro, até voltar `registered`); `null` se o ramal está registrado e alcançável, se nunca foi visto ou se `removed` |
+| `down_kind` | enum ou null | rc.9, `null` junto com `down_since`. `observed`: o painel viu a hora em que caiu (relógio ao vivo). `unknown_start`: caiu enquanto o painel ou o AMI estavam parados, ou foi criado no PBX com o painel parado; `down_since` é o limite ("fora desde antes de"), sem relógio. `before_install`: já estava fora na primeira vez que o painel o viu, com `reg_state` vazia; `down_since` = essa hora; a tela mostra "fora desde antes da instalação do painel (<data da instalação>)", sem relógio, com a regra de data abaixo |
+| `down_count_from` | data ou null | rc.9, `null` junto com `down_since`: início do trecho aberto que ainda não está em `down_s` (difere de `down_since` depois de uma lacuna; seção 11.5) |
+| `last_registered` | data ou null | rc.9: última vez que o ramal ficou registrado (`reg_state.last_reg`); `null` se nunca foi visto registrado. Para `removed`, o último valor guardado |
+| `last_registered_exact` | booleano | rc.9: `true` quando a hora foi vista ao vivo; `false` quando é limite (a tela mostra "antes de <data>") ou quando `last_registered` é `null` |
 
-Tempo total fora do ar mostrado na tela = `down_s + (down_open_since ? agora - max(down_open_since, from) : 0)`, recalculado a cada atualização. Linha sai na lista só se tiver algum dos quatro contadores maior que zero, `down_s > 0` ou `down_open_since` diferente de `null` (ramal só com `system_events` não aparece).
+**Data da instalação** (rc.9, decisão do usuário), usada em todo texto de `before_install` (tabela, `title`, detalhe e CSV): o `since` do cabeçalho (`reg_meta.since`, o mesmo do "Dados desde", gravado pela migração v4 da rc.7/rc.8 ou da rc.6 para a rc.9); só quando `since` vem vazio ou inválido, o `down_since` da linha (hora da primeira sincronização da rc.9). O servidor não muda nada: a regra é da tela.
+
+Tempo total fora do ar no período (detalhe do ramal e CSV) = `down_s + (down_count_from ? fim - max(down_count_from, from) : 0)`, onde `fim` = agora, ou `state_unknown_since` quando não é `null`. Com `down_gap` ou `down_kind` `unknown_start` o detalhe acrescenta "(com lacuna: painel parado)"; com `before_install`, "(conta desde a instalação do painel)".
+
+**Lista** (rc.9): linha sai na tabela só se tiver algum dos quatro contadores maior que zero, `down_s > 0` ou `down_since` diferente de `null` (ramal só com `system_events` não aparece; ramal registrado sem nada no período não aparece). O servidor aplica a regra no `full: true`; no `full: false` devolve as linhas tocadas sem filtro e a tela remove do mapa a que não passa na regra (seção 4.7.2).
 
 Rótulos na tela: `lost_registration` "Perdeu registro"; `registered` "Registrou"; `became_unreachable` "Ficou inalcançável"; `reachable_again` "Voltou a ser alcançável"; sinais `shutdown` "Asterisk desligando", `fully_booted` "Asterisk iniciado", `ami_connected` "Painel reconectado ao Asterisk".
 
@@ -715,6 +744,9 @@ Bloco "Instabilidade de registro (24 h)" da tela principal. Query: `group` opcio
     "from": "2026-10-18T14:00:00.000Z",
     "to": "2026-10-19T13:47:05.120Z",
     "since": "2026-10-19T09:12:44.000Z",
+    "paused_until": null,
+    "pause_reason": null,
+    "state_unknown_since": null,
     "group": "Suporte",
     "items": [
       { "number": "2001", "name": "Maria Souza", "removed": false, "lost_registration": 5, "became_unreachable": 3 },
@@ -740,10 +772,14 @@ Tabela da aba Registros. Query: `period`; `cursor` opcional (texto opaco devolvi
     "from": "2026-10-18T14:00:00.000Z",
     "to": "2026-10-19T13:47:05.120Z",
     "since": "2026-10-19T09:12:44.000Z",
+    "paused_until": null,
+    "pause_reason": null,
+    "state_unknown_since": null,
     "cursor": "1792414800.1532",
     "full": true,
     "rows": [
-      { "number": "2001", "name": "Maria Souza", "groups": ["Plantão", "Suporte"], "removed": false, "lost_registration": 5, "became_unreachable": 3, "registered": 5, "reachable_again": 3, "system_events": 2, "last_drop_at": "2026-10-19T13:42:10.000Z", "last_ip": "192.0.2.23", "last_port": 5060, "down_s": 7260, "down_open_since": null }
+      { "number": "2001", "name": "Maria Souza", "groups": ["Plantão", "Suporte"], "removed": false, "lost_registration": 5, "became_unreachable": 3, "registered": 5, "reachable_again": 3, "system_events": 2, "last_drop_at": "2026-10-19T13:42:10.000Z", "last_ip": "192.0.2.23", "last_port": 5060, "down_s": 7260, "down_gap": false, "down_since": null, "down_kind": null, "down_count_from": null, "last_registered": "2026-10-19T13:43:45.000Z", "last_registered_exact": true },
+      { "number": "2077", "name": null, "groups": ["Sem grupo"], "removed": false, "lost_registration": 0, "became_unreachable": 0, "registered": 0, "reachable_again": 0, "system_events": 0, "last_drop_at": null, "last_ip": null, "last_port": null, "down_s": 16200, "down_gap": false, "down_since": "2026-10-19T09:13:00.000Z", "down_kind": "before_install", "down_count_from": "2026-10-19T09:13:00.000Z", "last_registered": null, "last_registered_exact": false }
     ]
   },
   "error": null,
@@ -752,7 +788,12 @@ Tabela da aba Registros. Query: `period`; `cursor` opcional (texto opaco devolvi
 ```
 
 - `full: true`: `rows` é a tabela inteira do período, ordenada por `number`; a tela **substitui** a dela. Acontece sem `cursor`, com cursor inválido, quando a hora atual mudou desde o cursor (a janela andou) ou quando a revisão do cursor é maior que a maior revisão gravada (banco limpo ou restaurado).
-- `full: false`: `rows` traz só os ramais com alguma linha de `reg_hourly` gravada depois do cursor (coluna `rev`, seção 10), já com os valores do período inteiro; a tela **substitui ou insere** pelo `number` e não remove nada. Sem mudança: `rows: []`.
+- `full: false`: `rows` traz só os ramais com alguma linha de `reg_hourly` **ou** de `reg_state` (rc.9) gravada depois do cursor (coluna `rev`, seção 10), já com os valores do período inteiro e **sem** a regra de lista; a tela **substitui ou insere** pelo `number` e **remove** do mapa a linha que não passa na regra de lista da 4.7 (rc.9: sem isso, o ramal listado só por estar fora continuaria com "Fora do ar há" depois de voltar). Sem mudança: `rows: []`. A maior revisão (`MaxRegRev`) passa a ser o maior `rev` de `reg_hourly` e de `reg_state`.
+- **Ordem da tabela (rc.9, padrão e coluna "Fora do ar há")**, em três faixas, nesta ordem: (a) `down_kind` `observed` ou `unknown_start`, por `down_since` crescente (o mais antigo no topo; o `unknown_start` entra pela hora-limite); (b) `before_install`, por `number`; (c) o resto (`down_since` nulo, inclusive `removed`), por `number`. Empate dentro da faixa: `number` (comparação numérica de texto da tela). Clicar de novo em "Fora do ar há" inverte só a faixa (a); as faixas ficam na mesma ordem. As outras colunas continuam ordenáveis como na rc.7. A ordem pela data (não pela duração) não muda com o tempo: o relógio de 1 s não reordena.
+- **Filtro "Ocultar fora desde antes da instalação"** (rc.9): caixa de marcar na faixa de controles, **desligada** ao abrir a aba (não é lembrada). Ligada, some da tabela toda linha com `down_kind` `before_install`. Vale para a contagem de ramais e para o CSV (o CSV leva a tabela filtrada e ordenada que está na tela, 4.7.5).
+- **Colunas da tabela (rc.9)**: Ramal, Nome, Grupos, Perdeu registro, Ficou inalcançável, Registrou, Última queda, Último IP, **Fora do ar há**, **Último registro** (saiu a coluna "Fora do ar" do tempo total, que vai para o detalhe e o CSV). Texto das células novas, hora local do navegador:
+  - "Fora do ar há": `observed`: duração ao vivo (`X d HH h` a partir de 1 dia, `H h MM min` a partir de 1 hora, `M min SS s` a partir de 1 minuto, `S s`), redesenhada no tique de 1 s; com `state_unknown_since`, parada em `state_unknown_since - down_since` e acinzentada. `unknown_start`: "antes de dd/mm hh:mm" (sem relógio). `before_install`: "antes da instalação" na célula e o texto completo "fora desde antes da instalação do painel (dd/mm/aaaa hh:mm)" no `title` e no `aria-label` da célula, com a data da instalação da 4.7 (`since`; `down_since` só sem `since`). `null`: o traço de ausente da tela.
+  - "Último registro": `last_registered_exact`: "dd/mm/aaaa hh:mm"; inexato: "antes de dd/mm/aaaa hh:mm"; `null`: o traço de ausente.
 - `cursor`: sempre presente; a tela manda de volta exatamente o que recebeu. Formato interno (não depender dele): `<início da hora em unix>.<rev>`.
 - **Atualização automática**: com a aba Registros visível e `document.visibilityState == "visible"`, uma chamada a cada 5 s com o último `cursor` (nunca duas ao mesmo tempo; a próxima só começa 5 s depois que a anterior terminou). Trocar o período descarta o cursor. Nunca por evento individual do WebSocket.
 
@@ -768,7 +809,10 @@ Linha do tempo de um ramal. Query: `number` obrigatório (regra do `numbers` do 
     "from": "2026-10-13T03:00:00.000Z",
     "to": "2026-10-19T13:47:05.120Z",
     "since": "2026-10-19T09:12:44.000Z",
-    "extension": { "number": "2001", "name": "Maria Souza", "groups": ["Plantão", "Suporte"], "removed": false, "lost_registration": 1, "became_unreachable": 0, "registered": 1, "reachable_again": 0, "system_events": 1, "last_drop_at": "2026-10-19T13:42:10.000Z", "last_ip": "192.0.2.23", "last_port": 5060, "down_s": 95, "down_open_since": null },
+    "paused_until": null,
+    "pause_reason": null,
+    "state_unknown_since": null,
+    "extension": { "number": "2001", "name": "Maria Souza", "groups": ["Plantão", "Suporte"], "removed": false, "lost_registration": 1, "became_unreachable": 0, "registered": 1, "reachable_again": 0, "system_events": 1, "last_drop_at": "2026-10-19T13:42:10.000Z", "last_ip": "192.0.2.23", "last_port": 5060, "down_s": 95, "down_gap": false, "down_since": null, "down_kind": null, "down_count_from": null, "last_registered": "2026-10-19T13:43:45.000Z", "last_registered_exact": true },
     "events": [
       { "at": "2026-10-19T13:43:45.000Z", "kind": "registered", "system": false, "ip": "192.0.2.23", "port": 5060, "user_agent": "Yealink SIP-T46U 108.86.0.20" },
       { "at": "2026-10-19T13:42:10.000Z", "kind": "lost_registration", "system": false, "ip": "192.0.2.23", "port": 5060, "user_agent": null },
@@ -784,6 +828,7 @@ Linha do tempo de um ramal. Query: `number` obrigatório (regra do `numbers` do 
 - `extension`: sempre presente (contadores zerados, `groups` atuais, `removed` conforme o estado, quando não há nada no período); número nunca visto também dá `200`.
 - `events`: as ocorrências brutas guardadas com `at >= from`, mais nova primeiro, inclusive as de sistema (`system: true`); no máximo `events_limit` (200 por ramal, seção 10). Com 200 itens a tela avisa "mostrando as 200 ocorrências mais recentes guardadas".
 - A tela relê esta rota ao abrir o ramal, ao trocar o período e quando a linha do ramal chega num `full: false` da 4.7.2.
+- rc.9: o detalhe mostra, junto da linha do tempo, "Fora do ar há" e "Último registro" (mesmo texto da tabela, com a frase completa de `before_install` e a data da instalação da 4.7) e "Tempo fora do ar no período" (fórmula e sufixos de lacuna da 4.7).
 
 #### 4.7.4 GET /api/registrations/series
 
@@ -797,6 +842,9 @@ Gráfico da aba Registros. Query: `period`; `group` opcional (até 64 caracteres
     "from": "2026-10-18T14:00:00.000Z",
     "to": "2026-10-19T13:47:05.120Z",
     "since": "2026-10-19T09:12:44.000Z",
+    "paused_until": null,
+    "pause_reason": null,
+    "state_unknown_since": null,
     "group": null,
     "step": "hour",
     "points": [
@@ -823,7 +871,12 @@ Decisão do ADR-007: o servidor não gera CSV. O botão "Exportar CSV" da aba Re
 - Nome: `registros-<period>-<AAAAMMDD-HHMM>.csv` (hora local do navegador).
 - UTF-8 com BOM, separador `;`, fim de linha CRLF. Célula com `;`, `"`, CR ou LF vai entre aspas, com `"` dobrada.
 - **Injeção de fórmula**: toda célula de texto que começa com `=`, `+`, `-`, `@`, TAB ou CR recebe `'` na frente (antes das aspas).
-- Cabeçalho e colunas, nesta ordem: `Ramal;Nome;Grupos;Perdeu registro;Ficou inalcançável;Registrou;Voltou a ser alcançável;Última queda;Último IP;Tempo fora do ar (s);Removido`. `Grupos` separados por `, `; `Última queda` em hora local `AAAA-MM-DD HH:MM:SS` ou vazio; `Último IP` como `ip:porta` (ou só `ip`, ou vazio); `Tempo fora do ar (s)` inteiro, calculado como na tela; `Removido` `sim` ou `não`.
+- Cabeçalho e colunas, nesta ordem (rc.9): `Ramal;Nome;Grupos;Perdeu registro;Ficou inalcançável;Registrou;Voltou a ser alcançável;Última queda;Último IP;Fora do ar há (s);Último registro;Tempo total fora no período (s);Lacuna no período;Removido`. `Grupos` separados por `, `; datas em hora local `AAAA-MM-DD HH:MM:SS`; `Última queda` na data ou vazio; `Último IP` como `ip:porta` (ou só `ip`, ou vazio); `Removido` `sim` ou `não`. Colunas da rc.9:
+  - `Fora do ar há (s)`: `observed`: inteiro de segundos na hora da exportação (até `state_unknown_since` se não for `null`); `unknown_start`: `antes de AAAA-MM-DD HH:MM:SS`; `before_install`: `antes da instalação do painel (AAAA-MM-DD HH:MM:SS)` com a data da instalação da 4.7 (`since`; `down_since` só sem `since`); registrado: vazio.
+  - `Último registro`: exato: `AAAA-MM-DD HH:MM:SS`; inexato: `antes de AAAA-MM-DD HH:MM:SS`; nunca: vazio.
+  - `Tempo total fora no período (s)`: inteiro, fórmula da 4.7.
+  - `Lacuna no período`: `sim` se `down_gap` ou `down_kind` `unknown_start`; senão `não`.
+  - A antiga `Tempo fora do ar (s)` sai (virou `Tempo total fora no período (s)`, mesma conta com o intervalo único da rc.9).
 - Download por `Blob` + `URL.createObjectURL` + `<a download>` criado por script (sem `innerHTML`; nada muda na CSP).
 
 ### 4.8 POST /api/queues/rename (rc.8, ADR-009; só administrador)
@@ -1043,9 +1096,9 @@ Todas marcadas "a confirmar no Asterisk real com `manager show command <Action>`
 
 ### 7.2 Eventos (eventfilter estático, união SIP e PJSIP)
 
-`ContactStatus`, `PeerStatus`, `DeviceStateChange`, `Newchannel`, `Newstate`, `NewCallerid`, `NewConnectedLine`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, `Hangup`, `Hold`, `Unhold`, `Reload`, `ModuleLoadReport`, `FullyBooted` (recarga do Asterisk: o inventário de ramais e os nomes são refeitos 3 s depois do último desses eventos, seção 7.4; classe de leitura `system`) e, desde a rc.7, `Shutdown` (Asterisk desligando: abre a janela de evento do sistema do relatório de registro, seção 11.5; classe `system`). O `%post` acrescenta `eventfilter = Event: Shutdown` **só** no bloco do painel em `manager_custom.conf` (o bloco é regerado no upgrade, seguido de `manager reload`); o simulador (`internal/amisim/proto.go`, `filterSet`) ganha o mesmo nome. `FullyBooted` e `Shutdown` são lidos no laço ao vivo do supervisor e viram `model.AsteriskSignal` (seção 11.1) sem passar pelos adaptadores. O bloco de `manager_custom.conf` do ADR-003 precisa de um `eventfilter` para cada um (`Event: Reload`, `Event: ModuleLoadReport`, `Event: FullyBooted`); os nomes exatos no Asterisk 18 do Issabel são confirmados na captura da homologação (S10).
+`ContactStatus`, `PeerStatus`, `DeviceStateChange`, `Newchannel`, `Newstate`, `NewCallerid`, `NewConnectedLine`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, `Hangup`, `Hold`, `Unhold`, `Reload`, `ModuleLoadReport`, `FullyBooted` (recarga do Asterisk: o inventário de ramais e os nomes são refeitos 3 s depois do último desses eventos, seção 7.4; classe de leitura `system`) e, desde a rc.7, `Shutdown` (Asterisk desligando: abre a janela de evento do sistema do relatório de registro, seção 11.5; classe `system`). O `%post` acrescenta `eventfilter = Event: Shutdown` **só** no bloco do painel em `manager_custom.conf` (o bloco é regerado no upgrade, seguido de `manager reload`). `FullyBooted` e `Shutdown` são lidos no laço ao vivo do supervisor e viram `model.AsteriskSignal` (seção 11.1) sem passar pelos adaptadores. O bloco de `manager_custom.conf` do ADR-003 precisa de um `eventfilter` para cada um (`Event: Reload`, `Event: ModuleLoadReport`, `Event: FullyBooted`); os nomes exatos no Asterisk 18 do Issabel são confirmados na captura da homologação (S10).
 
-**rc.8 (ADR-008): eventos de fila e agente**, classe de leitura `agent`: `QueueCallerJoin`, `QueueCallerLeave`, `QueueCallerAbandon`, `QueueMemberStatus`, `QueueMemberPause`, `QueueMemberAdded`, `QueueMemberRemoved`, `AgentCalled`, `AgentConnect`, `AgentComplete`, `AgentRingNoAnswer`. O `%post` (`packaging/scripts/postinstall`, função que monta o bloco) passa o `read` para `system,call,agent` e acrescenta **um `eventfilter = Event: <Nome>` para cada um dos onze**, só no bloco do painel; o upgrade regrava o bloco e faz `manager reload` (como na rc.7). A nota de eventos do `postinstall` (comentário do topo da função) lista os onze e o motivo. O simulador (`internal/amisim/proto.go`, `filterSet`) passa a ter **exatamente** a lista do bloco: os 14 da fase 1, `Reload`, `ModuleLoadReport`, `FullyBooted`, `Shutdown` e os onze da rc.8. Bloco vigente, na ordem:
+**rc.8 (ADR-008): eventos de fila e agente**, classe de leitura `agent`: `QueueCallerJoin`, `QueueCallerLeave`, `QueueCallerAbandon`, `QueueMemberStatus`, `QueueMemberPause`, `QueueMemberAdded`, `QueueMemberRemoved`, `AgentCalled`, `AgentConnect`, `AgentComplete`, `AgentRingNoAnswer`. O `%post` (`packaging/scripts/postinstall`, função que monta o bloco) passa o `read` para `system,call,agent` e acrescenta **um `eventfilter = Event: <Nome>` para cada um dos onze**, só no bloco do painel; o upgrade regrava o bloco e faz `manager reload` (como na rc.7). A nota de eventos do `postinstall` (comentário do topo da função) lista os onze e o motivo. A lista completa do bloco tem 29 nomes: os 14 da fase 1, `Reload`, `ModuleLoadReport`, `FullyBooted`, `Shutdown` e os onze da rc.8 (o simulador que espelhava a lista saiu na rc.9). Bloco vigente, na ordem:
 
 ```
 read = system,call,agent
@@ -1066,6 +1119,13 @@ eventfilter = Event: AgentRingNoAnswer
 ```
 
 Uso no daemon: `QueueCallerJoin`, `QueueCallerLeave`, `QueueCallerAbandon`, `QueueMember*` e `AgentConnect` viram eventos normalizados (seção 11.6); `QueueCallerLeave`, `QueueCallerAbandon` e `AgentComplete` também agendam a `QueueStatus` da fila (seção 11.6, "Reconciliação"); `AgentCalled` e `AgentRingNoAnswer` são lidos e descartados na rc.8 (o estado do agente vem do `QueueMemberStatus`). As respostas da `QueueStatus` (`QueueParams`, `QueueMember`, `QueueEntry`, `QueueStatusComplete`) são resposta de action e não passam pelo eventfilter.
+
+**rc.9: o bloco definitivo continua o mesmo** (os 29 `eventfilter` acima, nenhum nome novo, nenhum a menos). Achado no servidor do usuário: o bloco tinha 25, sem `QueueMemberAdded`, `QueueMemberRemoved`, `AgentCalled` e `AgentConnect`; o `%post` publicado na rc.8 gera os 29 (ADR-011, contexto do item 9). Sem esses eventos, a entrada e a saída de agentes só aparece na reconciliação de 10 min. Correção, só no instalador e no bloco:
+- `%post`: depois de gravar (ou de achar o bloco igual), conta as linhas `eventfilter = Event:` entre os marcadores, como usuário asterisk; diferente de 29, aviso `bloco AMI com N eventfilter (esperado 29); rode ./instalar.py instalar de novo`. Nada mais muda na gravação.
+- `instalar.py`: item novo `c_eventfilter()` no `verificar` (lista da 15.4) e no `status` (15.6). Lê o bloco entre `; BEGIN painel-ramais` e `; END painel-ramais` de `manager_custom.conf` como root (como `c_conflito_ami`) e compara o conjunto de nomes de `eventfilter = Event: <Nome>` com a constante `EVENTOS_AMI` do instalador (os 29, na ordem do bloco, cópia literal do `postinstall`). Bloco ausente: OK "bloco do painel ausente (o pacote grava)". Faltando nome: AVISO "Filtro de eventos AMI do painel incompleto: faltam <nomes>", com a correção `./instalar.py instalar` (o `%post` regrava o bloco e faz `manager reload`), depois `systemctl restart painel-ramais` (o Asterisk copia o filtro para a sessão só no Login; o reload não muda a sessão aberta). Nome a mais: AVISO com os nomes. Nunca ERRO; nunca edita o arquivo (D9).
+- Daemon: `queues.events_received` no health (4.4) mostra o que chega.
+
+**rc.9: campos do `FullyBooted`.** No Asterisk 18 (`main/manager.c`, `action_login`, e `main/asterisk.c`, `publish_fully_booted`) o evento traz `Uptime` (segundos desde a subida, `0` se a hora de início não está definida) e `LastReload` (segundos desde o último reload), além de `Status`. O supervisor lê os dois como inteiros (texto inválido ou ausente = sem o campo) e os passa no `AsteriskSignal` (seção 11.1). Regra da pausa: seção 11.5, item 2. Confirmação ao vivo: `asterisk -rx "manager show event FullyBooted"` e o log da decisão na próxima reconexão.
 
 Os eventos da tecnologia inativa nunca chegam (o módulo não está carregado), então a união não custa nada. Motivo de não montar o filtro por tecnologia: ADR-003. As respostas de action em lista (`EndpointList`, `ContactList`, `PeerEntry`, `DeviceStateChange` de lista, `CoreShowChannel`) não passam pelo eventfilter.
 
@@ -1388,9 +1448,9 @@ CREATE INDEX reg_system_events_at ON reg_system_events(at);
 
 Notas da versão 4:
 - **Expand e contract na mesma versão, de propósito.** `extension_groups` é reconstruída (contract) porque a chave muda; não existe janela em que dois binários usem o mesmo banco (o serviço para no `rpm -U`). O rollback depende do `painel.db.bak-v3` (seção 15.7).
-- **Retenção fixa de 30 dias** para `reg_events`, `reg_hourly` e `reg_system_events` (constante, não segue `history.retention_days`): uma vez por dia (e na subida), `DELETE ... WHERE at < agora - 30 d` (`hour <` no agregado). rc.8: **em blocos**, para não segurar a única conexão: `reg_events` e `reg_system_events` com `DELETE FROM <t> WHERE id IN (SELECT id FROM <t> WHERE at < ? LIMIT 5000)`; `reg_hourly` (WITHOUT ROWID) com `DELETE FROM reg_hourly WHERE (number, hour) IN (SELECT number, hour FROM reg_hourly WHERE hour < ? LIMIT 5000)`; cada bloco é um comando (autocommit) com prazo de 15 s, repetido até apagar menos de 5.000 linhas; entre blocos a conexão volta ao pool. Falha num bloco: log Warn, para a limpeza e tenta de novo no dia seguinte (dado velho a mais não é perda). Não há tabela de intervalo aberto: o intervalo fora do ar aberto vive no estado e se perde num restart do **daemon** (ADR-007, alternativa E).
+- **Retenção fixa de 30 dias** para `reg_events`, `reg_hourly` e `reg_system_events` (constante, não segue `history.retention_days`): uma vez por dia (e na subida), `DELETE ... WHERE at < agora - 30 d` (`hour <` no agregado). rc.8: **em blocos**, para não segurar a única conexão: `reg_events` e `reg_system_events` com `DELETE FROM <t> WHERE id IN (SELECT id FROM <t> WHERE at < ? LIMIT 5000)`; `reg_hourly` (WITHOUT ROWID) com `DELETE FROM reg_hourly WHERE (number, hour) IN (SELECT number, hour FROM reg_hourly WHERE hour < ? LIMIT 5000)`; cada bloco é um comando (autocommit) com prazo de 15 s, repetido até apagar menos de 5.000 linhas; entre blocos a conexão volta ao pool. Falha num bloco: log Warn, para a limpeza e tenta de novo no dia seguinte (dado velho a mais não é perda). Desde a rc.9 o estado "fora do ar" de cada ramal fica em `reg_state` (versão 6, ADR-010), que **não** entra na retenção nem no corte de 200; até a rc.8 ele vivia só no estado e se perdia num restart do daemon (ADR-007, alternativa E).
 - **Gravação de um lote, rc.8 (ADR-007, nota rc.8).** O gravador junta notas como antes (a cada 2 s ou 500 notas, o que vier antes) e **divide o lote em sublotes por custo** antes de gravar. Custo de uma nota em comandos SQL: ocorrência (`Kind`) = 2 (insert e upsert); fechamento de intervalo (`DownFrom`) = número de horas entre `DownFrom` e `At`, no máximo 720; sinal = 1; mais 1 por ramal distinto do sublote (o corte de 200). Notas entram na ordem em que chegaram; uma nota nunca é partida; o sublote fecha quando a próxima nota passaria de **5.000** (constante `reglog.SubBatchCost`); nota sozinha acima do teto vai num sublote só dela. Cada sublote é **uma transação** com a sua própria `rev` (`rev` + 1 por sublote) e o prazo de 15 s de sempre. Sublote que falha (rollback) é **repetido uma vez** logo em seguida (nova transação, mesma `rev`). Falhou de novo: `write_errors++`, `lost_events += notas do sublote`, `lost_since`/`lost_until` ajustados (seção 4.4) e log Warn `relatorio de registro: ocorrencias perdidas` com `ocorrencias` (quantidade), `de` e `ate` (primeiro e último `At` do sublote, RFC 3339) e `erro`. A perda **nunca** é silenciosa. Repetição que deu certo: log Info `relatorio de registro: sublote gravado na segunda tentativa`. Um único escritor no daemon: todo acesso de escrita usa o mesmo `*store.Store` (pool de uma conexão, `SetMaxOpenConns(1)`), com `busy_timeout(5000)` e `_txlock=immediate` no DSN; nenhum `sql.Open` de escrita novo. Conteúdo de cada sublote, igual ao lote da rc.7:
-- **Gravação de um lote, conteúdo** (`rev` = maior `rev` gravada + 1, lida na subida): (1) `INSERT` em `reg_events`; (2) upsert em `reg_hourly` da hora de cada ocorrência (`ON CONFLICT(number, hour) DO UPDATE` somando o contador do tipo ou `system_events`, `last_drop_at = max(...)` para queda contada, `last_ip`/`last_port` quando a ocorrência tem endereço, `name` quando conhecido, `rev`); (3) para cada fechamento de intervalo fora do ar, upsert de `down_s` em cada hora entre o início e o fim (só os segundos daquela hora, no máximo as últimas 720 horas; soma com teto, `min(3600, down_s + excluded.down_s)`, para um erro de conta nunca derrubar o lote no `CHECK`); (4) `INSERT` em `reg_system_events` dos sinais; (5) para cada ramal do lote, `DELETE FROM reg_events WHERE number = ? AND id < (SELECT id FROM reg_events WHERE number = ? ORDER BY id DESC LIMIT 1 OFFSET 199)` (fica com as 200 mais novas). Falha: rollback e a regra de repetição do item anterior (até a rc.7 o lote inteiro era descartado na primeira falha).
+- **Gravação de um lote, conteúdo** (`rev` = maior `rev` gravada + 1, lida na subida): (1) `INSERT` em `reg_events`; (2) upsert em `reg_hourly` da hora de cada ocorrência (`ON CONFLICT(number, hour) DO UPDATE` somando o contador do tipo ou `system_events`, `last_drop_at = max(...)` para queda contada, `last_ip`/`last_port` quando a ocorrência tem endereço, `name` quando conhecido, `rev`); (3) para cada fechamento de intervalo fora do ar, upsert de `down_s` em cada hora entre o início e o fim (só os segundos daquela hora, no máximo as últimas 720 horas; soma com teto, `min(3600, down_s + excluded.down_s)`, para um erro de conta nunca derrubar o lote no `CHECK`); (4) `INSERT` em `reg_system_events` dos sinais; (5) para cada ramal do lote, `DELETE FROM reg_events WHERE number = ? AND id < (SELECT id FROM reg_events WHERE number = ? ORDER BY id DESC LIMIT 1 OFFSET 199)` (fica com as 200 mais novas); (6) rc.9: upsert em `reg_state` de cada nota de estado do sublote (a última nota de cada número vence; `INSERT ... ON CONFLICT(number) DO UPDATE SET` todas as colunas, `rev` = a do sublote). rc.9, no passo (3): o upsert de `down_s` também grava `down_gap = max(reg_hourly.down_gap, excluded.down_gap)` (1 quando o fechamento veio com lacuna). Custo da nota de estado: 1 (mais o 1 por ramal distinto que já existe). Falha: rollback e a regra de repetição do item anterior (até a rc.7 o lote inteiro era descartado na primeira falha).
 - **Tamanho esperado** com 10.000 ramais e 30 dias: `reg_events` até 2 milhões de linhas (teto de 200 por ramal); `reg_hourly` proporcional a ramal x hora com ocorrência (dezenas de milhares em operação normal).
 
 Versão 5 (rc.8: nome da fila, ADR-009; `PRAGMA user_version = 5`, aplicada por migração sobre a v4). Só aditiva.
@@ -1410,6 +1470,43 @@ Notas da versão 5:
 - **Um backup só por subida.** O `store.migrate` faz o `VACUUM INTO painel.db.bak-v<versão inicial>` **uma vez**, antes do laço, e aplica cada migração numa transação própria (`internal/store/store.go:86-95` na tag `v0.1.2-rc.7`; a rc.8 não muda essa forma). Banco 3 (rc.6, o caso do usuário) passa por 3, 4 e 5 na mesma subida e gera **só** `painel.db.bak-v3`; banco 4 (rc.7) gera `painel.db.bak-v4`. Falha da 4 para 5 depois de a 3 para 4 passar: o banco fica no esquema 4, o daemon não sobe e o `.bak-v3` continua valendo para o rollback (seção 15.7).
 - Lida inteira na subida e depois de cada escrita (`LoadQueueNames`), entregue ao estado como `QueueNamesLoaded` (seção 11.1). Sem retenção: uma linha por fila nomeada.
 - `painel-ramais version` passa a dizer `schema 5`.
+
+Versão 6 (rc.9: estado de registro persistente, ADR-010; `PRAGMA user_version = 6`, aplicada por migração sobre a v5). Só aditiva.
+
+```sql
+-- Estado "fora do ar" e ultimo registro de cada ramal ja visto (ADR-010). Fora da retencao de 30 dias e do corte de 200.
+-- down_since: inicio do "fora" atual (unregistered ou unreachable); NULL = registrado e alcancavel (ou nunca visto fora).
+-- down_kind: observed (hora vista), unknown_start (caiu com painel ou AMI parado: down_since e limite),
+--            before_install (ja estava fora na primeira vez que o painel o viu, com a tabela vazia).
+-- down_seg: inicio do trecho aberto ainda nao somado em reg_hourly.down_s (difere de down_since depois de lacuna).
+-- last_reg: ultima vez que ficou registrado; last_reg_exact = 0 quando e limite ("antes de").
+-- rev: lote de gravacao que tocou a linha por ultimo (cursor da secao 4.7.2).
+CREATE TABLE reg_state (
+  number         TEXT    PRIMARY KEY CHECK (length(number) BETWEEN 1 AND 64),
+  down_since     INTEGER,
+  down_kind      TEXT    CHECK (down_kind IN ('observed', 'unknown_start', 'before_install')),
+  down_seg       INTEGER,
+  last_reg       INTEGER,
+  last_reg_exact INTEGER NOT NULL DEFAULT 0 CHECK (last_reg_exact IN (0, 1)),
+  rev            INTEGER NOT NULL CHECK (rev >= 1),
+  CHECK ((down_since IS NULL) = (down_kind IS NULL)),
+  CHECK ((down_since IS NULL) = (down_seg IS NULL)),
+  CHECK (down_seg IS NULL OR down_seg >= down_since),
+  CHECK (last_reg IS NOT NULL OR last_reg_exact = 0)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX reg_state_rev ON reg_state(rev);
+
+-- Lacuna: a hora recebeu segundos de um trecho cortado porque o painel ou o AMI estavam parados.
+ALTER TABLE reg_hourly ADD COLUMN down_gap INTEGER NOT NULL DEFAULT 0 CHECK (down_gap IN (0, 1));
+```
+
+Notas da versão 6:
+- **Um backup só por subida**, como na v5: banco 3 (rc.6) passa por 3, 4, 5 e 6 na mesma subida e gera só `painel.db.bak-v3`; banco 5 (rc.8) gera `painel.db.bak-v5`. Falha no meio: o banco fica na última versão que passou, o daemon não sobe e o backup da versão inicial continua valendo (15.7).
+- `reg_state` nasce vazia: na primeira sincronização, todo ramal fora vira `before_install` e todo registrado ganha `last_reg` inexato (seção 11.5). Não há backfill a partir de `reg_events` (ADR-010, alternativa E).
+- Sem retenção: uma linha por número já visto; ramal removido do PBX mantém a linha (`down_*` nulos, `last_reg` guardado). Leitura na subida: `SELECT number, down_since, down_kind, down_seg, last_reg, last_reg_exact FROM reg_state` (`store.LoadRegState`) e `SELECT max(minute) FROM history WHERE group_name = '' AND gap = 0` (`store.LastAliveMinute`, `0` sem linha). A linha do minuto `M` é gravada no instante `M` (o amostrador trunca a hora da virada, `internal/history/history.go:53-57`) e `gap = 0` quer dizer AMI conectado de `M - 60 s` até `M` (`history.IsGap`); por isso o último instante provado com painel vivo **e** AMI conectado é o próprio `M`, sem somar 60 s.
+- **Lacuna sem tempo**: fechamento com `DownGap` e fim menor ou igual ao início (`To <= From`) não soma segundo nenhum, mas grava `down_gap = 1` na hora de `From` (um upsert com `down_s` 0 e `down_gap` 1). É o caso do `cap` desconhecido ou anterior ao início do trecho (seção 11.5, item 3).
+- `RegRows` (4.7) ganha `DownGap` (`max(r.down_gap)` do período) e, por subconsulta na PK de `reg_state`, `LastReg` e `LastRegExact` (para o ramal `removed`; o presente usa o hub). Consultas novas, as duas devolvendo `[]RegRow` só com `Number`, `LastReg` e `LastRegExact` (lidos de `reg_state`; contadores zerados): `RegStateTouched(ctx, afterRev)`, `SELECT number, COALESCE(last_reg, 0), last_reg_exact FROM reg_state WHERE rev > ?` (usa `reg_state_rev`; a 4.7.2 junta essas linhas no `full: false`); e `RegStateOne(ctx, number)`, a mesma consulta com `WHERE number = ?` (a 4.7.3 usa quando `RegRows` não traz linha do ramal no período, para o `last_registered` do ramal sem atividade ou `removed`).
+- `painel-ramais version` passa a dizer `schema 6`.
 
 Todo nome que entra (callerid do Asterisk, display name do telefone, cache antigo, nome do outro lado da chamada) passa por `model.CleanName`: sem caracteres de controle ou de formatação (categorias Unicode `C*`: C0/C1, bidi U+202A..202E e U+2066..2069, largura zero, BOM), espaços colapsados e no máximo 64 caracteres. A tela da fase 2 deve mostrar nomes só como texto (nunca `innerHTML`) e com CSP estrita. Ao fim de cada sincronização completa o daemon expurga do cache os ramais que não existem mais no PBX (lista vazia não expurga).
 
@@ -1438,7 +1535,8 @@ Os adaptadores `sip` e `pjsip` traduzem mensagens AMI nestes tipos. O supervisor
 | `SyncFinished` | (nenhum) | troca a visão pela montada, `ami_connected=true`, epoch novo |
 | `NamesLoaded` | `Names map[string]string` | cache de nomes (número para callerid); só preenche ramal sem nome; sem epoch novo (emitido pelo `cmd` na subida) |
 | `GroupsLoaded` | `Groups []Group{Name, Ranges []Range{Start, End}}` (catálogo completo, inclui grupo sem faixa), `Manual map[string][]string` (rc.7: número para a lista de grupos com vínculo manual; ausente = nenhum) | recalcula os grupos de cada ramal (seção 10, "Grupos no daemon"), marca como sujos só os que mudaram (`groups`, `range_groups` ou `manual_groups`) e liga a bandeira de catálogo mudado; **sem epoch novo** (emitido pelo `cmd` na subida, no SIGHUP e depois de cada escrita pela tela) |
-| `AsteriskSignal` | `Kind` (`shutdown` ou `fully_booted`) | rc.7, emitido pelo supervisor no laço ao vivo ao ler `Event: Shutdown` ou `Event: FullyBooted` (inclusive o `FullyBooted` logo após o Login). Abre a janela de evento do sistema de 120 s a partir de `At` e gera o sinal para `reg_system_events` (seção 11.5). Não muda epoch nem versão |
+| `AsteriskSignal` | `Kind` (`shutdown` ou `fully_booted`); rc.9: `Uptime time.Duration`, `HasUptime bool`, `LastReload time.Duration`, `HasLastReload bool` (só no `fully_booted`) | rc.7, emitido pelo supervisor no laço ao vivo ao ler `Event: Shutdown` ou `Event: FullyBooted` (inclusive o `FullyBooted` logo após o Login). rc.9: abre a pausa só pela regra da seção 11.5, item 2 (não abre mais em todo `FullyBooted`); grava o sinal em `reg_system_events` só quando abre a pausa. Não muda epoch nem versão |
+| `RegStateLoaded` | rc.9: `Rows map[string]RegState` (número para `{DownSince time.Time; DownKind string; DownSeg time.Time; LastReg time.Time; LastRegExact bool}`, zero = nulo), `Fresh bool` (`reg_state` vazia), `LastAlive time.Time` (último minuto de `history` com `group_name = ''` e `gap = 0`, sem somar nada; zero sem linha **ou** se a leitura falhou) | emitido pelo `cmd` na subida, antes de `d.start()` (mesmo ponto do `NamesLoaded`), e consumido só pela primeira `SyncFinished` (seção 11.5, item 3). Não muda epoch nem versão |
 | `InventoryListed` | `Reason`, `Names []string` (todos os endpoints/peers do PBX, troncos inclusos) | releitura do inventário (seção 7.4): remove do estado os ramais que não estão na lista (ou os mantém até o fim da chamada), **sem epoch novo**; ignorado durante sincronização ou com o AMI fora. Vem antes dos `EndpointSeen`/`RegistrationChanged` da mesma leitura |
 
 Regra do epoch: mudança em massa (queda do AMI, fim de sincronização) gera epoch novo e `reload`; mudança de grupo (catálogo ou atribuição) e inventário vão por delta; mudança de um ramal, inclusive ramal criado ou apagado no PBX (`InventoryListed`), gera delta.
@@ -1474,7 +1572,7 @@ Regra do epoch: mudança em massa (queda do AMI, fim de sincronização) gera ep
 
 Restauração por snapshot: o `CoreShowChannels` não traz os `DialBegin`. No fim da sincronização o `state` refaz as relações de Dial por Linkedid (quem executa `Dial` casado com o canal `AppDial` pelo argumento do Dial; o que não casa por nome liga quando só resta um par). `Dialed` mantém a direção `outbound` de chamada de saída restaurada. `hold` não vem do `CoreShowChannels` (limite do protocolo): chamada em espera volta como `talking`. Com vários Dial sem casar por nome e vários destinos soltos no mesmo Linkedid, o peer fica `unknown` até atender.
 
-Fila entre leitor AMI e estado: canal com capacidade 65536. A goroutine leitora só faz parse e envio sem bloqueio (`select` com `default`). Fila cheia: o leitor descarta, conta em `queue.overflows`, registra log e, quando a fila esvazia, o supervisor dispara uma ressincronização (`SyncStarted{Reason: overflow}`) sem derrubar a conexão. Nada é perdido em silêncio: o estado é refeito inteiro.
+Fila entre leitor AMI e estado: canal com capacidade 65536. A goroutine leitora só faz parse e envio sem bloqueio (`select` com `default`). Fila cheia: o leitor descarta **qualquer** evento (registro, chamada e fila; `ami.Client.dispatch`), conta em `queue.overflows`, registra log e, quando a fila esvazia, o supervisor dispara uma ressincronização (`SyncStarted{Reason: overflow}`) sem derrubar a conexão. O estado é refeito inteiro. rc.9 (ADR-011, decisão 3): a ressincronização por estouro respeita um intervalo mínimo (30 s, dobra a cada estouro que acontece até 10 min depois da anterior, teto de 5 min, volta a 30 s depois de 30 min sem estouro), com log Info de cada uma (`ami: ressincronizacao por estouro motivo=overflow descartados=N duracao_ms=N ramais=N canais=N proximo_minimo=60`, valor em segundos inteiros); as transições de registro que caíram no descarte aparecem no log de decisões como `reconciliacao` (seção 11.5). Nada some em silêncio.
 
 ### 11.4 Saída do estado para o hub (`api`)
 
@@ -1485,26 +1583,94 @@ Fila entre leitor AMI e estado: canal com capacidade 65536. A goroutine leitora 
 
 rc.8 (ADR-008): `Batch` ganha `Calls []LiveCall` (mudadas, estado completo), `CallsRemoved []string`, `Queues []Queue` (mudadas, completas), `QueuesRemoved []string`; `nil`/vazio = nada daquele tipo, e o hub só escreve a chave no delta quando a lista tem item (seção 5.2). O hub guarda as duas projeções (mapa por `id` e por `queue`) para o snapshot e para a rota de renomear (existência da fila). `ToVersion - FromVersion` = mudanças de ramal (como antes) + itens das quatro listas novas; o lote sai se **qualquer** das listas (ramais, removidos, catálogo, chamadas, chamadas removidas, filas, filas removidas) tiver item.
 
-`Extension` e `Call` do `model` têm as tags JSON da seção 2: o formato da seção 2 é o próprio `json.Marshal` desses tipos. rc.7: `Extension` troca `Group`/`GroupManual` por `Groups`, `RangeGroups`, `ManualGroups []string` (tags `groups`, `range_groups`, `manual_groups`, nunca `nil` no JSON) e ganha `DownSince *time.Time` com tag `json:"-"` (fora do snapshot e do delta; o hub o guarda para a seção 4.7 montar `down_open_since`).
+`Extension` e `Call` do `model` têm as tags JSON da seção 2: o formato da seção 2 é o próprio `json.Marshal` desses tipos. rc.7: `Extension` troca `Group`/`GroupManual` por `Groups`, `RangeGroups`, `ManualGroups []string` (tags `groups`, `range_groups`, `manual_groups`, nunca `nil` no JSON) e ganha `DownSince *time.Time` com tag `json:"-"` (fora do snapshot e do delta; o hub o guarda para a seção 4.7). rc.9: `Extension` ganha também, todos com `json:"-"`, `DownKind string`, `DownSeg *time.Time`, `LastReg *time.Time` e `LastRegExact bool` (o `DownSince` muda de significado: início do "fora do ar" do ADR-010). `api.ExtInfo` ganha os mesmos quatro, copiados em `infoOf`. Qualquer mudança nesses campos marca o ramal como sujo no estado (senão o hub fica com o valor velho).
 
-`state.Stats` (rc.7) ganha: `RegTotal model.RegCounts` e `RegByGroup map[string]model.RegCounts` (`RegCounts{Lost, Unreachable uint64}`, acumulados desde a subida, só ocorrências contadas, `system = 0`; o ramal soma em cada grupo dele no momento da ocorrência, inclusive `Sem grupo`) e `SuppressedUntil time.Time` (zero = sem janela). `ByGroup` passa a contar o ramal em cada grupo dele.
+`state.Stats` (rc.7) ganha: `RegTotal model.RegCounts` e `RegByGroup map[string]model.RegCounts` (`RegCounts{Lost, Unreachable uint64}`, acumulados desde a subida, só ocorrências contadas, `system = 0`; o ramal soma em cada grupo dele no momento da ocorrência, inclusive `Sem grupo`) e `SuppressedUntil time.Time` (zero = sem janela). `ByGroup` passa a contar o ramal em cada grupo dele. rc.9: `PauseReason string` (`"asterisk_restart"` com pausa em curso, senão `""`); `LastDisconnect` (já existe) alimenta `state_unknown_since` quando `AMIConnected` é falso.
 
-### 11.5 Relatório de registro no estado e no gravador (rc.7, ADR-007)
+### 11.5 Relatório de registro no estado e no gravador (rc.7, ADR-007; rc.9, ADR-010 e ADR-011)
 
-**No estado** (`view.onRegistration`, goroutine do estado, nunca bloqueia):
-1. Só quando `e.Live`, a visão é a publicada (`!isBuilding`) e `x.reg != e.State`: aplica a tabela de transições do ADR-007 (estado anterior `x.reg`, novo `e.State`; `unknown` dos dois lados não conta).
-2. `system = e.At < suppressedUntil`. A janela é `max(suppressedUntil, At + 120 s)` e abre em `AsteriskSignal` e no `SyncFinished` de uma sincronização com `Reason = connect` (o estado guarda o `Reason` do `SyncStarted`; inclusive a primeira conexão depois da subida; `overflow` não abre). Cada abertura também gera um sinal (`shutdown`, `fully_booted` ou `ami_connected`).
-3. Intervalo fora do ar (`extState.downSince`): abre na queda contada (`lost_registration` ou `became_unreachable`, `system = false`) se estiver fechado; fecha em `registered` ou `reachable_again` (de sistema ou não). No `SyncFinished`, o `downSince` de cada ramal da visão antiga passa para a nova; se o ramal voltou `registered`, fecha ali (fechamento sem ocorrência). Ramal removido do estado (`removeExt`) fecha o intervalo na hora da remoção.
-4. Endereço da ocorrência: IP e porta do estado novo; se vazio (queda), os do estado anterior. Só IPv4 (`net.ParseIP(ip).To4() != nil`); senão vazio. User agent passa por `model.CleanName` com teto de 256 caracteres (não 64).
-5. Contadores acumulados de `Stats.RegTotal`/`RegByGroup` somam só `lost_registration` e `became_unreachable` não sistema.
-6. Entrega: `Options.OnReg func(model.RegNote)`, chamada na goroutine do estado. `RegNote{At, Number, Name, Kind, System, IP, Port, UserAgent, DownFrom time.Time, Signal string}`: ocorrência (`Kind` preenchido), fechamento de intervalo (`Kind` vazio, `DownFrom` não zero, `At` = fim) ou sinal (`Signal` preenchido, `Number` vazio). Uma ocorrência que fecha intervalo leva o `DownFrom` junto.
+**Ok e fora.** Ok = `registration` `registered`. Fora = `unregistered` ou `unreachable`. `unknown` não é nenhum dos dois: nunca abre nem fecha nada.
+
+**No estado** (goroutine do estado, nunca bloqueia nem faz I/O; o que sai vai por `OnReg` e `OnDecision`, que só enfileiram):
+
+1. **Contadores** (iguais à rc.7). Só quando `e.Live`, a visão é a publicada (`!isBuilding`) e `x.reg != e.State`: aplica a tabela de transições do ADR-007 (`registered` para `unregistered` = `lost_registration`; para `unreachable` = `became_unreachable`; volta = `registered` / `reachable_again`; `unknown` dos dois lados e `unreachable` com `unregistered` não contam). `system = e.At < suppressedUntil`: dentro da pausa a ocorrência é gravada com `system = 1` e não soma em `Stats.RegTotal`/`RegByGroup` nem em `reg_hourly` (vai em `system_events`).
+
+2. **Pausa** (rc.9, ADR-011 decisão 1). `suppressedUntil` só cresce (`max`):
+   - `AsteriskSignal{shutdown}`: `At + 120 s`; grava o sinal `shutdown`.
+   - `AsteriskSignal{fully_booted}` com `HasUptime` e `Uptime < 120 s`: `At + (120 s - Uptime)`; grava o sinal `fully_booted`; log Info `contagem de registros pausada ate <hora> motivo=asterisk_restart uptime_s=N last_reload_s=N`.
+   - `fully_booted` com `HasUptime` e `Uptime >= 120 s`: não pausa, não grava sinal; log Info `FullyBooted com Asterisk no ar ha N s: contagem nao pausada`.
+   - `fully_booted` sem `HasUptime`: `At + 120 s` (comportamento da rc.8) e grava o sinal; log Info uma vez por sessão AMI `FullyBooted sem Uptime: pausa de 120 s mantida (comportamento da rc.8)`.
+   - `SyncFinished` de `connect`: **não abre mais a pausa**; continua gravando o sinal `ami_connected` (informativo). `overflow` não grava nada.
+   - `PauseReason` = `"asterisk_restart"` enquanto `now < suppressedUntil`.
+
+3. **Estado "fora do ar" por ramal** (rc.9, ADR-010). Campos em `extState`: `downSince`, `downKind`, `downSeg`, `lastReg`, `lastRegExact` (zero = nulo). Toda mudança: `markDirty` e uma nota de estado (`RegNote.State`, item 6). Fechar um trecho = nota com `DownFrom = downSeg`, `At = fim`, `DownGap` conforme a regra; trecho de tamanho zero ou negativo **sem** lacuna não gera nota; **com** lacuna gera a nota de tamanho zero (`At = DownFrom`).
+
+   Na visão **publicada** (eventos ao vivo e releitura de inventário):
+
+   | Antes | Depois | Ação |
+   |---|---|---|
+   | ok | fora | `downSince = downSeg = e.At`, `downKind = observed` (ao vivo ou não, dentro ou fora da pausa) |
+   | fora | ok | fecha `[downSeg, e.At)` sem lacuna; zera `down*`; `lastReg = e.At`, `lastRegExact = e.Live` |
+   | fora | fora (`unregistered` e `unreachable`) | nada |
+   | `unknown` (ramal criado agora: `ensureExt` + `onEndpointSeen` ou `RegistrationChanged`) | fora | `observed` com `downSince = e.At` (fora desde que apareceu no PBX) |
+   | `unknown` (ramal criado agora) | ok | `lastReg = e.At`, `lastRegExact = e.Live` |
+   | qualquer | removido (`removeExt`) | fecha `[downSeg, hora da remoção)` sem lacuna; zera `down*`; `lastReg` fica |
+
+   AMI fora (`markUnknown`): nada muda nesses campos (o relógio da tela congela por `state_unknown_since`).
+
+   **Reconciliação no `SyncFinished`** (substitui o `carryDown`). Para cada número da visão nova e de "antes", onde "antes" = a visão antiga ou, só na primeira sincronização do processo, as linhas do `RegStateLoaded`:
+   - `syncAt` = `At` do `SyncFinished`.
+   - `cap` (último instante provado em que o painel estava vivo **e** o AMI conectado, isto é, o último em que o painel viu o ramal fora): primeira sincronização do processo = `LastAlive`; `connect` depois de queda do AMI = `Stats.LastDisconnect`; `overflow` = `syncAt`. `cap` maior que `syncAt` vira `syncAt`. `LastDisconnect` zero num `connect` que não é a primeira sincronização conta como **cap desconhecido** (item abaixo), nunca como `syncAt`: o tempo com o AMI fora não entra em `down_s` (4.7).
+   - **`cap` desconhecido** (`LastAlive` zero: sem minuto com `gap = 0` ou leitura que falhou; ou `LastDisconnect` zero no `connect`) **ou anterior a `downSeg`**: nenhum tempo é inventado. O trecho fecha com tamanho zero (`DownFrom = At = downSeg`) e `DownGap` (seção 10, "Lacuna sem tempo"): o detalhe e o CSV mostram a lacuna, e o tempo entre `downSeg` e a sincronização não entra em `down_s`.
+   - `lacuna` = verdadeiro, exceto no `overflow`.
+
+   | Antes | Agora | Ação |
+   |---|---|---|
+   | fora | fora | mantém `downSince` e `downKind`. Com lacuna: fecha `[downSeg, cap)` com `DownGap` e `downSeg = syncAt`. Sem lacuna: nada |
+   | fora | ok | fecha `[downSeg, cap)` (`DownGap` = lacuna); zera `down*`; `lastReg = syncAt`, `lastRegExact = false` |
+   | ok | ok | nada |
+   | ok | fora | `unknown_start`, `downSince = downSeg = syncAt` |
+   | ausente, com `Fresh` | fora | `before_install`, `downSince = downSeg = syncAt` |
+   | ausente, com `Fresh` | ok | `lastReg = syncAt`, `lastRegExact = false` |
+   | ausente, sem `Fresh` | fora | `unknown_start`, `downSince = downSeg = syncAt` |
+   | ausente, sem `Fresh` | ok | `lastReg = syncAt`, `lastRegExact = false` |
+   | fora | sumiu do PBX | fecha `[downSeg, cap)` (`DownGap` = lacuna); zera `down*` |
+
+   "Ausente" = número sem linha em "antes". "Ok" e "fora" de "antes" vêm de `downSince` (zero = ok), não de `reg`, porque `markUnknown` já apagou o `reg` antigo. `lastReg` e `lastRegExact` de "antes" passam para a visão nova quando a regra não os troca. Depois da primeira sincronização, o `RegStateLoaded` é descartado. O `downSince` de `before_install` guarda a hora da sincronização (ordem e cálculo); a data **mostrada** é a do `since` (4.7, "Data da instalação").
+
+4. **Log de decisões** (rc.9, ADR-011 decisão 2). Para cada transição de `registration` com `x.reg != e.State` na visão publicada, e para cada linha da reconciliação que mudou ok/fora, o estado chama `OnDecision(model.RegDecision{At, Number, From, To Registration, Counted bool, Reason string})`. `Reason`:
+   - `contada`: entrou nos contadores;
+   - `pausa`: dentro da pausa;
+   - `primeiro_estado`: de `unknown`;
+   - `releitura`: `!e.Live`;
+   - `reconciliacao`: `SyncFinished`;
+   - `fora_da_tabela`: transição ao vivo que a tabela do ADR-007 não conta e que nenhum motivo acima cobre: `unregistered` com `unreachable` (nos dois sentidos) e qualquer estado (`registered`, `unreachable`, `unregistered`) para `unknown` num `RegistrationChanged` da visão publicada.
+
+   Na visão em montagem não sai decisão por evento (a reconciliação cobre).
+
+5. Endereço da ocorrência: IP e porta do estado novo; se vazio (queda), os do estado anterior. Só IPv4 (`net.ParseIP(ip).To4() != nil`); senão vazio. User agent passa por `model.CleanName` com teto de 256 caracteres (não 64).
+
+6. **Entrega**: `Options.OnReg func(model.RegNote)`, chamada na goroutine do estado. `RegNote{At, Number, Name, Kind, System, IP, Port, UserAgent, DownFrom time.Time, DownGap bool, Signal string, State *RegState}`. Tipos de nota:
+   - ocorrência (`Kind` preenchido);
+   - fechamento de trecho (`Kind` vazio, `DownFrom` não zero, `At` = fim, `DownGap` rc.9);
+   - sinal (`Signal` preenchido, `Number` vazio);
+   - estado (rc.9: `State` não nulo, `Number` preenchido, o resto vazio).
+
+   Uma ocorrência que fecha trecho leva o `DownFrom` junto. `model.RegState` é o mesmo tipo do `RegStateLoaded`. `Options.OnDecision func(model.RegDecision)` (rc.9).
 
 **No gravador** (`internal/reglog`, goroutine própria, criado e ligado pelo `cmd`):
 - O `cmd` implementa `OnReg` como envio **sem bloqueio** (`select` com `default`) num canal de 16.384 `RegNote`; cheio, descarta e soma `dropped`. Constante, não configurável.
-- Lote a cada 2 s ou 500 itens, o que vier antes, numa transação (seção 10, "Gravação de um lote"); no desligamento grava o que sobrou. Limpeza da retenção de 30 dias uma vez por dia e na subida.
-- rc.8: o lote é gravado em sublotes por custo, com uma repetição e perda contada (seção 10, "Gravação de um lote, rc.8"); a limpeza é em blocos de 5.000.
-- Expõe `model.RegStatus{QueueLen, QueueCap int; Dropped, WriteErrors uint64}` (rc.8: mais `LostEvents uint64` e `LostSince, LostUntil time.Time`, zero = nenhuma perda), injetado no `api.Server` como `RegStatus func() model.RegStatus` (o `api` não importa `reglog`); `suppressed_until` vem de `Stats.SuppressedUntil`.
-- As rotas da seção 4.7 leem do `store` (consultas novas) e da projeção do hub (nome, grupos, presença e `DownSince` atuais).
+- Lote a cada 2 s ou 500 itens, o que vier antes, numa transação (seção 10, "Gravação de um lote"); no desligamento grava o que sobrou. Limpeza da retenção de 30 dias uma vez por dia e na subida (não toca `reg_state`).
+- rc.8: o lote é gravado em sublotes por custo, com uma repetição e perda contada (seção 10, "Gravação de um lote, rc.8"); a limpeza é em blocos de 5.000. rc.9: `toBatch` junta as notas de estado em `RegBatch.States` (a última de cada número vence dentro do sublote) e as de fechamento com `DownGap`; `noteCost` da nota de estado = 1.
+- `MaxRegRev` (rc.9) = `max(MAX(reg_hourly.rev), MAX(reg_state.rev))`.
+- Expõe `model.RegStatus{QueueLen, QueueCap int; Dropped, WriteErrors uint64}` (rc.8: mais `LostEvents uint64` e `LostSince, LostUntil time.Time`, zero = nenhuma perda; rc.9: mais `DecisionLines uint64` e `DecisionSummarized map[string]uint64`, cópia), injetado no `api.Server` como `RegStatus func() model.RegStatus` (o `api` não importa `reglog`); `suppressed_until` e `pause_reason` vêm de `Stats`.
+- As rotas da seção 4.7 leem do `store` e da projeção do hub (nome, grupos, presença e os campos de estado da rc.9).
+
+**Log de decisões** (rc.9, `internal/reglog/decisions.go`, goroutine própria ligada pelo `cmd`; sem esquema novo):
+- Entrada: `Enqueue(model.RegDecision)` sem bloqueio num canal de 4.096; cheio: soma no contador do motivo.
+- Limite: balde de 20 fichas por segundo, rajada de 100. Com ficha: uma linha Info `registro: transicao ramal=2001 de=registered para=unregistered contada=sim motivo=contada`. Sem ficha: soma no contador do motivo.
+- A cada 10 s, para cada motivo com contador acima de zero: Info `registro: resumo de transicoes sem linha propria motivo=pausa quantidade=3000 janela_s=10`; zera o contador da janela (o total vai para `decision_summarized` do health).
+- Constantes não configuráveis: `DecisionQueueCap` = 4096, `DecisionPerSecond` = 20, `DecisionBurst` = 100, `DecisionSummaryEvery` = 10 s.
 
 ### 11.6 Filas e projeção de chamadas (rc.8, ADR-008)
 
@@ -1517,7 +1683,7 @@ rc.8 (ADR-008): `Batch` ganha `Calls []LiveCall` (mudadas, estado completo), `Ca
 | `QueueMemberChanged` | `Queue`, `Member QueueMember` | `QueueMemberStatus`, `QueueMemberPause`, `QueueMemberAdded` |
 | `QueueMemberRemoved` | `Queue`, `Interface` | `QueueMemberRemoved` |
 | `QueueAgentConnected` | `Queue`, `Uniqueid` (canal do chamador) | `AgentConnect` |
-| `QueuesListed` | `Full bool`, `Queue string` (só com `Full = false`), `Queues []QueueSnapshot`, `Unsupported bool` | resposta da `QueueStatus` |
+| `QueuesListed` | `Full bool`, `Queue string` (só com `Full = false`), `Queues []QueueSnapshot`, `Unsupported bool`, `IgnoredDefault bool` (rc.9: a resposta tinha a fila `default`, que foi pulada) | resposta da `QueueStatus` |
 
 `QueueMember{Interface, StateInterface, Name, PausedReason string; Status, CallsTaken int; Paused, InCall bool}` (eventos: `Interface`, `StateInterface`, `MemberName`, `Status`, `Paused`, `PausedReason`, `InCall`, `CallsTaken`; `QueueStatus`: `Location` no lugar de `Interface`, `Name` no lugar de `MemberName`). `QueueSnapshot{Queue string; Completed, Abandoned, ServiceLevel int; ServiceLevelPerf float64; Members []QueueMember; Entries []QueueEntry}`; `QueueEntry{Uniqueid, CallerNum, CallerName string; Wait time.Duration}`. Todo texto passa por `model.CleanName`. `AgentCalled`, `AgentComplete` e `AgentRingNoAnswer` não geram evento normalizado.
 
@@ -1526,9 +1692,12 @@ rc.8 (ADR-008): `Batch` ganha `Calls []LiveCall` (mudadas, estado completo), `Ca
 - Chamadas: mapa por `Linkedid` com o que é guardado na primeira montagem (origem externa ou ramal, `started_at`) e a última `LiveCall` publicada. Cada evento de canal aplicado na visão **publicada** marca como sujo o `Linkedid` dos canais citados antes e depois de aplicar (e, em `BridgeEntered`/`BridgeLeft`, o dos canais daquela bridge); evento de fila marca o `Linkedid` do canal do chamador. Eventos aplicados na visão em montagem não marcam nada: no `SyncFinished` a projeção inteira é refeita da visão nova (o `Reset` leva tudo). `InventoryListed` que mudou o inventário marca todas as chamadas.
 - `Flush`: para cada `Linkedid` sujo, remonta a linha em O(k) (k = canais do grupo), compara com a publicada e põe em `Calls` (mudou ou nova) ou `CallsRemoved` (sumiu); o mesmo para as filas sujas. Depois reavalia as chamadas que esperam o prazo de 1 s do "Local sem par" (seção 2.3) e registra o log. A versão avança pela soma da seção 11.4.
 
-**Reconciliação com `QueueStatus`** (no laço ao vivo do supervisor, mesma goroutine que traduz os eventos e lê o inventário: o que chega durante a leitura é aplicado depois da lista, então os eventos de fila precisam ser idempotentes como descrito acima):
-- **Completa** (sem parâmetro): logo depois de cada sincronização (`connect` e `overflow`), depois de cada releitura de inventário com motivo `reload`, e a cada **10 min** (constante `queueFullEvery`, ticker próprio). Prazo de 30 s.
-- **Por fila** (`Queue: <fila>`): `QueueCallerLeave`, `QueueCallerAbandon` ou `AgentComplete` marcam a fila como pendente; a cada volta do `poll` (250 ms) roda para cada fila pendente cuja última leitura (completa ou por fila) tem 30 s ou mais (constante `queueMinGap`). Prazo de 10 s.
+**Reconciliação com `QueueStatus`** (rc.9, ADR-011 decisão 3; até a rc.8 a leitura rodava dentro do laço ao vivo e o bloqueava, o que fechava o ciclo estouro, ressincronização e releitura):
+- **Fora do laço.** A `QueueStatus` (completa ou por fila) roda numa goroutine própria, **uma de cada vez**; o resultado (`QueuesListed` ou erro) volta ao laço ao vivo por um canal. O laço continua tirando eventos da fila do leitor durante a leitura: eventos de registro e de chamada são traduzidos e emitidos na hora; eventos **de fila** (saída de `queues.Translate`) que chegam durante uma leitura ficam guardados em ordem e são emitidos **logo depois** do `QueuesListed` daquela leitura (mesma regra da rc.8: o que chega durante a leitura vale depois da lista; os eventos de fila são idempotentes). Teto de guardados: **50.000**; acima, os guardados são descartados, `queues.held_dropped += N`, log Warn `filas: eventos de fila descartados durante a releitura quantidade=N` e uma completa fica pendente (respeitando o mínimo). Leitura que falha: os guardados são emitidos assim mesmo (o estado continua como estava, nada é apagado por erro).
+- **Completa** (sem parâmetro): pedida depois de cada sincronização (`connect` e `overflow`), de cada releitura de inventário com motivo `reload`, e a cada **10 min** (constante `queueFullEvery`). Prazo de 30 s. **Intervalo mínimo** entre o fim de uma completa e o início da próxima: `queueFullMinGap`, começa em 30 s; dobra (teto de 10 min) quando um estouro da fila do leitor AMI acontece até 10 min depois de uma completa; volta a 30 s depois de 30 min sem estouro. Pedido antes do mínimo fica pendente e roda quando o mínimo vence (um pedido só, não acumula). Log Info de cada completa: `filas: leitura completa motivo=<sincronizacao|overflow|reload|periodica|descarte> duracao_ms=N filas=N membros=N aguardando=N proximo_minimo=30` (`proximo_minimo` em segundos inteiros, sem unidade).
+- **Por fila** (`Queue: <fila>`): `QueueCallerLeave`, `QueueCallerAbandon` ou `AgentComplete` marcam a fila como pendente (nunca a `default`); quando não há leitura em curso, a cada volta do `poll` (250 ms) dispara a de uma fila pendente cuja última leitura (completa ou por fila) tem 30 s ou mais (constante `queueMinGap`). Prazo de 10 s.
+- **Contagem** (`queues.events_received`, 4.4): no laço ao vivo, antes de `queues.Translate`, para os onze nomes da seção 7.2, exceto evento cujo `Queue` é a `default`.
+- **Fila `default`** (2.4): `model.IgnoredQueue` em `queues.Translate` (devolve `nil`), em `queues.parse` (pula os itens; `QueuesListed.IgnoredDefault = true`) e em `calls.FromCoreShowChannel` (`Queue` vazio). O supervisor registra uma vez por processo (campo do `supervisor`, não da sessão) o Info `fila "default" ignorada (exemplo do Asterisk, nao existe no Issabel)` na primeira vez que a vê (lista ou evento).
 - **Erro**: resposta `Error` cujo texto contém `Invalid/unknown command` (sem diferenciar maiúsculas) na completa = módulo de filas ausente: `QueuesListed{Full: true, Unsupported: true}`, log Info uma vez por sessão, `queues.unsupported = true`. Qualquer outro erro (ou prazo): `queues.refresh_errors++`, log Warn com `fila` (vazio na completa) e `erro`; o estado continua como estava (nada é apagado por erro). Queda da conexão durante a leitura segue o caminho normal de reconexão.
 
 ---
@@ -1538,9 +1707,9 @@ rc.8 (ADR-008): `Batch` ganha `Calls []LiveCall` (mudadas, estado completo), `Ca
 Módulo único. Dependências externas: `modernc.org/sqlite`, `gopkg.in/yaml.v3`, `golang.org/x/crypto/bcrypt`, `github.com/coder/websocket`. Cliente AMI próprio (protocolo de texto simples; nenhuma lib AMI). Fora isso, só stdlib.
 
 ```
-cmd/painel-ramais/     main: serve e CLI; supervisor da conexão AMI (Adapter); amostrador de histórico; SIGHUP
-cmd/amisim/            simulador de AMI (modos sip e pjsip)
-cmd/loadtest/          teste de carga contra o simulador (`-heap` exige o daemon compilado com `-tags debug`)internal/api/          HTTP, sessão, rotas da tela e dos grupos, hub WebSocket (projeção, ring buffer, fan-out), /debug
+cmd/painel-ramais/     main: serve e CLI (inclui capturar e filtrar); supervisor da conexão AMI (Adapter); amostrador de histórico; SIGHUP
+internal/api/          HTTP, sessão, rotas da tela e dos grupos, hub WebSocket (projeção, ring buffer, fan-out), /debug
+internal/capture/      formato da captura de AMI e anonimização (seção 18), usado por capturar, filtrar e homologar
 internal/web/          tela embutida no binário (`//go:embed static`); o conteúdo de `static/` é do frontend
 internal/state/        estado em memória, correlação de canais, versão, epoch, lotes de 250 ms
 internal/model/        tipos: Extension, Call, enums, eventos normalizados, Batch, Reset
@@ -1563,7 +1732,7 @@ packaging/             nfpm.yaml, unit, scripts do RPM, httpd.conf.tmpl, config.
 Grafo de importação interna (uma linha por pacote; `->` lista o que ele importa). Verificado sem ciclo por script (seção 14).
 
 ```deps
-cmd/painel-ramais -> internal/api, internal/state, internal/model, internal/ami, internal/ami/sip, internal/ami/pjsip, internal/ami/queues, internal/store, internal/auth, internal/config, internal/depcheck, internal/history, internal/reglog, internal/web
+cmd/painel-ramais -> internal/api, internal/state, internal/model, internal/ami, internal/ami/sip, internal/ami/pjsip, internal/ami/queues, internal/store, internal/auth, internal/config, internal/depcheck, internal/history, internal/reglog, internal/web, internal/capture
 internal/api -> internal/state, internal/model, internal/store, internal/auth, internal/depcheck
 internal/state -> internal/model
 internal/ami/sip -> internal/ami, internal/ami/calls, internal/model
@@ -1579,10 +1748,7 @@ internal/auth ->
 internal/config ->
 internal/depcheck ->
 internal/web ->
-internal/amisim -> internal/capture
 internal/capture ->
-cmd/amisim ->
-cmd/loadtest ->
 ```
 
 Regras:
@@ -1591,7 +1757,7 @@ Regras:
 - A interface `Adapter` (duas implementações: `sip` e `pjsip`) é declarada em `cmd/painel-ramais`, onde é consumida: `Snapshot(ctx, *ami.Client) error` emite os eventos da sincronização; `Reread(ctx, *ami.Client, reason string) (fresh int, err error)` rele o inventário (seção 7.4); `Translate(ami.Message) []model.Event` traduz um evento ao vivo; `EndpointFromChannel(string) (string, bool)`.
 - Detecção de tecnologia (`CoreSettings` e `ModuleCheck`) fica em `ami` e devolve texto (`"sip"`, `"pjsip"`); o `cmd` escolhe o adaptador.
 - `internal/web` é folha: só embute os arquivos; o conteúdo de `static/` é do frontend e as rotas que o servem são de `internal/api` (opção `Static`).
-- `cmd/amisim` e `cmd/loadtest` não importam nada de `internal/`. O simulador tem framing AMI próprio de propósito: se dividisse o código do cliente, um bug de framing seria espelhado e o teste não pegaria. O teste de carga decodifica o JSON pelos tipos dele, como cliente de caixa preta deste contrato.
+- rc.9 (ADR-011, decisão 8): `cmd/amisim`, `cmd/loadtest` e `internal/amisim` saíram do repositório (nada no build, no instalador ou no pacote os usava). `internal/capture` fica: `capturar` e `filtrar` (e, por eles, o `homologar` do instalador) o usam.
 - `ami/calls` é uma adição ao desenho pedido. O bundle é `tools/bundle.py` (Python, `tarfile`, executado por `build.ps1 bundle`), e não um `cmd/bundle` em Go: o build roda no Windows, sem bit de execução, e o `tar` do Windows não garante o modo 0755 no cabeçalho, então o script grava `TarInfo.mode` explícito. `ami/calls` evita duplicar a tradução de onze eventos de chamada nos dois adaptadores, e não cria ciclo.
 - Se o `cmd/painel-ramais` passar de 800 linhas, o supervisor sai para `internal/collector` (entre `cmd` e `ami/*`), sem mudar a direção.
 
@@ -1617,6 +1783,10 @@ Regras:
 | S15 | rc.8: nomes, campos e privilégio `agent` dos eventos de fila (seção 7.2, 11.6) e formato da resposta da `QueueStatus` (`QueueParams`, `QueueMember` com `Location`, `QueueEntry` com `Wait`, `QueueStatusComplete`) no Asterisk 18; `QueueStatus` sem privilégio de escrita | `instalar.py homologar` (`manager show event QueueCallerJoin` e os demais, `manager show command QueueStatus`) e uma ligação para uma fila com `capturar` rodando | backend |
 | S16 | rc.8: interface dos membros no Issabel (`Local/2001@from-queue/n`, `StateInterface` `hint:2001@ext-local` ou `PJSIP/2001`) | fila com agentes no servidor: a coluna de ramal dos agentes vem preenchida | backend |
 | S17 | rc.8: nome de canal DAHDI, IAX2 e Khomp (regra do tronco da seção 2.3) | chamada por cada tronco existente: o rótulo do tronco sai curto e legível | backend |
+| S18 | rc.9: o `FullyBooted` do Asterisk do Issabel traz `Uptime` e `LastReload` em segundos (confirmado no fonte do Asterisk 18) | `asterisk -rx "manager show event FullyBooted"`; `systemctl restart painel-ramais` com o Asterisk no ar: log "contagem nao pausada"; `systemctl restart asterisk`: log de pausa com `uptime_s` baixo | backend |
+| S19 | rc.9: nomes de canal auxiliar no Asterisk do Issabel (`Snoop/`, `CBAnn/`, `CBRec/`, `Announcer/`, `Recorder/`; seção 2.3) | ChanSpy e conferência no servidor com `asterisk -rx "core show channels"`: o nome de cada auxiliar casa com a lista; outro nome entra na lista | backend |
+| S20 | rc.9: causa do bloco do servidor com 25 `eventfilter` (seção 7.2) | roteiro R9 do plano da rc.9: `grep -c '^eventfilter' /etc/asterisk/manager_custom.conf`, `rpm -q --scripts painel-ramais \| grep -c eventfilter`, `journalctl -t painel-ramais-rpm` | backend |
+| S21 | rc.9: o último minuto de `history` com `group_name = ''` e `gap = 0` marca o último instante provado com o daemon vivo e o AMI conectado (a linha do minuto `M` é gravada em `M`) | parar o painel 5 min com um telefone que volta nesse meio: o detalhe mostra o tempo do período "com lacuna" e "Último registro" "antes de" | backend |
 
 ---
 
@@ -1627,6 +1797,8 @@ Script de conferência (rodado no scratchpad, fora do repositório): extrai os b
 rc.7 (2026-10-19): as seções 2.1, 4.6, 4.7, 9, 10 (versão 4), 11.5 e 12 foram conferidas **só por leitura**, sem executar nada (regra do usuário: nenhum teste no PC dele; a validação é ao vivo no servidor). A DDL da versão 4 não foi rodada em SQLite; o @revisor a confere por leitura contra a `ddlV4` do código, e a primeira subida no servidor é a prova (se falhar, a migração é uma transação: o banco continua na versão 3, o daemon não sobe e o `instalar.py rollback` reinstala a rc.6 sem precisar do `.bak-v3`).
 
 rc.8 (2026-10-19): as seções 0 (D11, D12), 1, 1.2, 2.2 a 2.4, 4.1, 4.4, 4.8, 5.2, 7.1, 7.2, 9, 10 (versão 5 e gravação em sublotes), 11.1, 11.3, 11.4, 11.5, 11.6, 12, 13, 15.5 e 15.7 foram conferidas **só por leitura** (D12: não há mais teste automatizado no repositório; nada foi executado). Os 32 blocos JSON do documento fazem parse (script `node` de leitura do próprio documento, sem tocar no produto); o @revisor confere `json.Marshal` dos tipos novos contra eles e a `ddlV5` contra o bloco SQL. A DDL da versão 5 não foi rodada.
+
+rc.9 (2026-10-19): as seções 0 (D10, D12), 2.3, 2.4, 4.4, 4.7 (cabeçalho, linha, lista, 4.7.2, 4.7.3, 4.7.5), 7.2, 10 (versão 6 e gravação), 11.1, 11.3, 11.4, 11.5, 11.6, 12, 13, 15.4 a 15.7 e 16 foram editadas e conferidas **só por leitura** (D12). Os blocos JSON alterados fazem parse (script `node` de leitura do próprio documento). A DDL da versão 6 não foi rodada; o @revisor confere a `ddlV6` do código contra o bloco SQL. As edições antes da linha 328 trocaram linha por linha, sem mudar a contagem (fingerprint do `.gitleaksignore` na linha 328).
 
 ---
 
@@ -1696,6 +1868,8 @@ Não altera nada no sistema. A única escrita é o relatório em `/var/log/paine
 | eventos AMI | | campo esperado ausente em `ContactStatus` ou `CoreShowChannel` | `asterisk -rx 'manager show event <Evento>'` (S4, S5) |
 | include AMI | `manager.conf` sem include de `manager_custom.conf` | | leitura do arquivo |
 | conflito AMI | seção `[painel-ramais]` em `manager_custom.conf` fora dos marcadores | | leitura do arquivo |
+| filtro de eventos AMI (rc.9, `c_eventfilter`) | | bloco do painel com `eventfilter` faltando ou a mais em relação aos 29 da seção 7.2 (texto e correção na 7.2) | leitura do bloco entre os marcadores, como root |
+| relógio (rc.9, `c_relogio`) | | relógio não sincronizado; ou não deu para conferir (`timedatectl` ausente ou saída desconhecida). Correção: `systemctl enable --now chronyd && chronyc makestep` | `timedatectl show -p NTPSynchronized --value` (`yes` = OK); se falhar, `timedatectl` e a linha `System clock synchronized:` ou `NTP synchronized:` |
 | httpd | inativo | | `systemctl is-active httpd` |
 | mod_proxy_wstunnel | ausente | | `httpd -M` |
 | SELinux | | `Enforcing` com `httpd_can_network_connect` desligado (o RPM liga) | `getenforce`, `getsebool` |
@@ -1727,6 +1901,8 @@ Upgrade rc.6 para rc.7 (schema 3 para 4, seção 10, versão 4): uma migração 
 
 Upgrade rc.6 para rc.8 (o caso do usuário: a rc.7 não foi instalada; schema 3 para 5): **uma** subida do daemon aplica 3 para 4 e 4 para 5, cada uma na sua transação, com **um** backup só, `painel.db.bak-v3` (seção 10, notas da versão 5); tudo o que a rc.7 fazia no upgrade vale aqui (vínculos manuais migram, "Sem grupo" manual descartado com log Warn, `reg_meta.since` = hora do upgrade). O `%post` regrava o bloco AMI com `read = system,call,agent`, o `eventfilter = Event: Shutdown` e os onze eventos de fila (seção 7.2) e faz `manager reload`. CSV do instalador com o nome `Todos os ramais` passa a ser recusado (seção 9). O `versao.txt` registra `schema 5`. De rc.7 para rc.8: só 4 para 5, backup `painel.db.bak-v4`.
 
+Upgrade para a rc.9 (schema 6, seção 10, versão 6). **Caso do usuário: da rc.8** (schema 5, instalada em 2026-10-19): a primeira subida da rc.9 aplica só 5 para 6 e cria o backup automático `painel.db.bak-v5`; `reg_meta.since` ("Dados desde") é o da instalação da rc.8 e continua (é a data de "antes da instalação do painel", 4.7). Outro caso, **da rc.6** (schema 3) uma subida aplica 3 para 4, 4 para 5 e 5 para 6, com um backup só, `painel.db.bak-v3`, e tudo o que o upgrade rc.6 para rc.8 fazia vale aqui; **da rc.8** (schema 5) só 5 para 6, backup `painel.db.bak-v5`. Nos dois, `reg_state` nasce vazia (os ramais fora na primeira subida aparecem como "fora desde antes da instalação do painel"). O `%post` regrava o bloco AMI como na rc.8 (mesmos 29 `eventfilter`), faz `manager reload`, confere os 29 (seção 7.2) e reinicia o serviço depois do reload (a sessão AMI nova pega o filtro novo). O `versao.txt` registra `schema 6`.
+
 Falha do passo 3 em diante: não desfaz nada, mostra o passo, o erro e o comando para diagnosticar (`journalctl -u painel-ramais -n 50`, `./instalar.py status`, `httpd -t`), sai com 2.
 
 Idempotência:
@@ -1739,7 +1915,7 @@ Idempotência:
 
 ### 15.6 `status`
 
-Lê `GET http://127.0.0.1:<porta>/api/health` (porta do `config.yaml`) e `systemctl is-active painel-ramais`. Mostra versão, serviço, AMI (conectado, tecnologia, versão do Asterisk), ramais por estado, clientes WebSocket e cada item de `deps`. Sai com 0 se `status = ok`, 2 se `degraded` ou se o health não responde.
+Lê `GET http://127.0.0.1:<porta>/api/health` (porta do `config.yaml`) e `systemctl is-active painel-ramais`. Mostra versão, serviço, AMI (conectado, tecnologia, versão do Asterisk), ramais por estado, clientes WebSocket e cada item de `deps`. Sai com 0 se `status = ok`, 2 se `degraded` ou se o health não responde. rc.9: mostra também, **antes** de ler o health e sem mudar o código de saída, a linha do relógio (`c_relogio`) e a do filtro de eventos AMI (`c_eventfilter`), no formato `Relogio:          AVISO ...` e `Filtro AMI:       OK ...`, e, do health, `Filas:            eventos recebidos <json de queues.events_received>`.
 
 ### 15.7 `rollback`
 
@@ -1753,6 +1929,8 @@ Lê `GET http://127.0.0.1:<porta>/api/health` (porta do `config.yaml`) e `system
 Rollback da rc.7 (schema 4) para a rc.6 (schema 3): o passo 2 detecta o banco mais novo e o passo 5 restaura **automaticamente** o `painel.db.bak-v3` (o banco 4 fica guardado como `painel.db.rollback-<data>`). Antes da confirmação o plano mostra, com todas as letras: "o banco volta ao estado de antes da atualização; vínculos de ramal em vários grupos, o relatório de registros, e todo histórico, sessão, usuário e grupo gravados depois da atualização serão PERDIDOS". A rc.6 nunca abre banco 4: `store.migrate` recusa iniciar com "banco com esquema 4, este binario conhece ate 3 (downgrade nao suportado)" (conferido por leitura na tag `v0.1.2-rc.6`, `internal/store/store.go:66-67`). Sem o `.bak-v3`, o rollback sai com 2 sem mexer em nada (regra já existente).
 
 Rollback da rc.8 (schema 5) para a rc.6 (schema 3), o caso do usuário: igual ao anterior, restaurando o `painel.db.bak-v3`. O `instalar.py` muda **só** a condição e o texto do aviso específico: condição `sch_ant == 3 and sch_db >= 4` (era `sch_db == 4`); texto "ATENCAO: voltando para a rc.6 (esquema 3); o banco esta no esquema N. O banco volta ao estado de antes da atualizacao (painel.db.bak-v3). Os vinculos de ramal em mais de um grupo, o relatorio de registros, os nomes de fila e tudo o que foi gravado depois da atualizacao (historico, sessoes, usuarios e grupos) serao PERDIDOS." (`N` = `sch_db`; a lista de perdas da rc.7 continua, acrescida de "os nomes de fila"). O aviso genérico que vem depois continua. A rc.6 nunca abre banco 4 ou 5 (recusa na subida). Rollback da rc.8 para a rc.7 (quem instalou a rc.7 antes): restaura `painel.db.bak-v4` pelo caminho genérico (perde os nomes de fila e o que foi gravado depois).
+
+Rollback da rc.9 (schema 6). **Caso do usuário, para a rc.8** (quem atualizou da rc.8): o `rpm-anterior/` guarda a rc.8 (esquema 5), o passo 2 vê o banco 6 e o passo 5 restaura `painel.db.bak-v5` pelo caminho genérico (perde o estado de registro e o que foi gravado depois da atualização); o banco 6 fica como `painel.db.rollback-<data>`. **O `.bak-v3` não entra nesse rollback**: ele é a cópia do banco da rc.6, feita pela própria rc.8 na primeira subida dela (antes de migrar 3 para 5); só serve para voltar à rc.6 a partir da rc.8 (rollback de um nível com a rc.6 no `rpm-anterior/`); voltar a ele hoje perderia tudo o que a rc.8 gravou. O instalador guarda um nível só, então a partir da rc.9 o caminho é sempre rc.9 para rc.8. **Para a rc.6** (só quem atualizou direto da rc.6): restaura `painel.db.bak-v3`, condição `sch_ant == 3 and sch_db >= 4` (já é a da rc.8). Texto do aviso específico, trocando o anterior: "ATENCAO: voltando para a rc.6 (esquema 3); o banco esta no esquema N (4 ou mais). O banco volta ao estado de antes da atualizacao (painel.db.bak-v3). Os vinculos de ramal em mais de um grupo, o relatorio de registros, o estado de registro dos ramais (fora do ar e ultimo registro), os nomes de fila e tudo o que foi gravado depois da atualizacao (historico, sessoes, usuarios e grupos) serao PERDIDOS." O aviso genérico que vem depois continua. A rc.6 e a rc.8 recusam abrir banco 6.
 
 Um nível só de rollback. Voltar da rc.5 (schema 3) para a rc.4 (schema 2) restaura `painel.db.bak-v2`: as atribuições manuais de ramal, a auditoria de grupos e todas as alterações de grupo, usuário e histórico feitas depois do upgrade são **perdidas** (o binário da rc.4 recusa abrir banco schema 3). O plano do rollback avisa isso quando detecta schema mais novo.
 
@@ -1786,7 +1964,7 @@ Especificação mais adendo. "Linux" = precisa de container ou VM Rocky (o geren
 
 | # | Critério | Origem | Precisa de Linux |
 |---|---|---|---|
-| C1 | Simulador com 10.000 ramais e rajada de 3.000 desregistros, modos sip e pjsip: p99 evento até delta abaixo de 1 s, nenhuma perda de estado, memória sem crescimento contínuo | especificação | sim (CPU e memória medidas em Linux) |
+| C1 | Simulador com 10.000 ramais e rajada de 3.000 desregistros, modos sip e pjsip: p99 evento até delta abaixo de 1 s, nenhuma perda de estado, memória sem crescimento contínuo. rc.9: o simulador e o `cmd/loadtest` saíram do repositório (ADR-011, decisão 8); este critério fica sem ferramenta no repositório e, se voltar a ser pedido, a ferramenta volta com ele | especificação | sim (CPU e memória medidas em Linux) |
 | C2 | Modo `auto` detecta a tecnologia no simulador SIP e no PJSIP | especificação | não |
 | C3 | AMI derrubado no meio da carga: nenhum ramal `unregistered`, todos `unknown`; na volta, snapshot refeito e clientes com epoch novo | especificação | não |
 | C4 | "Com quem fala" correto em chamada interna, externa e depois de transferência | especificação | não |
@@ -1824,8 +2002,8 @@ Suposição nova, **S9**: o nome do pacote que marca "Issabel 5 presente" (candi
 7. Token de teste
 8. Formato do snapshot e dos deltas para a fase 2 (resumo e link para as seções 2, 4 e 5 deste contrato)
 9. Atualização, rollback, remoção e limpeza total
-10. Solução de problemas: `/api/health` e `deps`, `journalctl`, AMI não conecta, include ausente, `httpd -t` falhou, SELinux, cookie `Secure` em `http://`, porta ocupada, banco com esquema mais novo que o binário
-11. Desenvolvimento: alvos `build`, `rpm`, `bundle`, `all`, `release` do `build.ps1` (rc.8: o alvo `test` saiu, D12), simulador, teste de carga (só na VM), LF e `.gitattributes`, `vermin`
+10. Solução de problemas: `/api/health` e `deps`, `journalctl`, AMI não conecta, include ausente, `httpd -t` falhou, SELinux, cookie `Secure` em `http://`, porta ocupada, banco com esquema mais novo que o binário. rc.9: **relógio do servidor** ("Fora do ar há", "Último registro" e os períodos dependem dele; o `verificar` e o `status` avisam; correção `systemctl enable --now chronyd && chronyc makestep`); **filas sem atualizar** (`./instalar.py status` mostra o filtro de eventos AMI e os eventos de fila recebidos; correção `./instalar.py instalar` e `systemctl restart painel-ramais`); log de decisões de contagem (`journalctl -u painel-ramais | grep "registro: "`)
+11. Desenvolvimento: alvos `build`, `rpm`, `bundle`, `all`, `release` do `build.ps1` (rc.8: o alvo `test` saiu, D12; rc.9: simulador e teste de carga saíram do repositório), LF e `.gitattributes`, `vermin`
 
 `LEIAME-INSTALACAO.md` (vai no bundle, para técnico de campo):
 1. Copiar e extrair o tar.gz
@@ -1840,7 +2018,7 @@ Suposição nova, **S9**: o nome do pacote que marca "Issabel 5 presente" (candi
 
 ## 18. Arquivo de captura de AMI (`painel-ramais capturar`)
 
-Texto, versão 1; serve de entrada do modo "reproduzir" do simulador e dos testes de "com quem fala" sobre `testdata/`. Pacote Go de referência: `internal/capture` (`Read` devolve meta, quadros e fim).
+Texto, versão 1; é o arquivo que o `homologar` leva no pacote (o simulador e o `testdata/capturas`, que o reproduziam, saíram na rc.9). Pacote Go de referência: `internal/capture` (`Read` devolve meta, quadros e fim).
 
 ```
 #PAINEL-RAMAIS-CAPTURA 1
@@ -1864,6 +2042,6 @@ Username: painel-ramais\r\n
 - Linhas que começam com `#` fora de um quadro são comentários; `#meta` e `#fim` carregam JSON. `encerrado_por`: `prazo`, `interrupcao` ou `conexao: …`.
 - Respostas de lista (`CoreShowChannels`, `PJSIPShowEndpoints`…) são vários quadros consecutivos com o mesmo `ActionID`, como no socket. O simulador deve trocar o `ActionID` das respostas pelo da action recebida.
 - Limpeza (a anonimização é **por exclusão**: todo valor passa pela limpeza, exceto as chaves estruturais `Event`, `Response`, `Action`, `ActionID`, `Uniqueid`, `Linkedid`, `Bridge*`, `*Time`, `*Date`, `*Usec`, `*Count`, `Duration`, `State`, `Status`, `Cause`, `Context`, `UserAgent` e semelhantes): valores de chaves `*secret*`, `*password*`, `*md5*`, `*challenge*`, `*token*` viram `***` sempre. Com `--anonimizar`: números com `--digitos-externos` dígitos ou mais (nos campos de número, `Callerid`, `Channel`, `DialString`, `ApplicationData`, URIs) viram um ficcional de mesmo tamanho e mesmo primeiro dígito; nomes (`*IDName`, `*LineName`, parte entre aspas de `Callerid`) viram `Pessoa NNN`; IPv4 (menos 127.x e 0.0.0.0) vira `10.200.x.y`. Cobertura: números longos em qualquer campo (DIDs em `Username`, `ObjectName`, `Peer`, `AccountCode`, `Value`, `Exten`…); IPv4 e IPv6 (inclusive dentro de URIs e de `Via`); host de URI (`usuario@host.dominio`) e chaves `Host`/`Domain`/`Realm`/`Server` viram `host-NNN.invalid`; `Username`/`AccountCode`/`Mailbox` não numéricos viram `Conta NNN` (o `Username` do quadro `Action: Login` é o da conta do painel e fica); `Value` de `VarSet` de variável de nome (`CALLERID(name)` etc.) vira pseudônimo; IPv6 vira `fd00:200::N`. Ramais internos curtos, `Uniqueid`/`Linkedid`, sufixos de canal (`-0000002a`), nomes de tronco e horas (`14:30:05`) ficam como estão.
-- **Limitação (melhor esforço):** a anonimização é por padrão e não por entendimento do conteúdo. Fica de fora: dado pessoal em texto livre sem chave de nome (por exemplo dentro de `Message`), números curtos (abaixo de `--digitos-externos`) que sejam de pessoas, MACs e nomes de tronco que identifiquem o cliente. **Revise a captura (`grep` pelos seus números, nomes e IPs) antes de versionar em `testdata/` ou compartilhar.** O teste `TestAnonymizedCaptureLeavesNoOriginalValue` prova a ausência de uma lista de valores originais num arquivo sintético. O mesmo original vira sempre o mesmo ficcional em toda a captura.
+- **Limitação (melhor esforço):** a anonimização é por padrão e não por entendimento do conteúdo. Fica de fora: dado pessoal em texto livre sem chave de nome (por exemplo dentro de `Message`), números curtos (abaixo de `--digitos-externos`) que sejam de pessoas, MACs e nomes de tronco que identifiquem o cliente. **Revise a captura (`grep` pelos seus números, nomes e IPs) antes de compartilhar.** (O teste sintético que provava a ausência de valores originais saiu com os testes na rc.8, D12.) O mesmo original vira sempre o mesmo ficcional em toda a captura.
 
 Roteiro de chamadas para a captura e comandos: `docs/ROTEIRO-CAPTURA.md`.

@@ -39,7 +39,7 @@ O NOC precisa saber quais ramais caem e voltam (registro e alcance), quantas vez
 - **B: gravar cada ocorrência direto do estado, na mesma goroutine.** Descartada: um `INSERT` com `busy_timeout` de 5 s na goroutine do estado travaria a fila do AMI (rajada de 3.000 desregistros em 10.000 ramais, critério C1).
 - **C: nova mensagem agregada no WebSocket.** Funciona, mas muda o protocolo do ADR-001 (cliente antigo, replay do ring buffer, reconexão) para um dado que tolera 5 s de atraso. A consulta com cursor reaproveita o REST e a sessão como estão.
 - **D: CSV gerado no servidor.** Exigiria repetir no servidor a busca, o filtro e a ordenação que a tela já faz; o arquivo poderia sair diferente do que o operador vê.
-- **E: persistir o intervalo aberto de fora do ar.** Adiado (ponytail): o intervalo aberto se perde quando o **daemon** reinicia (não quando o Asterisk reinicia). Teto conhecido: o tempo fora do ar de um ramal que já estava caído durante o restart do serviço fica subcontado. Entra com tabela `reg_down` se o usuário pedir.
+- **E: persistir o intervalo aberto de fora do ar.** Adiado na rc.7 (ponytail) e **feito na rc.9** pelo ADR-010 (tabela `reg_state`, esquema 6), a pedido do usuário. Na rc.9 a janela de 120 s deixa de valer para o estado fora do ar (só para os contadores) e passa a abrir só num reinício real do Asterisk (ADR-011, decisão 1).
 - **F: fila externa (Redis, NATS) ou banco separado para o relatório.** Descartada pelo critério 1 (tecnologia chata): canal com buffer e o SQLite existente cobrem o volume (uma transação por 2 s).
 
 ### Suposições feitas
@@ -52,7 +52,7 @@ O NOC precisa saber quais ramais caem e voltam (registro e alcance), quantas vez
 ### Consequências
 
 - Positivas: ranking de instabilidade por grupo na tela principal; aba de investigação com linha do tempo por ramal; reinício do Asterisk não polui o ranking.
-- Negativas: mais escrita no SQLite (um lote a cada 2 s em rajada; quase nada em operação normal); tamanho estimado com 10.000 ramais e 30 dias: até 2 milhões de linhas brutas (200 por ramal) e algumas centenas de milhares de linhas por hora; o restart do daemon perde intervalos abertos (alternativa E).
+- Negativas: mais escrita no SQLite (um lote a cada 2 s em rajada; quase nada em operação normal); tamanho estimado com 10.000 ramais e 30 dias: até 2 milhões de linhas brutas (200 por ramal) e algumas centenas de milhares de linhas por hora; até a rc.8, o restart do daemon perdia intervalos abertos (alternativa E, resolvida na rc.9 pelo ADR-010).
 - Fila cheia perde ocorrências (contadas em `registrations.dropped`); nunca derruba nem atrasa o painel.
 
 ### Critério de validação
