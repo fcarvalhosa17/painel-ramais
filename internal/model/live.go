@@ -129,6 +129,8 @@ type (
 		Queue       string
 		Queues      []QueueSnapshot
 		Unsupported bool
+		// IgnoredDefault: a resposta tinha a fila "default", que foi pulada (IgnoredQueue).
+		IgnoredDefault bool
 	}
 )
 

@@ -173,14 +173,17 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 			ConnectedSince: sinceOrNil(ami.ConnectedSince), Reconnects: ami.Reconnects,
 		},
 		"events_per_s": float64(int(st.EventsPerSec*10+0.5)) / 10,
-		"queue":        map[string]any{"len": ami.QueueLen, "cap": ami.QueueCap, "overflows": ami.Overflows},
-		"lag_ms":       st.LagMs, "epoch": pub.Epoch, "version": pub.Version,
+		"queue": map[string]any{
+			"len": ami.QueueLen, "cap": ami.QueueCap, "overflows": ami.Overflows, "resyncs": ami.Resyncs,
+			"resync_min_gap_s": int64(ami.ResyncMinGap / time.Second), "last_resync_at": sinceOrNil(ami.LastResyncAt),
+		},
+		"lag_ms": st.LagMs, "epoch": pub.Epoch, "version": pub.Version,
 		"extensions": map[string]int{
 			"total": st.Total.Total(), "registered": st.Total.Registered, "unregistered": st.Total.Unregistered,
 			"unreachable": st.Total.Unreachable, "unknown": st.Total.Unknown,
 		},
 		"trunks": st.Trunks, "active_calls": st.ActiveCalls, "ws_clients": pub.Clients,
-		"registrations": s.healthRegistrations(st.SuppressedUntil), "live_calls": st.LiveCalls,
+		"registrations": s.healthRegistrations(st.SuppressedUntil, st.PauseReason), "live_calls": st.LiveCalls,
 		"queues": s.healthQueues(st.Queues), "deps": out,
 	}
 	code := http.StatusOK
@@ -191,15 +194,20 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 }
 
 // healthRegistrations e o bloco "registrations" do /api/health (fila do gravador do relatorio; nao muda o status).
-func (s *Server) healthRegistrations(suppressedUntil time.Time) map[string]any {
+func (s *Server) healthRegistrations(suppressedUntil time.Time, pauseReason string) map[string]any {
 	var rs model.RegStatus
 	if s.RegStatus != nil {
 		rs = s.RegStatus()
 	}
+	summarized := rs.DecisionSummarized
+	if summarized == nil {
+		summarized = map[string]uint64{}
+	}
 	return map[string]any{
 		"queue_len": rs.QueueLen, "queue_cap": rs.QueueCap, "dropped": rs.Dropped, "write_errors": rs.WriteErrors,
 		"lost_events": rs.LostEvents, "lost_since": sinceOrNil(rs.LostSince), "lost_until": sinceOrNil(rs.LostUntil),
-		"suppressed_until": sinceOrNil(suppressedUntil),
+		"suppressed_until": sinceOrNil(suppressedUntil), "pause_reason": model.StrPtr(pauseReason),
+		"decision_lines": rs.DecisionLines, "decision_summarized": summarized,
 	}
 }
 
@@ -209,7 +217,15 @@ func (s *Server) healthQueues(count int) map[string]any {
 	if s.QueueInfo != nil {
 		qi = s.QueueInfo()
 	}
-	return map[string]any{"count": count, "last_full_at": sinceOrNil(qi.LastFullAt), "refresh_errors": qi.RefreshErrors, "unsupported": qi.Unsupported}
+	events := qi.EventsReceived
+	if events == nil {
+		events = map[string]uint64{}
+	}
+	return map[string]any{
+		"count": count, "last_full_at": sinceOrNil(qi.LastFullAt), "refresh_errors": qi.RefreshErrors, "unsupported": qi.Unsupported,
+		"full_reads": qi.FullReads, "last_full_ms": qi.LastFullMs, "full_min_gap_s": int64(qi.FullMinGap / time.Second),
+		"held_dropped": qi.HeldDropped, "events_received": events,
+	}
 }
 
 func sinceOrNil(t time.Time) *string {

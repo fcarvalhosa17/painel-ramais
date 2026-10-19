@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"painel-ramais/internal/ami"
@@ -39,6 +41,29 @@ const (
 //   - FullyBooted: Asterisk terminou de subir (tambem chega logo apos o Login; o live ignora o
 //     que foi lido antes do snapshot da sessao).
 var reloadEvents = []string{"Reload", "ModuleLoadReport", "FullyBooted"}
+
+// signalFrom monta o AsteriskSignal do evento. No FullyBooted le Uptime e LastReload (segundos, inteiros >= 0;
+// ausente ou invalido = sem o campo): so o Uptime decide a pausa da contagem (CONTRATOS 7.2 e 11.5 item 2).
+func signalFrom(m ami.Message, kind string) model.AsteriskSignal {
+	sig := model.AsteriskSignal{At: m.At, Kind: kind}
+	if kind == model.SignalFullyBooted {
+		if n, ok := nonNegSeconds(m.Get("Uptime")); ok {
+			sig.Uptime, sig.HasUptime = n, true
+		}
+		if n, ok := nonNegSeconds(m.Get("LastReload")); ok {
+			sig.LastReload, sig.HasLastReload = n, true
+		}
+	}
+	return sig
+}
+
+func nonNegSeconds(v string) (time.Duration, bool) {
+	n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+	if err != nil || n < 0 || n > 1<<40 {
+		return 0, false
+	}
+	return time.Duration(n) * time.Second, true
+}
 
 // asteriskSignal diz se o evento e um sinal do ciclo de vida do Asterisk que abre a janela de
 // evento do sistema do relatorio de registro (CONTRATOS 7.2 e 11.1): Shutdown (desligando) ou
@@ -102,6 +127,14 @@ type supervisor struct {
 	cur      *ami.Client
 	resyncs  uint64            // vezes que a fila estourou e o estado foi refeito
 	qhealth  model.QueueHealth // leitura das filas (supervisor_queues.go), para o /api/health
+	// rc.9 (ADR-011 decisao 3): intervalos minimos crescentes, eventos de fila recebidos e o Info da fila default.
+	fullGap       *gapBackoff
+	resyncGap     *gapBackoff
+	lastResyncEnd time.Time
+	lastResync    time.Time
+	qevents       map[string]uint64
+	defaultLogged bool
+	nEP, nCh      atomic.Int64 // EndpointSeen e ChannelCreated emitidos (so para o log da ressincronizacao)
 	// onLogin avisa que o resultado do Login mudou (a verificacao de dependencias reroda ja).
 	onLogin func()
 }
@@ -114,7 +147,8 @@ func newSupervisor(cfg ami.Config, technology string, fillPerSec int, pattern *r
 	cfg.OnRefused = func(action string) {
 		log.Error("action AMI recusada: fora da lista fixa (nada foi enviado ao Asterisk)", "action", action)
 	}
-	return &supervisor{cfg: cfg, technology: technology, fillPerSec: fillPerSec, pattern: pattern, log: log}
+	return &supervisor{cfg: cfg, technology: technology, fillPerSec: fillPerSec, pattern: pattern, log: log,
+		fullGap: newGapBackoff(fullGapBase, fullGapMax), resyncGap: newGapBackoff(resyncGapBase, resyncGapMax)}
 }
 
 // Status implementa model.Collector. Overflows conta ressincronizacoes disparadas
@@ -128,6 +162,8 @@ func (s *supervisor) Status() model.AMIStatus {
 		st.QueueLen, st.QueueCap = s.cur.QueueLen(), s.cur.QueueCap()
 	}
 	st.Overflows = s.resyncs
+	st.Resyncs, st.LastResyncAt = s.resyncs, s.lastResync
+	st.ResyncMinGap = s.resyncGap.current(time.Now())
 	return st
 }
 
@@ -253,6 +289,12 @@ func (s *supervisor) session(ctx context.Context, c *ami.Client, events chan<- m
 	s.cur = c
 	s.mu.Unlock()
 	emit := func(ev model.Event) {
+		switch ev.(type) { // so para o log da ressincronizacao
+		case model.EndpointSeen:
+			s.nEP.Add(1)
+		case model.ChannelCreated:
+			s.nCh.Add(1)
+		}
 		select {
 		case events <- ev:
 		case <-sctx.Done():
@@ -336,18 +378,15 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 	defer inventory.Stop()
 	qFull := time.NewTicker(queueFullEvery)
 	defer qFull.Stop()
+	qr := newQueueReader(ctx, s, c, emit) // a QueueStatus roda numa goroutine propria, nunca neste laco
+	qr.requestFull("sincronizacao")
 	var (
-		deb     debounce  // eventos de recarga ainda nao tratados
-		retryAt time.Time // releitura que falhou: quando tentar de novo
-		qs      = newQueueSched()
-		fullDue = true // QueueStatus completa: logo depois da sincronizacao, depois de reload e a cada queueFullEvery
+		deb           debounce  // eventos de recarga ainda nao tratados
+		retryAt       time.Time // releitura que falhou: quando tentar de novo
+		pendingResync bool      // a fila do leitor estourou e a ressincronizacao espera o intervalo minimo
 	)
 	for {
 		reason := "" // preenchido quando uma releitura deve rodar agora
-		if fullDue { // a mesma goroutine do live: o que chegar durante a leitura e aplicado depois da lista
-			fullDue = false
-			s.queuesFull(ctx, c, emit, qs)
-		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -356,37 +395,45 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 				return c.Err()
 			}
 			if sig := asteriskSignal(m.Event()); sig != "" { // inclusive o FullyBooted logo apos o Login
-				emit(model.AsteriskSignal{At: m.At, Kind: sig})
+				emit(signalFrom(m, sig))
 			}
 			if isReloadEvent(m.Event()) && m.At.After(since) {
 				s.log.Debug("evento de recarga do Asterisk; releitura agendada", "evento", m.Event())
 				deb.note(time.Now())
 			}
 			for _, ev := range ad.Translate(m) {
-				emit(ev)
+				emit(ev) // registro e chamada seguem na hora, mesmo com leitura de fila em curso
 			}
+			s.countQueueEvent(m) // antes do tradutor: o que chega pelo eventfilter, sem a fila default
 			for _, ev := range queues.Translate(m) {
-				emit(ev)
+				qr.handle(ev) // guardado se ha QueueStatus em curso
 			}
 			if queues.NeedsRefresh(m.Event()) {
-				qs.mark(queues.QueueOf(m))
+				qr.markQueue(queues.QueueOf(m))
 			}
+		case r := <-qr.res:
+			qr.done(r)
 		case <-refresh.C:
 			enr.restart(ctx) // ciclo completo a cada 6 h
 		case <-qFull.C:
-			fullDue = true
+			qr.requestFull("periodica")
 		case <-inventory.C:
 			reason = "periodica"
 		case <-poll.C:
 			now := time.Now()
-			resynced, err := s.resyncIfNeeded(ctx, c, ad, emit, tech, version, enr)
-			if err != nil {
-				return err
+			if c.TakeResync() { // estouro: refaz o estado, respeitando o intervalo minimo crescente
+				s.noteOverflow(now, qr.lastFullEnd)
+				pendingResync = true
+			}
+			if pendingResync && now.Sub(s.lastResyncAt()) >= s.resyncGapNow(now) {
+				pendingResync = false
+				if err := s.resync(ctx, c, ad, emit, tech, version, enr); err != nil {
+					return err
+				}
+				deb, retryAt = debounce{}, time.Time{} // o resync ja releu tudo
+				qr.requestFull("overflow")             // e as filas tambem, respeitando o minimo
 			}
 			switch {
-			case resynced:
-				deb, retryAt = debounce{}, time.Time{} // o resync ja releu tudo
-				fullDue = true                         // e as filas tambem
 			case deb.due(now):
 				reason = "reload"
 			case !retryAt.IsZero() && !now.Before(retryAt):
@@ -395,20 +442,22 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 		case <-c.Done():
 			// Esvazia o que ainda esta na fila antes de reportar a queda (o Shutdown costuma ser o
 			// ultimo evento antes de o socket fechar).
+			qr.flushHeld()
 			for m := range c.Events() {
 				if sig := asteriskSignal(m.Event()); sig != "" {
-					emit(model.AsteriskSignal{At: m.At, Kind: sig})
+					emit(signalFrom(m, sig))
 				}
 				for _, ev := range ad.Translate(m) {
 					emit(ev)
 				}
+				s.countQueueEvent(m)
 				for _, ev := range queues.Translate(m) {
 					emit(ev)
 				}
 			}
 			return c.Err()
 		}
-		s.queuesPending(ctx, c, emit, qs, time.Now()) // por fila, no maximo uma vez a cada queueMinGap
+		qr.pump(time.Now()) // a proxima QueueStatus (completa ou por fila), se nenhuma esta em curso
 		if reason == "" {
 			continue
 		}
@@ -418,7 +467,7 @@ func (s *supervisor) live(ctx context.Context, c *ami.Client, ad adapter, emit f
 			return err
 		}
 		if reason == "reload" && !retry {
-			fullDue = true // depois de uma recarga do Asterisk as filas tambem sao relidas
+			qr.requestFull("reload") // depois de uma recarga do Asterisk as filas tambem sao relidas
 		}
 		if retry {
 			retryAt = time.Now().Add(rereadRetry)
@@ -454,20 +503,39 @@ func (s *supervisor) reread(ctx context.Context, c *ami.Client, ad adapter, enr 
 	return true, nil
 }
 
-// resyncIfNeeded refaz o estado inteiro (e os nomes) se a fila do leitor estourou.
-func (s *supervisor) resyncIfNeeded(ctx context.Context, c *ami.Client, ad adapter, emit func(model.Event), tech model.Technology, version string, enr *enricher) (resynced bool, err error) {
-	if !c.TakeResync() {
-		return false, nil
-	}
+// resync refaz o estado inteiro (e os nomes) depois de a fila do leitor ter estourado e registra a ressincronizacao
+// (ADR-011 decisao 3e). Quem chama ja esperou o intervalo minimo crescente.
+func (s *supervisor) resync(ctx context.Context, c *ami.Client, ad adapter, emit func(model.Event), tech model.Technology, version string, enr *enricher) error {
+	started := time.Now()
+	ep0, ch0 := s.nEP.Load(), s.nCh.Load()
 	s.mu.Lock()
 	s.resyncs++
 	s.mu.Unlock()
-	s.log.Warn("fila AMI estourou; refazendo o estado", "descartados", c.Overflows())
 	if err := s.sync(ctx, c, ad, emit, tech, version, model.SyncOverflow); err != nil {
-		return false, err
+		return err
 	}
 	enr.restart(ctx)
-	return true, nil
+	now := time.Now()
+	s.mu.Lock()
+	s.lastResyncEnd, s.lastResync = now, now
+	gap := s.resyncGap.current(now)
+	s.mu.Unlock()
+	s.log.Info("ami: ressincronizacao por estouro", "motivo", "overflow", "descartados", c.Overflows(),
+		"duracao_ms", time.Since(started).Milliseconds(), "ramais", s.nEP.Load()-ep0, "canais", s.nCh.Load()-ch0,
+		"proximo_minimo", int(gap.Seconds()))
+	return nil
+}
+
+func (s *supervisor) lastResyncAt() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastResyncEnd
+}
+
+func (s *supervisor) resyncGapNow(now time.Time) time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.resyncGap.current(now)
 }
 
 // fillNames registra o fim (ou a falha) do preenchimento de nomes em segundo plano.

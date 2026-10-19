@@ -74,7 +74,8 @@ type daemon struct {
 	cfg     *config.Config
 	log     *slog.Logger
 	st      *store.Store
-	reg     *reglog.Writer // gravador do relatorio de registro (fila propria, fora da goroutine do estado)
+	reg     *reglog.Writer    // gravador do relatorio de registro (fila propria, fora da goroutine do estado)
+	dec     *reglog.Decisions // log das decisoes de contagem (rc.9, canal proprio, fora da goroutine do estado)
 	state   *state.State
 	hub     *api.Hub
 	sup     *supervisor
@@ -114,9 +115,10 @@ func newDaemon(cfg *config.Config, hup <-chan os.Signal) (*daemon, error) {
 	d := &daemon{cfg: cfg, log: log, st: st, hupChan: hup, fatal: make(chan error, 8),
 		events: make(chan model.Event, eventQueueSize), names: make(chan [2]string, 4096), prune: make(chan []string, 1)}
 	d.reg = reglog.New(st, log.Warn, log.Info)
+	d.dec = reglog.NewDecisions(log.Info)
 	d.state = state.New(cfg.Pattern, d.events, state.Options{OnName: d.onName, OnSync: d.onSync, OnNoPeer: d.onNoPeer,
-		OnInventory: d.onInventory, OnReg: d.reg.Enqueue,
-		OnLocalNoPeer: d.onLocalNoPeer}) // Enqueue nunca bloqueia: fila cheia descarta e conta
+		OnInventory: d.onInventory, OnReg: d.reg.Enqueue, OnLocalNoPeer: d.onLocalNoPeer,
+		OnDecision: d.dec.Enqueue, OnInfo: log.Info}) // os Enqueue nunca bloqueiam: fila cheia descarta e conta
 	d.hub = api.NewHub(log, nil)
 	d.sup = newSupervisor(ami.Config{Address: cfg.AMI.Address, Username: cfg.AMI.Username, Secret: amiSecret},
 		cfg.Technology, cfg.AMI.NameFillPerSecond, cfg.Pattern, log)
@@ -136,7 +138,7 @@ func newDaemon(cfg *config.Config, hup <-chan os.Signal) (*daemon, error) {
 	d.deps.Check() // chave do Issabel carregada antes de aceitar o primeiro token
 	d.srv = api.New(api.Options{
 		Store: st, Verifier: verifier, Limiter: nameLimiter(), Hub: d.hub,
-		Stats: d.state.Stats, AMI: d.sup.Status, Deps: d.deps.Results, RegStatus: d.reg.Status, QueueInfo: d.sup.QueueInfo,
+		Stats: d.state.Stats, AMI: d.sup.Status, Deps: d.deps.Results, RegStatus: d.regStatus, QueueInfo: d.sup.QueueInfo,
 		ReloadQueueNames: func(ctx context.Context) error { return reloadQueueNamesAfterRequest(ctx, st, d.events) },
 		SessionTTL:       cfg.Auth.SessionTTL, RetentionDays: cfg.History.RetentionDays, Version: version, Log: log,
 		Static:       web.Static(),
@@ -202,6 +204,7 @@ func (d *daemon) start() {
 	})
 	d.run("depcheck", func() error { d.deps.Run(ctx, depCheckEvery); return nil })
 	d.run("registros", func() error { d.reg.Run(ctx); return nil })
+	d.run("decisoes", func() error { d.dec.Run(ctx); return nil })
 	d.run("historico", func() error { runHistory(ctx, d.st, d.state, d.cfg, d.log); return nil })
 	d.run("nomes", func() error { runNameCache(ctx, d.st, d.names, d.prune, d.log); return nil })
 	d.run("manutencao", func() error { housekeep(ctx, d.st, d.log, d.cfg.History.RetentionDays); return nil })
@@ -252,6 +255,7 @@ func runDaemon(ctx context.Context, cfg *config.Config, hup <-chan os.Signal) er
 		ln.Close()
 		return err
 	}
+	loadRegState(d.runCtx, d.st, d.events, d.log)
 	loadNames(d.runCtx, d.st, d.events, d.log)
 	d.start()
 	var cause error
@@ -320,6 +324,38 @@ func loadQueueNames(ctx context.Context, st *store.Store, events chan<- model.Ev
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+}
+
+// regStatus junta o estado do gravador do relatorio com o do log de decisoes (RegStatus do /api/health).
+func (d *daemon) regStatus() model.RegStatus {
+	rs := d.reg.Status()
+	d.dec.Fill(&rs)
+	return rs
+}
+
+// loadRegState le reg_state (estado "fora do ar" e ultimo registro, ADR-010) e o ultimo minuto de history com
+// group_name vazio e gap = 0 (o batimento do daemon com o AMI no ar) e entrega ao estado, antes de d.start(): a primeira SyncFinished reconcilia.
+// Falha de leitura: Warn e segue com Fresh = false e nenhuma linha (um erro nunca vira "before_install").
+func loadRegState(ctx context.Context, st *store.Store, events chan<- model.Event, log *slog.Logger) {
+	ev := model.RegStateLoaded{At: time.Now(), Rows: map[string]model.RegState{}}
+	rows, err := st.LoadRegState(ctx)
+	if err != nil {
+		log.Warn("estado de registro ilegivel; seguindo sem ele (nenhum ramal vira antes da instalacao por causa do erro)", "erro", err.Error())
+	} else {
+		ev.Fresh = len(rows) == 0
+		for _, r := range rows {
+			ev.Rows[r.Number] = model.RegState{DownSince: r.DownSince, DownSeg: r.DownSeg, LastReg: r.LastReg, DownKind: r.DownKind, LastRegExact: r.LastRegExact}
+		}
+	}
+	if alive, err := st.LastAliveMinute(ctx); err != nil {
+		log.Warn("ultimo minuto do historico ilegivel; o trecho fora do ar recomeca como lacuna sem somar tempo", "erro", err.Error())
+	} else if !alive.IsZero() {
+		ev.LastAlive = alive // a linha do minuto M e gravada em M: M e o ultimo instante provado (sem somar 60 s)
+	}
+	select {
+	case events <- ev:
+	case <-ctx.Done():
 	}
 }
 

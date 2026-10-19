@@ -8,5 +8,5 @@ import (
 )
 
 // startDebug nao faz nada no binario de release: o endpoint de heap/pprof (debug.go) so
-// entra com `-tags debug`, para o loadtest -heap. Nenhuma variavel de ambiente o liga aqui.
+// entra com `-tags debug`, para medir o heap numa VM. Nenhuma variavel de ambiente o liga aqui.
 func startDebug(context.Context, *slog.Logger) {}

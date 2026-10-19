@@ -72,6 +72,9 @@ func first(ss ...string) string {
 func Translate(m ami.Message) []model.Event {
 	at := m.At
 	q := cleanKey(m.Get("Queue"), 64)
+	if model.IgnoredQueue(q) { // fila "default" do queues.conf de exemplo: nunca entra no estado (ADR-011 decisao 9)
+		return nil
+	}
 	switch m.Event() {
 	case "QueueCallerJoin":
 		return []model.Event{model.QueueCallerJoined{At: at, Queue: q, Uniqueid: m.Get("Uniqueid"),
@@ -129,17 +132,21 @@ func Status(ctx context.Context, c *ami.Client, queue string) (model.QueuesListe
 		}
 		return model.QueuesListed{}, fmt.Errorf("QueueStatus: %w", err)
 	}
-	out.Queues = parse(r.Items)
+	out.Queues, out.IgnoredDefault = parse(r.Items)
 	return out, nil
 }
 
 // parse monta as filas da lista da QueueStatus: cada QueueParams abre uma fila; QueueMember e QueueEntry
 // entram na fila do campo Queue (fila sem QueueParams e ignorada).
-func parse(items []ami.Message) []model.QueueSnapshot {
-	var out []model.QueueSnapshot
+// A fila "default" (model.IgnoredQueue) e pulada com todos os itens dela e marca ignored.
+func parse(items []ami.Message) (out []model.QueueSnapshot, ignored bool) {
 	idx := map[string]int{}
 	for _, it := range items {
 		q := cleanKey(it.Get("Queue"), 64)
+		if model.IgnoredQueue(q) {
+			ignored = true
+			continue
+		}
 		switch it.Event() {
 		case "QueueParams":
 			if q == "" {
@@ -163,7 +170,7 @@ func parse(items []ami.Message) []model.QueueSnapshot {
 			}
 		}
 	}
-	return out
+	return out, ignored
 }
 
 func perf(s string) float64 {

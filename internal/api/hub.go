@@ -422,16 +422,22 @@ func (h *Hub) Groups() ([]byte, bool) {
 	return raw, ok
 }
 
-// ExtInfo e o que o relatorio de registro (CONTRATOS 4.7) le da projecao: nome, grupos atuais e o
-// inicio do intervalo fora do ar ainda aberto. Groups e DownSince sao somente leitura.
+// ExtInfo e o que o relatorio de registro (CONTRATOS 4.7) le da projecao: nome, grupos atuais, o "fora do ar" atual
+// (DownSince, DownKind, DownSeg) e o ultimo registro (LastReg, LastRegExact; rc.9, ADR-010). Os ponteiros e
+// Groups sao somente leitura.
 type ExtInfo struct {
-	Name      string
-	Groups    []string
-	DownSince *time.Time
+	Name         string
+	Groups       []string
+	DownSince    *time.Time
+	DownKind     string
+	DownSeg      *time.Time
+	LastReg      *time.Time
+	LastRegExact bool
 }
 
 func infoOf(e *entry) ExtInfo {
-	i := ExtInfo{Groups: e.ext.Groups, DownSince: e.ext.DownSince}
+	i := ExtInfo{Groups: e.ext.Groups, DownSince: e.ext.DownSince, DownKind: e.ext.DownKind, DownSeg: e.ext.DownSeg,
+		LastReg: e.ext.LastReg, LastRegExact: e.ext.LastRegExact}
 	if e.ext.Name != nil {
 		i.Name = *e.ext.Name
 	}

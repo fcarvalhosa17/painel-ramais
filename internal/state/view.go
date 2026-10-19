@@ -22,8 +22,13 @@ type extState struct {
 	calls                             []model.Call
 	// gone: o ramal sumiu do PBX (releitura) mas ainda tem chamada; sai do estado no Hangup.
 	gone bool
-	// downSince: inicio do intervalo fora do ar ainda aberto (relatorio de registro, ADR-007); zero = fechado.
-	downSince time.Time
+	// Estado "fora do ar" e ultimo registro (relatorio de registro, ADR-010; zero = nulo). downSince = inicio do
+	// "fora" atual (unregistered ou unreachable); downKind = observed, unknown_start ou before_install; downSeg = inicio
+	// do trecho ainda nao somado em down_s; lastReg = ultima vez que ficou registrado (lastRegExact = hora vista).
+	// markUnknown (AMI fora) NAO mexe nestes campos.
+	downSince, downSeg, lastReg time.Time
+	downKind                    string
+	lastRegExact                bool
 }
 
 // view e um conjunto completo de estado. O estado mantem uma view publicada e,
@@ -207,6 +212,7 @@ func (v *view) onEndpointSeen(e model.EndpointSeen) {
 	}
 	if x.reg == model.RegUnknown {
 		x.reg, changed = model.RegUnregistered, true // endpoint listado sem contato
+		v.noteCreatedOut(x, e.At)                    // ramal criado agora na visao publicada: fora desde que apareceu
 	}
 	if e.Technology != "" && v.tech == "" {
 		v.tech = e.Technology
@@ -296,8 +302,12 @@ func (x *extState) model(tech model.Technology) model.Extension {
 		DeviceState: x.device, Calls: calls,
 	}
 	if !x.downSince.IsZero() {
-		t := x.downSince
-		e.DownSince = &t
+		t, seg := x.downSince, x.downSeg
+		e.DownSince, e.DownSeg, e.DownKind = &t, &seg, x.downKind
+	}
+	if !x.lastReg.IsZero() {
+		t := x.lastReg
+		e.LastReg, e.LastRegExact = &t, x.lastRegExact
 	}
 	return e
 }

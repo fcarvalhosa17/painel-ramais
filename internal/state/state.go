@@ -34,6 +34,11 @@ type Options struct {
 	// OnLocalNoPeer e chamado (na goroutine do estado, sem bloquear) uma vez por chamada que tem canal Local e
 	// segue 1 s sem o outro lado (CONTRATOS 2.3): uniqueid e nome do canal Local e o Linkedid da chamada.
 	OnLocalNoPeer func(uniqueid, linkedid, channel string)
+	// OnDecision recebe cada decisao de contagem de registro (rc.9, CONTRATOS 11.5 item 4), na goroutine do estado: so
+	// pode enfileirar, nunca bloquear nem tocar em banco.
+	OnDecision func(model.RegDecision)
+	// OnInfo recebe as poucas linhas de log Info da pausa da contagem (CONTRATOS 11.5 item 2); acontecem raramente.
+	OnInfo func(msg string, args ...any)
 }
 
 // Stats e a foto agregada publicada a cada lote, lida sem bloquear o estado.
@@ -53,6 +58,8 @@ type Stats struct {
 	RegTotal        model.RegCounts
 	RegByGroup      map[string]model.RegCounts
 	SuppressedUntil time.Time
+	// PauseReason (rc.9): "asterisk_restart" com a pausa em curso, senao "".
+	PauseReason string
 	// LiveCalls e Queues (rc.8): linhas da projecao de chamadas e filas na projecao (health live_calls e queues.count).
 	LiveCalls    int
 	Queues       int
@@ -79,20 +86,23 @@ type State struct {
 	rc            *regCtx       // relatorio de registro (janela de sistema, contadores, saida)
 	proj          *callProj     // projecao de chamadas ao vivo por Linkedid (rc.8)
 	qproj         *queueProj    // projecao de filas (rc.8)
-	hints         map[string]string
-	onName        func(number, name string)
-	onSync        func(numbers []string)
-	onNoPeer      func(uniqueid, linkedid string)
-	onInventory   func(reason string, added, removed, kept, pending int)
-	epochBase     int64
-	epochSeq      int
-	epoch         string
-	version       uint64
-	connected     bool
-	connectedAt   time.Time
-	lastDown      time.Time
-	needReset     bool
-	rate          [60]struct {
+	// rc.9 (ADR-010): reg_state lido na subida, guardado ate a primeira SyncFinished (so ela o usa).
+	rsLoaded    *model.RegStateLoaded
+	regSyncDone bool // a primeira sincronizacao do processo ja reconciliou o estado "fora do ar"
+	hints       map[string]string
+	onName      func(number, name string)
+	onSync      func(numbers []string)
+	onNoPeer    func(uniqueid, linkedid string)
+	onInventory func(reason string, added, removed, kept, pending int)
+	epochBase   int64
+	epochSeq    int
+	epoch       string
+	version     uint64
+	connected   bool
+	connectedAt time.Time
+	lastDown    time.Time
+	needReset   bool
+	rate        [60]struct {
 		sec int64
 		n   uint64
 	}
@@ -106,7 +116,7 @@ func New(pattern *regexp.Regexp, in <-chan model.Event, opt Options) *State {
 		s.now = time.Now
 	}
 	s.gi = newGroupIdx(nil, nil)
-	s.rc = newRegCtx(s.now, opt.OnReg)
+	s.rc = newRegCtx(s.now, opt)
 	s.proj, s.qproj = newCallProj(opt.OnLocalNoPeer), newQueueProj()
 	if s.interval <= 0 {
 		s.interval = 250 * time.Millisecond
@@ -169,9 +179,16 @@ func (s *State) Apply(ev model.Event) {
 	case model.AMIDisconnected:
 		s.onDisconnected(e)
 	case model.AsteriskSignal:
-		s.rc.openWindow(e.At, e.Kind) // Shutdown ou FullyBooted: janela de evento do sistema
+		s.rc.onSignal(e) // Shutdown, ou FullyBooted de reinicio real (Uptime): pausa da contagem
+	case model.RegStateLoaded:
+		if !s.regSyncDone {
+			s.rsLoaded = &e
+		}
 	case model.SyncStarted:
 		s.rc.syncReason = e.Reason
+		if e.Reason == model.SyncConnect {
+			s.rc.noUptimeLogged = false // o aviso "sem Uptime" sai uma vez por sessao AMI
+		}
 		s.building = s.newView()
 		s.building.isBuilding = true
 		s.building.tech = e.Technology
@@ -279,9 +296,9 @@ func (s *State) onSyncFinished(e model.SyncFinished) {
 	}
 	s.rebuildCalls()                          // projecao de chamadas refeita da visao nova (o Reset leva tudo)
 	s.qproj.allDirty = true                   // o inventario pode ter mudado: filas remontadas
-	s.rc.carryDown(old, s.cur, e.At)          // intervalo fora do ar aberto atravessa a sincronizacao
-	if s.rc.syncReason == model.SyncConnect { // conexao nova (inclusive a primeira): janela de sistema
-		s.rc.openWindow(e.At, model.SignalAMIConnect)
+	s.reconcileRegState(old, e.At)            // estado "fora do ar" reconciliado (substitui o carryDown)
+	if s.rc.syncReason == model.SyncConnect { // conexao nova (inclusive a primeira): so o sinal informativo, sem pausa
+		s.rc.emit(model.RegNote{At: e.At, Signal: model.SignalAMIConnect})
 	}
 	s.connected = true
 	s.connectedAt = e.At
@@ -426,6 +443,9 @@ func (s *State) publishStats() {
 	}
 	st.Total, st.ByGroup = s.cur.counts(s.catalog)
 	st.RegTotal, st.RegByGroup, st.SuppressedUntil = s.rc.total, s.rc.byGroupCopy(), s.rc.suppressedUntil(now)
+	if !st.SuppressedUntil.IsZero() {
+		st.PauseReason = model.PauseAsteriskReboot
+	}
 	st.ActiveCalls = s.cur.activeCalls()
 	st.LiveCalls, st.Queues = len(s.proj.calls), len(s.qproj.queues)
 	s.stats.Store(st)

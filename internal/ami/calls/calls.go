@@ -68,9 +68,28 @@ func chanState(desc string) model.ChannelState {
 	return model.ChanOther
 }
 
+// auxPrefixes sao os prefixos de canal auxiliar (rc.9, ADR-011 decisao 4): espionagem, conferencia, mídia de bridge,
+// mensagem e RTP; nunca sao chamada, ramal nem externo. Comparacao exata de maiusculas, como o Asterisk escreve.
+var auxPrefixes = [...]string{"Snoop/", "CBAnn/", "CBRec/", "Announcer/", "Recorder/", "Bridge/", "Message/", "MulticastRTP/", "UnicastRTP/"}
+
+// IsAuxChannel diz se o nome do canal e de um canal auxiliar. Ponto unico: Translate (pelo Channel e, no
+// DialBegin, tambem pelo DestChannel) e FromCoreShowChannel descartam todo evento de canal auxiliar, que assim
+// nunca entra no estado.
+func IsAuxChannel(name string) bool {
+	for _, p := range auxPrefixes {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // Translate traduz um evento ao vivo de chamada. Devolve nil para evento que
-// não é de chamada (quem chama tenta os outros tradutores).
+// não é de chamada (quem chama tenta os outros tradutores) e para evento de canal auxiliar.
 func Translate(m ami.Message, ep EndpointFunc) []model.Event {
+	if IsAuxChannel(m.Get("Channel")) || (m.Event() == "DialBegin" && IsAuxChannel(m.Get("DestChannel"))) {
+		return nil
+	}
 	at := m.At
 	uid := m.Get("Uniqueid")
 	lid := m.Get("Linkedid") // rc.8: todo evento de canal que o traga atualiza o Linkedid no estado
@@ -116,6 +135,9 @@ func newChannel(m ami.Message, ep EndpointFunc) model.ChannelCreated {
 // FromCoreShowChannel traduz um item de CoreShowChannels: o canal (com
 // BridgeId e Duration) e, se houver, a linha conectada.
 func FromCoreShowChannel(m ami.Message, ep EndpointFunc) []model.Event {
+	if IsAuxChannel(m.Get("Channel")) {
+		return nil
+	}
 	cc := newChannel(m, ep)
 	cc.BridgeID = m.Get("BridgeId")
 	cc.Duration = parseDuration(m.Get("Duration"))
@@ -125,7 +147,9 @@ func FromCoreShowChannel(m ami.Message, ep EndpointFunc) []model.Event {
 	case strings.EqualFold(app, "Dial"):
 		cc.DialData = data
 	case strings.EqualFold(app, "Queue"): // ainda na aplicacao Queue: aguardando ou ja atendido pela fila
-		cc.Queue = strings.TrimSpace(strings.SplitN(data, ",", 2)[0])
+		if q := strings.TrimSpace(strings.SplitN(data, ",", 2)[0]); !model.IgnoredQueue(q) { // a fila "default" nao existe: sem fila
+			cc.Queue = q
+		}
 	}
 	out := []model.Event{cc}
 	if num, name := clean(m.Get("ConnectedLineNum")), clean(m.Get("ConnectedLineName")); num != "" || name != "" {
