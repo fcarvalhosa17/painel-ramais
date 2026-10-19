@@ -3,7 +3,7 @@
 
 import {
   ESTADOS, SETA, DIRECAO, contagens, agregarGrupos, filtrar, formatarNumero, formatarPct, normalizar,
-  textoFaixas, direcoes, chamadaPrincipal, duracaoMs, formatarCronometro, outroLado,
+  textoFaixas, direcoes, chamadaPrincipal, duracaoMs, formatarCronometro, outroLado, gruposDe,
 } from "./estado.js";
 import { Dados, atrasoReconexao } from "./dados.js";
 import { api, CanalAoVivo } from "./conexao.js";
@@ -11,6 +11,8 @@ import { Lista, janela } from "./lista.js";
 import { desenharHistorico, rotulosEixo } from "./grafico.js";
 import { iniciarGrupos } from "./grupos.js";
 import { iniciarEdicao } from "./edicao.js";
+import { iniciarInstabilidade } from "./instabilidade.js";
+import { iniciarRegistros } from "./registros.js";
 
 const $ = (id) => document.getElementById(id);
 const EMERGENCIA = location.pathname.startsWith("/painel-ramais/emergencia");
@@ -22,6 +24,9 @@ const TODOS = "Todos os ramais"; // escopo "" (filtros.grupo vazio): não é gru
 const CHAMADA_LONGA_MS = 20 * MIN; // tempo em laranja acima de 20 min
 const TRACO = String.fromCharCode(0x2014); // sem leitura: "—" como no design (decorate), nunca 0
 const CHAVE_MODO = "painel-ramais.modo";
+const CHAVE_ABA = "painel-ramais.aba";
+// Abas da tela (desvios D19). Etapa 2: "chamadas" entra nesta lista, com o botão na #abas e o painel #aba-chamadas.
+const ABAS = ["ramais", "registros"];
 
 // ---------- gancho de medição (C10) ----------
 const medida = {
@@ -149,7 +154,17 @@ let timerRelogio = null;
 
 const lista = new Lista($("lista"), $("lista-altura"));
 const areaGrupos = iniciarGrupos({ dados, aoSessaoEncerrada: () => semSessao() });
-const edicao = iniciarEdicao({ dados, lista, aoSessaoEncerrada: () => semSessao() });
+const edicao = iniciarEdicao({ dados, lista, grupoAberto: () => filtros.grupo, aoSessaoEncerrada: () => semSessao() });
+const registros = iniciarRegistros({ dados, relogio: () => Date.now() + dados.desvioMs, aoSessaoEncerrada: () => semSessao() });
+const instabilidade = iniciarInstabilidade({
+  // Clique no ramal do bloco: aba Registros com 24 h, o grupo atual e a linha do tempo dele.
+  aoAbrir(numero) {
+    registros.abrirRamal(numero, filtros.grupo);
+    trocarAba("registros");
+    $("rl-fechar").focus();
+  },
+  aoSessaoEncerrada: () => semSessao(),
+});
 
 const canal = new CanalAoVivo({
   aoDelta(msg) {
@@ -179,6 +194,11 @@ function iniciarPainel(sessao) {
   canal.parado = false;
   status("conectando");
   carregarSnapshot();
+  // Aba guardada no navegador (valor externo: só vale se for uma das ABAS). Liga o bloco de instabilidade
+  // (aba Ramais) ou a atualização da aba Registros; pararPainel desliga os dois.
+  let guardada = "ramais";
+  try { guardada = localStorage.getItem(CHAVE_ABA) || "ramais"; } catch { /* sem armazenamento */ }
+  trocarAba(guardada);
   clearInterval(timerRelogio);
   timerRelogio = setInterval(tique, 1000);
   // pararPainel desliga o histórico; numa nova entrada (sair e entrar na emergência) ele precisa voltar.
@@ -193,6 +213,8 @@ function pararPainel() {
   clearInterval(timerHistorico);
   timerHistorico = null;
   edicao.parar();
+  instabilidade.parar();
+  registros.parar();
   for (const d of document.querySelectorAll("dialog[open]")) d.close();
 }
 
@@ -245,9 +267,10 @@ function quadro() {
     // A tela abre em "Todos os ramais" (filtros.grupo ""); se o grupo selecionado some (excluído, renomeado
     // ou fora do catálogo), volta para ele. Roda antes do filtro deste quadro: lista, chips e histórico já saem certos.
     if (filtros.grupo && !nomesGrupos.includes(filtros.grupo)) selecionarGrupo("", false);
+    // Totais da instalação contam cada ramal uma vez (somar os grupos contaria o ramal em N grupos N vezes).
     totais = {};
     for (const e of ESTADOS) totais[e.chave] = 0;
-    for (const g of grupos) for (const e of ESTADOS) totais[e.chave] += g.porEstado[e.chave];
+    for (const it of dados.itens) totais[it.estado]++;
     cont = contagens(dados.itens.map((i) => i.ramal));
     renderIndicadores();
     renderGrupos();
@@ -258,6 +281,7 @@ function quadro() {
       dados.catalogoMudou = false;
       areaGrupos.aoMudarCatalogo();
       edicao.aoMudarCatalogo();
+      registros.aoMudarCatalogo();
     }
     areaGrupos.aoMudarDados();
     edicao.aoMudarDados();
@@ -399,6 +423,7 @@ function selecionarGrupo(nome, rolar = true) {
   if (filtros.grupo === nome) return;
   filtros.grupo = nome;
   $("hist-grupo").textContent = nome || TODOS;
+  instabilidade.definirGrupo(nome);
   lista.irAoTopo();
   $("chamadas").scrollTop = 0;
   sujo.dados = true; // grupos, chamadas ativas e centro marcam o grupo
@@ -497,6 +522,38 @@ for (const b of document.querySelectorAll(".seg[data-modo]")) {
 }
 try { if (localStorage.getItem(CHAVE_MODO) === "cartoes") aplicarModo("cartoes"); } catch { /* idem */ }
 
+// ---------- abas (desvios D19): Ramais e Registros; Densidade só vale em Ramais ----------
+let aba = "ramais";
+const botoesAba = [...document.querySelectorAll("#abas [role=\"tab\"]")];
+function trocarAba(nova, focar = false) {
+  aba = ABAS.includes(nova) ? nova : "ramais";
+  for (const b of botoesAba) {
+    const sel = b.dataset.aba === aba;
+    b.setAttribute("aria-selected", String(sel));
+    b.tabIndex = sel ? 0 : -1;
+    if (sel && focar) b.focus();
+  }
+  $("aba-ramais").hidden = aba !== "ramais";
+  $("aba-registros").hidden = aba !== "registros";
+  $("densidade").hidden = aba !== "ramais";
+  try { localStorage.setItem(CHAVE_ABA, aba); } catch { /* sem armazenamento: vale só nesta visita */ }
+  // Cada aba só busca dados enquanto está visível (o documento escondido é conferido em cada módulo).
+  instabilidade.mostrar(ativo && aba === "ramais");
+  registros.mostrar(ativo && aba === "registros");
+  if (aba === "ramais") { lista.agendar(); pintarChamadas(); }
+}
+for (const b of botoesAba) {
+  b.addEventListener("click", () => trocarAba(b.dataset.aba));
+  // Setas trocam de aba (padrão de tablist com ativação automática); Home e End vão às pontas.
+  b.addEventListener("keydown", (e) => {
+    const i = botoesAba.indexOf(b);
+    const alvo = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: botoesAba.length - 1 }[e.key];
+    if (alvo === undefined) return;
+    e.preventDefault();
+    trocarAba(botoesAba[(alvo + botoesAba.length) % botoesAba.length].dataset.aba, true);
+  });
+}
+
 // ---------- chamadas ativas do escopo selecionado (grupo ou todos os ramais), mais longas primeiro ----------
 // Rolagem virtual como a da lista central: só as linhas da janela visível existem no DOM; dois espaçadores
 // ocupam o lugar das linhas de fora, então a barra de rolagem mede todas as chamadas. (Padding na caixa não
@@ -547,7 +604,7 @@ function renderChamadas() {
   const ativos = [];
   for (const it of dados.itens) {
     if (it.estado !== "em_conversa" && it.estado !== "em_espera") continue;
-    if (filtros.grupo && it.ramal.group !== filtros.grupo) continue;
+    if (filtros.grupo && !gruposDe(it.ramal).includes(filtros.grupo)) continue;
     ativos.push({ it, ms: duracaoMs(it.ramal.calls, agora, dados.desvioMs) ?? 0 });
   }
   ativos.sort((a, b) => b.ms - a.ms);

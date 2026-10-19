@@ -48,8 +48,23 @@ export const api = {
   criarGrupo: (name, ranges) => chamar("POST", "api/groups/create", ranges && ranges.length ? { name, ranges } : { name }),
   // mudancas: { new_name?, ranges? } (ranges substitui todas as faixas do grupo).
   editarGrupo: (name, mudancas) => chamar("POST", "api/groups/update", { name, ...mudancas }),
-  // group: nome, "Sem grupo" (manual sem grupo) ou null (volta para a faixa). Uma chamada só, atômica.
-  moverRamais: (numbers, group) => chamar("POST", "api/groups/assign", { numbers, group }),
+  // Vínculo manual (CONTRATOS 4.6, rc.7), atômico: add só acrescenta (1 a 20 grupos); remove tira de um grupo
+  // e só apaga vínculo manual (não existe exclusão de faixa). Respostas { changed } e { changed, not_manual }.
+  adicionarAGrupos: (numbers, groups) => chamar("POST", "api/groups/assign", { mode: "add", numbers, groups }),
+  removerDoGrupo: (numbers, group) => chamar("POST", "api/groups/assign", { mode: "remove", numbers, group }),
+  // Relatório de registro (CONTRATOS 4.7). grupo "" = todos os ramais (sem o parâmetro).
+  resumoRegistros: (grupo) => chamar("GET", "api/registrations/summary" + (grupo ? "?" + new URLSearchParams({ group: grupo }) : "")),
+  registros: (period, cursor) => {
+    const q = new URLSearchParams({ period });
+    if (cursor) q.set("cursor", cursor);
+    return chamar("GET", "api/registrations?" + q.toString());
+  },
+  registrosRamal: (number, period) => chamar("GET", "api/registrations/extension?" + new URLSearchParams({ number, period }).toString()),
+  serieRegistros: (period, grupo) => {
+    const q = new URLSearchParams({ period });
+    if (grupo) q.set("group", grupo);
+    return chamar("GET", "api/registrations/series?" + q.toString());
+  },
 };
 
 // Ciclo de vida do WebSocket. eventos: { aoDelta(msg), aoPrecisarSnapshot(), aoReconectar(), aoSessaoEncerrada(), aoStatus(status, detalhe) }

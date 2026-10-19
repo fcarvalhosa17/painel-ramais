@@ -5,7 +5,7 @@
 
 import { api } from "./conexao.js";
 import {
-  SEM_GRUPO, formatarNumero, textoFaixas, lerFaixas, conflitoDeFaixa, contarComFaixas, erroNomeGrupo,
+  SEM_GRUPO, formatarNumero, textoFaixas, lerFaixas, contarComFaixas, erroNomeGrupo, gruposDe,
 } from "./estado.js";
 
 const $ = (id) => document.getElementById(id);
@@ -61,9 +61,10 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
   const catalogo = () => dados.grupos.filter((g) => g.name !== SEM_GRUPO)
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
+  // Ramal em vários grupos conta em cada um (N:N).
   function contarPorGrupo() {
     const m = new Map();
-    for (const it of dados.itens) m.set(it.ramal.group, (m.get(it.ramal.group) || 0) + 1);
+    for (const it of dados.itens) for (const nome of gruposDe(it.ramal)) m.set(nome, (m.get(nome) || 0) + 1);
     return m;
   }
 
@@ -117,8 +118,9 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
     remover.addEventListener("click", () => {
       const qtd = contarPorGrupo().get(g.name) || 0;
       const aviso = paragrafo("dg-aviso");
+      // CONTRATOS 4.6 (delete): cada ramal sai só deste grupo; quem fica sem nenhum vai para "Sem grupo".
       aviso.textContent = qtd
-        ? "Os " + plural(qtd, "ramal", "ramais") + " deste grupo vão para \"Sem grupo\" (os movidos à mão voltam para a faixa deles)."
+        ? plural(qtd, "ramal sai", "ramais saem") + " só deste grupo; quem ficar sem nenhum grupo vai para \"Sem grupo\"."
         : "O grupo está vazio.";
       const confirmar = botaoTexto("Confirmar exclusão", "botao botao-perigo");
       const cancelar = botaoTexto("Cancelar", "botao");
@@ -170,7 +172,7 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
 
     const ler = () => {
       const lidas = lerFaixas(faixas.input.value);
-      return { faixas: lidas.faixas, erro: lidas.erro || conflitoDeFaixa(lidas.faixas, catalogo(), g.name) };
+      return { faixas: lidas.faixas, erro: lidas.erro };
     };
     const atualizarPrevia = () => {
       const { faixas: fx, erro: e } = ler();
@@ -178,9 +180,7 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
       if (e) { previa.textContent = ""; return; }
       const c = contarComFaixas(dados.itens, fx, g.name);
       const hoje = contarPorGrupo().get(g.name) || 0;
-      let t = "Com essas faixas o grupo fica com " + plural(c.pelaFaixa + c.manuaisNoGrupo, "ramal", "ramais") + " (hoje " + formatarNumero(hoje) + ").";
-      if (c.manuaisNaFaixa) t += " " + plural(c.manuaisNaFaixa, "ramal da faixa tem grupo escolhido à mão e não entra.", "ramais da faixa têm grupo escolhido à mão e não entram.");
-      previa.textContent = t;
+      previa.textContent = "Com essas faixas o grupo fica com " + plural(c.total, "ramal", "ramais") + " (hoje " + formatarNumero(hoje) + ").";
     };
     faixas.input.addEventListener("input", atualizarPrevia);
     nome.input.addEventListener("input", () => {
@@ -208,7 +208,7 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
         okLista.textContent = "Grupo " + final + " atualizado.";
         // Mostra o resultado do POST já; o delta com o catálogo novo redesenha a lista logo depois.
         const c = contarComFaixas(dados.itens, fx, g.name);
-        li.replaceWith(linhaGrupo({ name: final, ranges: fx }, c.pelaFaixa + c.manuaisNoGrupo));
+        li.replaceWith(linhaGrupo({ name: final, ranges: fx }, c.total));
         if (final !== g.name) contadores.delete(g.name);
       } catch (err) {
         tratar(err, erroForm);
@@ -242,7 +242,10 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
     botao.textContent = "Importando...";
     try {
       const r = await api.importarGrupos(csv, substituir);
-      ok.textContent = r.rows + (r.rows === 1 ? " linha importada." : " linhas importadas.");
+      // rows = linhas lidas; ignored = linhas que não mudaram nada (repetidas, já gravadas, "Sem grupo,N").
+      const ignoradas = Number.isFinite(r.ignored) ? r.ignored : 0;
+      ok.textContent = plural(r.rows, "linha lida", "linhas lidas")
+        + (ignoradas ? ", " + plural(ignoradas, "sem mudança", "sem mudança") + " (repetida, já gravada ou Sem grupo)." : ".");
       texto.value = "";
       $("dg-arquivo").value = "";
     } catch (err) {

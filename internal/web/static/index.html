@@ -16,6 +16,8 @@
 <link rel="modulepreload" href="/painel-ramais/assets/grafico.js">
 <link rel="modulepreload" href="/painel-ramais/assets/grupos.js">
 <link rel="modulepreload" href="/painel-ramais/assets/edicao.js">
+<link rel="modulepreload" href="/painel-ramais/assets/instabilidade.js">
+<link rel="modulepreload" href="/painel-ramais/assets/registros.js">
 <script type="module" src="/painel-ramais/assets/app.js"></script>
 </head>
 <body>
@@ -63,7 +65,12 @@
     <span id="topo-info" class="topo-info"></span>
   </div>
   <div class="topo-dir">
-    <div class="segmentado" role="group" aria-label="Densidade">
+    <!-- Abas (desvios D19). Etapa 2: a aba Chamadas entra aqui (data-aba="chamadas", painel #aba-chamadas) e na lista ABAS do app.js; sem botão até lá. -->
+    <div id="abas" class="segmentado" role="tablist" aria-label="Telas do painel">
+      <button type="button" class="seg" role="tab" id="aba-btn-ramais" data-aba="ramais" aria-selected="true" aria-controls="aba-ramais">Ramais</button>
+      <button type="button" class="seg" role="tab" id="aba-btn-registros" data-aba="registros" aria-selected="false" aria-controls="aba-registros" tabindex="-1">Registros</button>
+    </div>
+    <div id="densidade" class="segmentado" role="group" aria-label="Densidade">
       <button type="button" class="seg" data-modo="compacto" aria-pressed="true">Compacto</button>
       <button type="button" class="seg" data-modo="cartoes" aria-pressed="false">Cartões</button>
     </div>
@@ -113,7 +120,7 @@
   </div>
 </section>
 
-<div class="colunas">
+<div id="aba-ramais" class="colunas" role="tabpanel" aria-labelledby="aba-btn-ramais">
 
 <aside class="col-esq" aria-label="Grupos">
   <section class="bloco bloco-grupos">
@@ -148,6 +155,23 @@
     <div class="hist-legenda">
       <span class="hist-leg"><span class="leg-chamadas" aria-hidden="true"></span><span id="hist-pico">Em chamada (pico 0)</span></span>
       <span class="hist-leg"><span class="leg-nao-reg" aria-hidden="true"></span>Não registrados</span>
+    </div>
+  </section>
+
+  <section class="bloco bloco-inst" aria-labelledby="inst-titulo">
+    <div class="bloco-cabeca">
+      <h2 id="inst-titulo" class="bloco-titulo">INSTABILIDADE DE REGISTRO (24 H)</h2>
+      <span id="inst-grupo" class="bloco-nota">Todos os ramais</span>
+    </div>
+    <ol id="inst-lista" class="inst-lista" aria-label="Ramais com mais quedas de registro nas últimas 24 horas"></ol>
+    <div id="inst-estado" class="inst-estado" hidden>
+      <p id="inst-estado-texto"></p>
+      <button id="inst-repetir" class="botao" type="button" hidden>Tentar de novo</button>
+    </div>
+    <p id="inst-desde" class="bloco-nota" hidden></p>
+    <div class="hist-legenda">
+      <span class="hist-leg"><span class="leg-perdeu" aria-hidden="true"></span>Perdeu registro</span>
+      <span class="hist-leg"><span class="leg-inalc" aria-hidden="true"></span>Ficou inalcançável</span>
     </div>
   </section>
 </aside>
@@ -193,21 +217,23 @@
     <span id="dr-estado" class="selo-estado"><span class="selo-ponto" aria-hidden="true"></span><span id="dr-estado-texto"></span></span>
     <p id="dr-sumiu" class="dialogo-contexto" hidden>Este ramal não existe mais no PBX.</p>
     <dl class="detalhe-dados">
-      <dt>Grupo</dt><dd><span id="dr-grupo"></span> <span id="dr-origem" class="dr-origem"></span></dd>
+      <dt>Grupos</dt><dd><ul id="dr-grupos" class="dr-grupos"></ul></dd>
       <dt>Chamada</dt><dd id="dr-chamada" class="mono"></dd>
       <dt>IP</dt><dd id="dr-ip" class="mono"></dd>
       <dt>Aparelho</dt><dd id="dr-ua"></dd>
       <dt>Latência</dt><dd id="dr-latencia" class="mono"></dd>
     </dl>
     <div id="dr-admin" class="dr-admin" hidden>
-      <div class="dr-linha">
-        <label class="campo dr-campo">
-          <span class="campo-rotulo">Grupo</span>
-          <select id="dr-destino"></select>
-        </label>
-        <button id="dr-mover" class="botao botao-primario" type="button">Mover</button>
+      <fieldset class="marcar-caixa">
+        <legend class="campo-rotulo">Adicionar ao grupo</legend>
+        <div id="dr-add-lista" class="marcar-lista pr-scroll"></div>
+        <p id="dr-add-vazio" class="campo-ajuda" hidden>O ramal já está em todos os grupos.</p>
+      </fieldset>
+      <button id="dr-adicionar" class="botao botao-primario" type="button" disabled>Adicionar ao grupo</button>
+      <div id="dr-remover-caixa" class="dr-remover" hidden>
+        <button id="dr-remover" class="botao botao-perigo" type="button" aria-describedby="dr-remover-nota">Remover deste grupo</button>
+        <p id="dr-remover-nota" class="dr-nota" hidden></p>
       </div>
-      <button id="dr-faixa" class="botao" type="button" hidden>Voltar para a faixa</button>
       <p id="dr-erro" class="campo-erro" role="alert"></p>
       <p id="dr-ok" class="dg-ok" role="status"></p>
     </div>
@@ -225,6 +251,116 @@
 </aside>
 
 </div>
+
+<!-- Aba Registros (desvios D21, CONTRATOS 4.7). -->
+<section id="aba-registros" class="registros" role="tabpanel" aria-labelledby="aba-btn-registros" hidden>
+  <div class="reg-controles">
+    <div id="reg-periodo" class="segmentado" role="group" aria-label="Período">
+      <button type="button" class="seg" data-periodo="24h" aria-pressed="true">24 h</button>
+      <button type="button" class="seg" data-periodo="7d" aria-pressed="false">7 dias</button>
+      <button type="button" class="seg" data-periodo="30d" aria-pressed="false">30 dias</button>
+    </div>
+    <label class="reg-campo">
+      <span class="so-leitor">Grupo</span>
+      <select id="reg-grupo"></select>
+    </label>
+    <label class="busca reg-busca">
+      <svg class="icone icone-15" aria-hidden="true"><use href="#i-busca"/></svg>
+      <span class="so-leitor">Buscar ramal nos registros</span>
+      <input id="reg-busca" type="search" placeholder="Ramal ou nome" autocomplete="off" spellcheck="false">
+    </label>
+    <button id="reg-exportar" class="botao" type="button" disabled>Exportar CSV</button>
+    <span id="reg-desde" class="bloco-nota"></span>
+  </div>
+
+  <div class="reg-colunas">
+    <div class="reg-principal">
+      <section class="bloco" aria-labelledby="reg-graf-titulo">
+        <div class="bloco-cabeca">
+          <h2 id="reg-graf-titulo" class="bloco-titulo">OCORRÊNCIAS POR HORA</h2>
+          <span id="reg-graf-nota" class="bloco-nota">Todos os ramais</span>
+        </div>
+        <div class="hist-caixa">
+          <svg id="reg-graf" class="reg-graf" viewBox="0 0 720 140" preserveAspectRatio="none" width="100%" height="140" role="img" aria-label="Ocorrências de registro no período">
+            <line x1="0" y1="139.5" x2="720" y2="139.5" class="hist-base"/>
+            <line x1="0" y1="72" x2="720" y2="72" class="hist-grade"/>
+            <line x1="0" y1="4" x2="720" y2="4" class="hist-grade"/>
+            <g id="reg-graf-barras"></g>
+          </svg>
+          <div id="reg-graf-estado" class="hist-estado" hidden>
+            <p id="reg-graf-estado-texto"></p>
+            <button id="reg-graf-repetir" class="botao" type="button" hidden>Tentar de novo</button>
+          </div>
+        </div>
+        <div id="reg-graf-eixo" class="reg-eixo" aria-hidden="true"></div>
+        <div class="hist-legenda">
+          <span class="hist-leg"><span class="leg-perdeu" aria-hidden="true"></span>Perdeu registro</span>
+          <span class="hist-leg"><span class="leg-inalc" aria-hidden="true"></span>Ficou inalcançável</span>
+          <span id="reg-graf-max" class="reg-graf-max"></span>
+        </div>
+        <p id="reg-sistema" class="reg-sistema"></p>
+      </section>
+
+      <section class="bloco" aria-labelledby="reg-tab-titulo">
+        <div class="bloco-cabeca">
+          <h2 id="reg-tab-titulo" class="bloco-titulo">RAMAIS COM OCORRÊNCIA</h2>
+          <span id="reg-contagem" class="bloco-nota"></span>
+        </div>
+        <div id="reg-tabela" class="reg-tabela pr-scroll" role="table" aria-labelledby="reg-tab-titulo" aria-rowcount="1">
+          <div class="reg-grade">
+            <div role="rowgroup">
+              <div class="reg-cabeca" role="row" aria-rowindex="1">
+                <span role="columnheader" aria-sort="none" data-chave="numero"><button type="button" class="reg-ordem">Ramal</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="nome"><button type="button" class="reg-ordem">Nome</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="grupos"><button type="button" class="reg-ordem">Grupos</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="perdeu" class="reg-dir"><button type="button" class="reg-ordem">Perdeu registro</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="inalc" class="reg-dir"><button type="button" class="reg-ordem">Ficou inalcançável</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="registrou" class="reg-dir"><button type="button" class="reg-ordem">Registrou</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="queda"><button type="button" class="reg-ordem">Última queda</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="ip"><button type="button" class="reg-ordem">Último IP</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="fora" class="reg-dir"><button type="button" class="reg-ordem">Fora do ar</button></span>
+              </div>
+            </div>
+            <div id="reg-corpo" class="reg-corpo pr-scroll" role="rowgroup" tabindex="0" aria-label="Ramais com ocorrência">
+              <div id="reg-altura" class="lista-altura"></div>
+            </div>
+          </div>
+        </div>
+        <div id="reg-estado" class="inst-estado" hidden>
+          <p id="reg-estado-texto"></p>
+          <button id="reg-repetir" class="botao" type="button" hidden>Tentar de novo</button>
+        </div>
+      </section>
+    </div>
+
+    <aside id="reg-linha" class="detalhe reg-linha-tempo" aria-labelledby="rl-titulo" hidden>
+      <div class="detalhe-cabeca">
+        <div class="detalhe-id">
+          <span id="rl-num" class="detalhe-num"></span>
+          <span id="rl-nome" class="detalhe-nome"></span>
+        </div>
+        <button id="rl-fechar" class="botao-fechar" type="button" aria-label="Fechar linha do tempo"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
+      </div>
+      <span id="rl-removido" class="selo-estado" data-estado="desconhecido" hidden><span class="selo-ponto" aria-hidden="true"></span>REMOVIDO</span>
+      <dl class="detalhe-dados">
+        <dt>Grupos</dt><dd id="rl-grupos"></dd>
+        <dt>Perdeu registro</dt><dd id="rl-perdeu" class="mono"></dd>
+        <dt>Ficou inalcançável</dt><dd id="rl-inalc" class="mono"></dd>
+        <dt>Registrou</dt><dd id="rl-registrou" class="mono"></dd>
+        <dt>Voltou a ser alcançável</dt><dd id="rl-voltou" class="mono"></dd>
+        <dt>Eventos do sistema</dt><dd id="rl-sistema" class="mono"></dd>
+        <dt>Fora do ar</dt><dd id="rl-fora" class="mono"></dd>
+      </dl>
+      <h3 id="rl-titulo" class="dg-sub">Linha do tempo</h3>
+      <div id="rl-estado" class="inst-estado" hidden>
+        <p id="rl-estado-texto"></p>
+        <button id="rl-repetir" class="botao" type="button" hidden>Tentar de novo</button>
+      </div>
+      <ol id="rl-eventos" class="rl-eventos pr-scroll"></ol>
+      <p id="rl-limite" class="campo-ajuda" hidden>Mostrando as 200 ocorrências mais recentes guardadas.</p>
+    </aside>
+  </div>
+</section>
 </main>
 
 <dialog id="dialogo-grupos" class="dialogo" aria-labelledby="dg-titulo">
@@ -241,7 +377,7 @@
     </section>
     <form id="dg-form" class="dg-importar" novalidate>
       <h3 class="dg-sub">Importar CSV</h3>
-      <p class="campo-ajuda">Faixa: <code>grupo,2000-2099</code> (um número só: <code>2150-2150</code>). Ramal avulso <code>grupo,2150</code> fixa o ramal no grupo, acima da faixa. <code>Sem grupo,2150</code> tira o ramal do grupo.</p>
+      <p class="campo-ajuda">Faixa: <code>grupo,2000-2099</code> (um número só: <code>2150-2150</code>). Ramal avulso <code>grupo,2150</code> põe o ramal no grupo, além das faixas. O mesmo ramal pode estar em vários grupos; faixas de grupos diferentes podem se cruzar. Sem "Substituir", a importação só acrescenta. <code>Sem grupo,N</code> é ignorado.</p>
       <label class="campo">
         <span class="campo-rotulo">Arquivo</span>
         <input id="dg-arquivo" type="file" accept=".csv,text/csv,text/plain">
@@ -264,7 +400,6 @@
     <button class="botao-fechar" type="button" data-fechar aria-label="Fechar"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
   </div>
   <form id="ng-form" class="dialogo-pilha" novalidate>
-    <p id="ng-contexto" class="dialogo-contexto" hidden></p>
     <label class="campo">
       <span class="campo-rotulo">Nome</span>
       <input id="ng-nome" type="text" maxlength="64" required autocomplete="off" spellcheck="false" aria-describedby="ng-nome-erro">
@@ -292,12 +427,15 @@
   </div>
   <div class="dialogo-pilha">
     <p id="dm-resumo" class="dm-resumo"></p>
-    <p id="dm-origens-titulo" class="campo-rotulo" hidden></p>
+    <fieldset id="dm-grupos-caixa" class="marcar-caixa" hidden>
+      <legend class="campo-rotulo">Grupos</legend>
+      <div id="dm-grupos" class="marcar-lista pr-scroll"></div>
+    </fieldset>
     <ul id="dm-origens" class="dm-origens"></ul>
     <p id="dm-notas" class="campo-ajuda"></p>
     <p id="dm-erro" class="campo-erro" role="alert"></p>
     <div class="dialogo-botoes">
-      <button id="dm-aplicar" class="botao botao-primario" type="button">Mover</button>
+      <button id="dm-aplicar" class="botao botao-primario" type="button">Adicionar</button>
       <button id="dm-cancelar" class="botao" type="button" data-fechar>Cancelar</button>
     </div>
   </div>
@@ -305,11 +443,8 @@
 
 <div id="barra-selecao" class="barra-selecao" role="region" aria-label="Ramais selecionados" hidden>
   <p id="bs-contagem" class="bs-contagem" aria-live="polite"></p>
-  <label class="bs-campo">
-    <span class="so-leitor">Destino</span>
-    <select id="bs-destino"></select>
-  </label>
-  <button id="bs-mover" class="botao botao-primario" type="button" disabled>Mover para grupo...</button>
+  <button id="bs-adicionar" class="botao botao-primario" type="button">Adicionar aos grupos...</button>
+  <button id="bs-remover" class="botao botao-perigo" type="button" hidden>Remover deste grupo...</button>
   <button id="bs-limpar" class="botao" type="button">Limpar seleção</button>
 </div>
 <p id="aviso-status" class="aviso-status" role="status"></p>

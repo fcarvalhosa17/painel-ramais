@@ -94,14 +94,14 @@ export function normalizar(texto) {
 }
 
 // filtros: { busca: "", estados: Set de chaves (vazio = todos), grupo: "" (vazio = todos) }
-// lista: [{ ramal, estado, chaveBusca }] na ordem do snapshot.
+// lista: [{ ramal, estado, chaveBusca }] na ordem do snapshot. Grupo: o ramal está nele (groups contém, N:N).
 export function filtrar(lista, filtros) {
   const termo = normalizar(filtros.busca);
   const estados = filtros.estados;
   const grupo = filtros.grupo;
   const out = [];
   for (const item of lista) {
-    if (grupo && item.ramal.group !== grupo) continue;
+    if (grupo && !gruposDe(item.ramal).includes(grupo)) continue;
     if (estados && estados.size && !estados.has(item.estado)) continue;
     if (termo && !item.chaveBusca.includes(termo)) continue;
     out.push(item);
@@ -128,6 +128,9 @@ export function contagens(ramais) {
 
 export const SEM_GRUPO = "Sem grupo";
 
+// Grupos do ramal (CONTRATOS 2.1: nunca vazio; sem vínculo vem ["Sem grupo"]). A lista vazia só por garantia.
+export const gruposDe = (ramal) => (ramal.groups && ramal.groups.length ? ramal.groups : [SEM_GRUPO]);
+
 // Ordem dos grupos na tela: alfabética pt-BR com "Sem grupo" por último.
 export function compararGrupos(a, b) {
   if (a === b) return 0;
@@ -137,7 +140,7 @@ export function compararGrupos(a, b) {
 }
 
 // hifen: "-" no campo editável (o parser lê), "–" na exibição (como no design: 4000–4479).
-const textoFaixa = (f, hifen = "-") => (f.start === f.end ? String(f.start) : f.start + hifen + f.end);
+export const textoFaixa = (f, hifen = "-") => (f.start === f.end ? String(f.start) : f.start + hifen + f.end);
 export const textoFaixas = (faixas, hifen = "-") => (faixas || []).map((f) => textoFaixa(f, hifen)).join(", ");
 
 // Faixas digitadas pelo administrador: "2000-2099, 3001" (N vira N-N). Devolve { faixas, erro }.
@@ -161,18 +164,7 @@ export function lerFaixas(texto) {
   return { faixas, erro: "" };
 }
 
-// Faixa que encosta na de outro grupo do catálogo (o daemon revalida; aqui é só o aviso antes de gravar).
-export function conflitoDeFaixa(faixas, catalogo, ignorar = null) {
-  for (const g of catalogo || []) {
-    if (g.name === ignorar) continue;
-    for (const r of g.ranges || []) {
-      for (const f of faixas) {
-        if (f.start <= r.end && r.start <= f.end) return "A faixa " + textoFaixa(f) + " se sobrepõe à faixa " + textoFaixa(r) + " do grupo " + g.name + ".";
-      }
-    }
-  }
-  return "";
-}
+// Desde a rc.7 (ADR-006) faixas de grupos diferentes podem se cruzar: só as do mesmo grupo são conferidas (lerFaixas).
 
 // Mesma regra do daemon (CONTRATOS seção 9): número com zero à esquerda ou não numérico nunca cai em faixa.
 const NUMERICO = /^(0|[1-9]\d*)$/;
@@ -182,18 +174,45 @@ export function numeroNaFaixa(numero, faixas) {
   return faixas.some((f) => n >= f.start && n <= f.end);
 }
 
-// Prévia de um grupo com estas faixas, pelos dados carregados: quem entra pela faixa (sem grupo manual),
-// quem está na faixa mas tem grupo escolhido à mão (não muda) e quem foi movido à mão para este grupo.
-export function contarComFaixas(itens, faixas, nome) {
-  let pelaFaixa = 0, manuaisNaFaixa = 0, manuaisNoGrupo = 0;
-  for (const it of itens) {
-    const r = it.ramal;
-    if (r.group_manual) {
-      if (r.group === nome) manuaisNoGrupo++;
-      else if (numeroNaFaixa(r.number, faixas)) manuaisNaFaixa++;
-    } else if (numeroNaFaixa(r.number, faixas)) pelaFaixa++;
+// Primeira faixa do grupo (catálogo do snapshot) que contém o número, comparando com BigInt:
+// faixas de até 18 dígitos passam do inteiro seguro do JavaScript (CONTRATOS 2.1).
+const grande = (v) => (Number.isInteger(v) ? BigInt(v) : null);
+export function faixaDoNumero(numero, catalogo, nome) {
+  if (!NUMERICO.test(String(numero))) return null;
+  const n = BigInt(numero);
+  const g = (catalogo || []).find((x) => x.name === nome);
+  for (const f of (g && g.ranges) || []) {
+    const a = grande(f.start), b = grande(f.end);
+    if (a !== null && b !== null && a <= n && n <= b) return f;
   }
-  return { pelaFaixa, manuaisNaFaixa, manuaisNoGrupo };
+  return null;
+}
+
+// Grupos do ramal com a origem (detalhe, desvios D22): "pela faixa A-B", "pela faixa A-B e manual", "manual";
+// sem vínculo nenhum, "Sem grupo" com "nenhum vínculo".
+export function origensDoRamal(ramal, catalogo) {
+  const faixa = new Set(ramal.range_groups || []);
+  const manual = new Set(ramal.manual_groups || []);
+  return gruposDe(ramal).map((nome) => {
+    if (faixa.has(nome)) {
+      const f = faixaDoNumero(ramal.number, catalogo, nome);
+      const t = "pela faixa" + (f ? " " + textoFaixa(f) : "");
+      return { nome, origem: manual.has(nome) ? t + " e manual" : t };
+    }
+    return { nome, origem: manual.has(nome) ? "manual" : "nenhum vínculo" };
+  });
+}
+
+// Prévia de um grupo com estas faixas, pelos dados carregados: quantos ramais caem nas faixas e quantos ficam no
+// grupo ao todo (faixa ou vínculo manual com ele; desde a rc.7 o vínculo manual soma à faixa, não a exclui).
+export function contarComFaixas(itens, faixas, nome) {
+  let pelaFaixa = 0, total = 0;
+  for (const it of itens) {
+    const naFaixa = numeroNaFaixa(it.ramal.number, faixas);
+    if (naFaixa) pelaFaixa++;
+    if (naFaixa || (nome !== null && (it.ramal.manual_groups || []).includes(nome))) total++;
+  }
+  return { pelaFaixa, total };
 }
 
 // Nome de grupo novo ou renomeado. Duplicado é comparado sem maiúsculas nem acentos; o daemon revalida.
@@ -210,23 +229,31 @@ export function erroNomeGrupo(nome, catalogo, atual = null) {
   return igual ? "Já existe o grupo " + igual.name + "." : "";
 }
 
-// Por grupo: { nome, total, porEstado: {chave: n} }, na ordem de aparição dos grupos
-// com "Sem grupo" por último (igual ao GET /api/groups).
+// Por grupo: { nome, total, porEstado: {chave: n} }, em ordem alfabética com "Sem grupo" por último
+// (igual ao GET /api/groups). Ramal em vários grupos conta em cada um (a soma dos grupos pode passar do total).
 export function agregarGrupos(itens) {
   const mapa = new Map();
   for (const it of itens) {
-    const nome = it.ramal.group;
-    let g = mapa.get(nome);
-    if (!g) {
-      g = { nome, total: 0, porEstado: {}, itens: [] };
-      for (const e of ESTADOS) g.porEstado[e.chave] = 0;
-      mapa.set(nome, g);
+    for (const nome of gruposDe(it.ramal)) {
+      let g = mapa.get(nome);
+      if (!g) {
+        g = { nome, total: 0, porEstado: {}, itens: [] };
+        for (const e of ESTADOS) g.porEstado[e.chave] = 0;
+        mapa.set(nome, g);
+      }
+      g.total++;
+      g.porEstado[it.estado]++;
+      g.itens.push(it);
     }
-    g.total++;
-    g.porEstado[it.estado]++;
-    g.itens.push(it);
   }
   return [...mapa.values()].sort((a, b) => compararGrupos(a.nome, b.nome));
+}
+
+// Data e hora local "19/10 13:42" (com segundos "19/10 13:42:10"); vazio se ausente ou inválida.
+export function dataHora(iso, comSegundos = false) {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return "";
+  return dois(d.getDate()) + "/" + dois(d.getMonth() + 1) + " " + dois(d.getHours()) + ":" + dois(d.getMinutes()) + (comSegundos ? ":" + dois(d.getSeconds()) : "");
 }
 
 const NUM = new Intl.NumberFormat("pt-BR");

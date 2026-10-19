@@ -1,34 +1,66 @@
-// Edição de grupos pela tela principal: criar grupo, painel do ramal, seleção múltipla e mover ramais.
+// Edição de grupos pela tela principal: criar grupo, painel do ramal, seleção múltipla e vínculo manual
+// (rc.7, ADR-006: ramal em N grupos; "Adicionar" só acrescenta, "Remover deste grupo" só apaga vínculo manual).
 // Controles de escrita só aparecem para administrador (cosmético: o daemon decide e responde 403).
 // A seleção é um Set de números fora do DOM (lista.selecao): os cards reciclados da rolagem virtual
 // só refletem o Set em preencher(), então 10.000 selecionados não custam nada no DOM.
 
 import { api } from "./conexao.js";
 import {
-  ROTULO, SEM_GRUPO, compararGrupos, formatarNumero, lerFaixas, conflitoDeFaixa, contarComFaixas, erroNomeGrupo, linhaRamal,
+  ROTULO, SEM_GRUPO, compararGrupos, formatarNumero, lerFaixas, contarComFaixas, erroNomeGrupo, linhaRamal,
+  gruposDe, origensDoRamal, faixaDoNumero, textoFaixa,
 } from "./estado.js";
 
 const $ = (id) => document.getElementById(id);
-const MAX_MOVER = 20000; // teto do /api/groups/assign
-const ORIGENS_VISIVEIS = 5;
+// Tetos do /api/groups/assign (CONTRATOS 4.6).
+const MAX_NUMEROS = 20000;
+const MAX_GRUPOS = 20;
+const MAX_PARES = 100000; // numbers x groups no modo add
 const plural = (n, um, varios) => formatarNumero(n) + " " + (n === 1 ? um : varios);
 const TRACO = String.fromCharCode(0x2014); // dado ausente: "—" como no design (decorate)
 
-function opcao(texto, valor, acao) {
-  const o = document.createElement("option");
-  o.textContent = texto;
-  o.value = valor;
-  if (acao) o.dataset.acao = acao;
-  return o;
+// Caixas de seleção de grupos (modo add). Só refaz quando a lista de nomes muda e mantém as marcadas:
+// o detalhe é redesenhado a cada delta e não pode apagar a escolha em andamento.
+function listaDeGrupos(caixa) {
+  let chave = null;
+  const marcados = () => [...caixa.querySelectorAll("input:checked")].map((i) => i.value);
+  return {
+    marcados,
+    preencher(nomes) {
+      const k = nomes.join("\n");
+      if (k === chave) return;
+      chave = k;
+      const antes = new Set(marcados());
+      caixa.replaceChildren(...nomes.map((nome) => {
+        const label = document.createElement("label");
+        label.className = "opcao";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.value = nome;
+        input.checked = antes.has(nome);
+        const span = document.createElement("span");
+        span.textContent = nome;
+        label.append(input, span);
+        return label;
+      }));
+    },
+    limpar() { for (const i of caixa.querySelectorAll("input:checked")) i.checked = false; },
+  };
 }
 
-export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
+// grupoAberto(): grupo selecionado na coluna Grupos ("" = Todos os ramais).
+export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) {
   const selecao = lista.selecao;
   let admin = false;
   let resultados = [];
   let ancora = null;
 
   const catalogo = () => dados.grupos.filter((g) => g.name !== SEM_GRUPO);
+  const nomesCatalogo = () => catalogo().map((g) => g.name).sort(compararGrupos);
+  // Grupo aberto em que dá para remover vínculo: um grupo do catálogo (não "Todos os ramais" nem "Sem grupo").
+  const grupoRemovivel = () => {
+    const g = grupoAberto();
+    return g && g !== SEM_GRUPO ? g : "";
+  };
 
   function tratarErro(e, alvo) {
     if (e.status === 401) { aoSessaoEncerrada(); return; }
@@ -57,59 +89,28 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     timerAviso = setTimeout(() => { el.textContent = ""; }, 5000);
   }
 
-  // Lista de destinos: grupos do catálogo (inclui vazios), "Sem grupo" e ações. Mantém a escolha anterior.
-  function preencherDestinos(sel, lote) {
-    const antes = sel.selectedOptions[0];
-    const chave = antes ? (antes.dataset.acao || "") + "\n" + antes.value : "";
-    const ops = [];
-    if (lote) ops.push(opcao("Escolha o destino", "", "nada"));
-    for (const nome of catalogo().map((g) => g.name).sort(compararGrupos)) ops.push(opcao(nome, nome));
-    ops.push(opcao(SEM_GRUPO, SEM_GRUPO));
-    ops.push(opcao("+ Novo grupo", "", "novo"));
-    if (lote) ops.push(opcao("Voltar para a faixa", "", "faixa"));
-    sel.replaceChildren(...ops);
-    const igual = ops.find((o) => (o.dataset.acao || "") + "\n" + o.value === chave);
-    if (igual) igual.selected = true;
-  }
-
-  function selecionarGrupoNaLista(sel, nome) {
-    const o = [...sel.options].find((x) => !x.dataset.acao && x.value === nome);
-    if (o) o.selected = true;
-  }
-
   // ---------- criar grupo ----------
   const ng = {
     dialogo: $("dialogo-novo-grupo"), form: $("ng-form"), nome: $("ng-nome"), faixas: $("ng-faixas"),
     nomeErro: $("ng-nome-erro"), faixasErro: $("ng-faixas-erro"), previa: $("ng-previa"), erro: $("ng-erro"),
-    contexto: $("ng-contexto"), criar: $("ng-criar"),
+    criar: $("ng-criar"),
   };
-  let depoisDeCriar = null;
 
-  function abrirCriar(contexto = "", depois = null) {
-    depoisDeCriar = depois;
+  function abrirCriar() {
     ng.form.reset();
     for (const el of [ng.nomeErro, ng.faixasErro, ng.erro]) el.textContent = "";
-    ng.contexto.textContent = contexto;
-    ng.contexto.hidden = !contexto;
     previaCriar();
     ng.dialogo.showModal();
     ng.nome.focus();
   }
 
-  function lerFaixasCriar() {
-    const lidas = lerFaixas(ng.faixas.value);
-    return { faixas: lidas.faixas, erro: lidas.erro || conflitoDeFaixa(lidas.faixas, catalogo()) };
-  }
-
   function previaCriar() {
-    const { faixas, erro } = lerFaixasCriar();
+    const { faixas, erro } = lerFaixas(ng.faixas.value);
     ng.faixasErro.textContent = erro;
     if (erro) { ng.previa.textContent = ""; return; }
-    if (!faixas.length) { ng.previa.textContent = "Sem faixa, o grupo começa vazio e recebe ramais movidos à mão."; return; }
+    if (!faixas.length) { ng.previa.textContent = "Sem faixa, o grupo começa vazio e recebe ramais adicionados à mão."; return; }
     const c = contarComFaixas(dados.itens, faixas, null);
-    let t = plural(c.pelaFaixa, "ramal existente entra", "ramais existentes entram") + " no grupo.";
-    if (c.manuaisNaFaixa) t += " " + plural(c.manuaisNaFaixa, "ramal da faixa tem grupo escolhido à mão e fica onde está.", "ramais da faixa têm grupo escolhido à mão e ficam onde estão.");
-    ng.previa.textContent = t;
+    ng.previa.textContent = plural(c.pelaFaixa, "ramal existente entra", "ramais existentes entram") + " no grupo (sem sair dos grupos em que já está).";
   }
 
   ng.faixas.addEventListener("input", previaCriar);
@@ -123,7 +124,7 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     if (ng.dialogo.dataset.ocupado) return;
     const nome = ng.nome.value.trim();
     const erroNome = erroNomeGrupo(nome, catalogo());
-    const { faixas, erro: erroFaixas } = lerFaixasCriar();
+    const { faixas, erro: erroFaixas } = lerFaixas(ng.faixas.value);
     ng.nomeErro.textContent = erroNome;
     ng.faixasErro.textContent = erroFaixas;
     ng.erro.textContent = "";
@@ -133,11 +134,9 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     ng.criar.textContent = "Criando...";
     try {
       const r = await api.criarGrupo(nome, faixas);
-      const criado = (r && r.name) || nome;
       delete ng.dialogo.dataset.ocupado;
       ng.dialogo.close();
-      avisar("Grupo " + criado + " criado.");
-      if (depoisDeCriar) depoisDeCriar(criado);
+      avisar("Grupo " + ((r && r.name) || nome) + " criado.");
     } catch (err) {
       tratarErro(err, ng.erro);
     } finally {
@@ -151,21 +150,23 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
   // ---------- detalhe do ramal (coluna da direita; o mesmo painel para Operator e administrador) ----------
   const dr = {
     painel: $("detalhe"), num: $("dr-num"), sumiu: $("dr-sumiu"), nome: $("dr-nome"), estado: $("dr-estado"),
-    estadoTexto: $("dr-estado-texto"), grupo: $("dr-grupo"), origem: $("dr-origem"), chamada: $("dr-chamada"),
-    ip: $("dr-ip"), ua: $("dr-ua"), latencia: $("dr-latencia"), admin: $("dr-admin"), destino: $("dr-destino"),
-    mover: $("dr-mover"), faixa: $("dr-faixa"), erro: $("dr-erro"), ok: $("dr-ok"), fechar: $("dr-fechar"),
+    estadoTexto: $("dr-estado-texto"), grupos: $("dr-grupos"), chamada: $("dr-chamada"),
+    ip: $("dr-ip"), ua: $("dr-ua"), latencia: $("dr-latencia"), admin: $("dr-admin"),
+    addVazio: $("dr-add-vazio"), adicionar: $("dr-adicionar"), removerCaixa: $("dr-remover-caixa"),
+    remover: $("dr-remover"), removerNota: $("dr-remover-nota"), erro: $("dr-erro"), ok: $("dr-ok"), fechar: $("dr-fechar"),
   };
+  const drLista = listaDeGrupos($("dr-add-lista"));
   let numeroAberto = null;
   let ocupadoRamal = false;
   const detalheAberto = () => !dr.painel.hidden;
 
   function abrirRamal(numero) {
+    if (numero !== numeroAberto) drLista.limpar();
     numeroAberto = numero;
     dr.erro.textContent = "";
     dr.ok.textContent = "";
-    preencherDestinos(dr.destino, false);
     dr.painel.hidden = false;
-    renderRamal(true);
+    renderRamal();
     // Foco no painel sem rolar; com as colunas empilhadas, rola até ele se ficou fora da vista.
     dr.fechar.focus({ preventScroll: true });
     const r = dr.painel.getBoundingClientRect();
@@ -192,8 +193,21 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     dr.chamada.textContent = l.tempo ? l.texto + " " + l.tempo : l.texto;
   }
 
-  // escolherAtual: põe o grupo atual no seletor (ao abrir e quando o catálogo muda).
-  function renderRamal(escolherAtual) {
+  // Grupos com a origem de cada um (desvios D22).
+  function renderGruposDoRamal(r) {
+    dr.grupos.replaceChildren(...origensDoRamal(r, dados.grupos).map(({ nome, origem }) => {
+      const li = document.createElement("li");
+      const n = document.createElement("span");
+      n.textContent = nome;
+      const o = document.createElement("span");
+      o.className = "dr-origem";
+      o.textContent = " (" + origem + ")";
+      li.append(n, o);
+      return li;
+    }));
+  }
+
+  function renderRamal() {
     const item = dados.porNumero.get(numeroAberto);
     dr.num.textContent = numeroAberto;
     dr.sumiu.hidden = !!item;
@@ -203,59 +217,75 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     dr.nome.textContent = r.name || "sem nome";
     dr.estado.dataset.estado = item.estado;
     dr.estadoTexto.textContent = ROTULO[item.estado].toLocaleUpperCase("pt-BR");
-    dr.grupo.textContent = r.group;
-    dr.origem.textContent = r.group_manual ? "(escolhido à mão)" : r.group === SEM_GRUPO ? "(nenhuma faixa)" : "(pela faixa)";
+    renderGruposDoRamal(r);
     renderLinha(item);
     dr.ip.textContent = r.ip || TRACO;
     dr.ua.textContent = item.estado === "nao_registrado" || r.user_agent == null ? TRACO : r.user_agent;
     dr.latencia.textContent = textoLatencia(item);
-    dr.faixa.hidden = !r.group_manual;
-    if (escolherAtual) selecionarGrupoNaLista(dr.destino, r.group);
-    atualizarMoverRamal();
+    if (admin) renderAdmin(r);
   }
 
-  function atualizarMoverRamal() {
-    if (ocupadoRamal) return;
-    const item = dados.porNumero.get(numeroAberto);
-    const op = dr.destino.selectedOptions[0];
-    dr.mover.disabled = !item || !op || (!op.dataset.acao && op.value === item.ramal.group);
+  // Controles de administrador (desvios D23). "Remover deste grupo" só com um grupo do catálogo aberto e o ramal
+  // nele; habilitado só quando o grupo está em manual_groups e não em range_groups (CONTRATOS 2.1).
+  function renderAdmin(r) {
+    const ja = new Set(gruposDe(r));
+    const candidatos = nomesCatalogo().filter((n) => !ja.has(n));
+    drLista.preencher(candidatos);
+    dr.addVazio.hidden = candidatos.length > 0;
+    dr.addVazio.textContent = catalogo().length ? "O ramal já está em todos os grupos." : "Nenhum grupo cadastrado.";
+    atualizarAdicionar();
+    const g = grupoRemovivel();
+    const noGrupo = !!g && ja.has(g);
+    dr.removerCaixa.hidden = !noGrupo;
+    if (!noGrupo) return;
+    const pelaFaixa = (r.range_groups || []).includes(g);
+    const manual = (r.manual_groups || []).includes(g);
+    dr.remover.disabled = ocupadoRamal || pelaFaixa || !manual;
+    dr.remover.setAttribute("aria-label", "Remover o ramal " + r.number + " do grupo " + g);
+    const f = pelaFaixa ? faixaDoNumero(r.number, dados.grupos, g) : null;
+    dr.removerNota.hidden = !pelaFaixa;
+    dr.removerNota.textContent = pelaFaixa ? "Este ramal pertence ao grupo pela faixa" + (f ? " " + textoFaixa(f) : "") + "." : "";
   }
 
-  async function moverUm(grupo) {
+  function atualizarAdicionar() {
+    dr.adicionar.disabled = ocupadoRamal || drLista.marcados().length === 0;
+  }
+  $("dr-add-lista").addEventListener("change", atualizarAdicionar);
+
+  // Uma gravação por vez no detalhe; o resultado chega por delta e o renderRamal redesenha os grupos.
+  async function gravarRamal(chamada, sucesso) {
     const numero = numeroAberto;
     dr.erro.textContent = "";
     dr.ok.textContent = "";
-    const botoes = [dr.mover, dr.faixa, dr.destino];
     ocupadoRamal = true;
-    for (const b of botoes) b.disabled = true;
+    dr.adicionar.disabled = dr.remover.disabled = true;
     try {
-      await api.moverRamais([numero], grupo);
-      if (numeroAberto === numero) {
-        dr.ok.textContent = grupo === null ? "Ramal " + numero + " voltou para a faixa." : "Ramal " + numero + " movido para " + grupo + ".";
-      }
+      const r = await chamada(numero);
+      if (numeroAberto === numero) dr.ok.textContent = sucesso(numero, r || {});
     } catch (e) {
       tratarErro(e, dr.erro);
     } finally {
       ocupadoRamal = false;
-      for (const b of botoes) b.disabled = false;
-      atualizarMoverRamal();
+      if (detalheAberto()) renderRamal();
     }
   }
 
-  dr.destino.addEventListener("change", atualizarMoverRamal);
-  dr.mover.addEventListener("click", () => {
-    const op = dr.destino.selectedOptions[0];
-    if (!op) return;
-    if (op.dataset.acao === "novo") {
-      const numero = numeroAberto;
-      abrirCriar("Depois de criar, o ramal " + numero + " vai para o grupo novo.", (nome) => {
-        if (detalheAberto() && numeroAberto === numero) moverUm(nome);
-      });
-      return;
-    }
-    moverUm(op.value);
+  dr.adicionar.addEventListener("click", () => {
+    const grupos = drLista.marcados();
+    if (!grupos.length) return;
+    if (grupos.length > MAX_GRUPOS) { dr.erro.textContent = "Escolha no máximo " + MAX_GRUPOS + " grupos por vez."; return; }
+    gravarRamal((n) => api.adicionarAGrupos([n], grupos), (n) => {
+      drLista.limpar();
+      return "Ramal " + n + " adicionado a " + grupos.join(", ") + ".";
+    });
   });
-  dr.faixa.addEventListener("click", () => moverUm(null));
+  dr.remover.addEventListener("click", () => {
+    const g = grupoRemovivel();
+    if (!g) return;
+    gravarRamal((n) => api.removerDoGrupo([n], g), (n, r) => (r.changed
+      ? "Ramal " + n + " removido do grupo " + g + "."
+      : "O ramal " + n + " não tinha vínculo manual com " + g + "; nada mudou."));
+  });
 
   // Clique no card abre o detalhe; clique no checkbox só marca (Shift: intervalo).
   lista.caixa.addEventListener("mousedown", (e) => {
@@ -268,9 +298,9 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     abrirRamal(no.dataset.numero);
   });
 
-  // ---------- seleção múltipla ----------
+  // ---------- seleção múltipla (desvios D24) ----------
   const bs = {
-    barra: $("barra-selecao"), contagem: $("bs-contagem"), destino: $("bs-destino"), mover: $("bs-mover"),
+    barra: $("barra-selecao"), contagem: $("bs-contagem"), adicionar: $("bs-adicionar"), remover: $("bs-remover"),
     limpar: $("bs-limpar"), resultados: $("selecionar-resultados"),
   };
 
@@ -294,8 +324,16 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     bs.barra.hidden = !admin || n === 0;
     document.body.classList.toggle("com-selecao", !bs.barra.hidden);
     bs.contagem.textContent = plural(n, "ramal selecionado", "ramais selecionados");
+    renderBarra();
     renderBotaoResultados();
     lista.agendar();
+  }
+
+  // "Remover deste grupo" só com um grupo do catálogo aberto na coluna Grupos.
+  function renderBarra() {
+    const g = grupoRemovivel();
+    bs.remover.hidden = !g;
+    if (g) bs.remover.setAttribute("aria-label", "Remover os ramais selecionados do grupo " + g);
   }
 
   function renderBotaoResultados() {
@@ -320,74 +358,83 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     aoMudarSelecao();
     lista.caixa.focus(); // a barra some: o foco não fica perdido no body
   });
-  bs.destino.addEventListener("change", () => {
-    const op = bs.destino.selectedOptions[0];
-    bs.mover.disabled = !op || op.dataset.acao === "nada";
-  });
-  bs.mover.addEventListener("click", () => {
-    const op = bs.destino.selectedOptions[0];
-    if (!op || op.dataset.acao === "nada") { bs.destino.focus(); return; }
-    if (op.dataset.acao === "novo") {
-      abrirCriar("Depois de criar, você confirma a mudança dos " + plural(selecao.size, "ramal selecionado.", "ramais selecionados."), (nome) => abrirConfirmar(nome));
-      return;
-    }
-    abrirConfirmar(op.dataset.acao === "faixa" ? null : op.value);
+  bs.adicionar.addEventListener("click", () => abrirConfirmar("add", ""));
+  bs.remover.addEventListener("click", () => {
+    const g = grupoRemovivel();
+    if (g) abrirConfirmar("remove", g);
   });
 
   // ---------- confirmar e aplicar ----------
   const dm = {
-    dialogo: $("dialogo-mover"), resumo: $("dm-resumo"), origensTitulo: $("dm-origens-titulo"), origens: $("dm-origens"),
+    dialogo: $("dialogo-mover"), resumo: $("dm-resumo"), gruposCaixa: $("dm-grupos-caixa"), origens: $("dm-origens"),
     notas: $("dm-notas"), erro: $("dm-erro"), aplicar: $("dm-aplicar"), cancelar: $("dm-cancelar"),
   };
-  let destinoMover = null;
+  const dmLista = listaDeGrupos($("dm-grupos"));
+  let modo = "add";
+  let grupoRemover = "";
 
-  // Resumo pelos dados locais: quem já está no destino, de onde saem os outros e números que sumiram do PBX.
-  function resumir(destino) {
-    const origens = new Map();
-    let ja = 0, ausentes = 0, pelaFaixa = 0;
+  // Remover de um grupo, pelos dados locais: quem sai (só vínculo manual), quem continua pela faixa,
+  // quem nem está no grupo e números que não estão mais no PBX (o daemon decide por eles).
+  function resumirRemocao(g) {
+    let saem = 0, pelaFaixa = 0, fora = 0, ausentes = 0;
     for (const n of selecao) {
       const it = dados.porNumero.get(n);
       if (!it) { ausentes++; continue; }
       const r = it.ramal;
-      if (destino === null ? !r.group_manual : r.group === destino && r.group_manual) { ja++; continue; }
-      // No grupo de destino só pela faixa: não sai de grupo nenhum, passa a ficar fixo nele.
-      if (r.group === destino) { pelaFaixa++; continue; }
-      origens.set(r.group, (origens.get(r.group) || 0) + 1);
+      if ((r.range_groups || []).includes(g)) pelaFaixa++;
+      else if ((r.manual_groups || []).includes(g)) saem++;
+      else fora++;
     }
-    return { origens, ja, ausentes, pelaFaixa };
+    return { saem, pelaFaixa, fora, ausentes };
   }
 
-  function abrirConfirmar(destino) {
-    destinoMover = destino;
+  function contarAusentes() {
+    let n = 0;
+    for (const x of selecao) if (!dados.porNumero.has(x)) n++;
+    return n;
+  }
+
+  function abrirConfirmar(qual, g) {
+    modo = qual;
+    grupoRemover = g;
     const total = selecao.size;
-    const { origens, ja, ausentes, pelaFaixa } = resumir(destino);
-    let saem = 0;
-    for (const q of origens.values()) saem += q;
-    dm.resumo.textContent = destino === null
-      ? "Devolver " + plural(total, "ramal", "ramais") + " para a faixa."
-      : "Mover " + plural(total, "ramal", "ramais") + " para o grupo " + destino + ".";
-    dm.origensTitulo.hidden = saem === 0;
-    dm.origensTitulo.textContent = (destino === null ? "Saem do grupo escolhido à mão: " : "Saem de outro grupo: ") + formatarNumero(saem);
-    const linhas = [...origens].sort((a, b) => b[1] - a[1] || compararGrupos(a[0], b[0]));
-    const visiveis = linhas.length > ORIGENS_VISIVEIS + 1 ? linhas.slice(0, ORIGENS_VISIVEIS) : linhas;
-    const itens = visiveis.map(([nome, q]) => linhaOrigem(nome, q));
-    if (visiveis.length < linhas.length) {
-      const resto = linhas.slice(visiveis.length);
-      itens.push(linhaOrigem("Outros " + resto.length + " grupos", resto.reduce((s, [, q]) => s + q, 0)));
-    }
-    dm.origens.replaceChildren(...itens);
     const notas = [];
-    if (ja) notas.push(destino === null ? plural(ja, "já segue a faixa e não muda.", "já seguem a faixa e não mudam.")
-      : plural(ja, "já está", "já estão") + " no grupo " + destino + ".");
-    if (pelaFaixa) notas.push(plural(pelaFaixa, "está em " + destino + " pela faixa e passa", "estão em " + destino + " pela faixa e passam") + " a ficar fixo" + (pelaFaixa === 1 ? "" : "s") + " no grupo.");
-    if (ausentes) notas.push(plural(ausentes, "número selecionado não está", "números selecionados não estão") + " mais no PBX e vai junto (o vínculo é pelo número).");
+    dm.erro.textContent = "";
+    if (modo === "add") {
+      dm.resumo.textContent = "Adicionar " + plural(total, "ramal", "ramais") + " aos grupos marcados.";
+      dm.gruposCaixa.hidden = false;
+      dmLista.preencher(nomesCatalogo());
+      dm.origens.replaceChildren();
+      if (!catalogo().length) notas.push("Nenhum grupo cadastrado. Crie um em Novo grupo.");
+      notas.push("Os ramais continuam nos grupos em que já estão.");
+      const ausentes = contarAusentes();
+      if (ausentes) notas.push(plural(ausentes, "número selecionado não está", "números selecionados não estão") + " mais no PBX e vai junto (o vínculo é pelo número).");
+      atualizarAplicar();
+    } else {
+      dm.resumo.textContent = "Remover " + plural(total, "ramal", "ramais") + " do grupo " + g + ".";
+      dm.gruposCaixa.hidden = true;
+      const c = resumirRemocao(g);
+      dm.origens.replaceChildren(
+        linhaOrigem("Saem do grupo (vínculo manual)", c.saem),
+        linhaOrigem("Continuam pela faixa", c.pelaFaixa),
+        linhaOrigem("Não estão no grupo", c.fora),
+      );
+      if (c.pelaFaixa) notas.push(plural(c.pelaFaixa, "continua", "continuam") + " no grupo pela faixa; para tirá-" + (c.pelaFaixa === 1 ? "lo" : "los") + ", edite a faixa.");
+      if (c.ausentes) notas.push(plural(c.ausentes, "número selecionado não está", "números selecionados não estão") + " mais no PBX; o vínculo manual dele" + (c.ausentes === 1 ? "" : "s") + " também sai.");
+      dm.aplicar.disabled = false;
+    }
     dm.notas.textContent = notas.join(" ");
     dm.notas.hidden = !notas.length;
-    dm.erro.textContent = "";
-    dm.aplicar.textContent = destino === null ? "Devolver para a faixa" : "Mover " + plural(total, "ramal", "ramais");
+    dm.aplicar.textContent = modo === "add" ? "Adicionar" : "Remover do grupo";
+    dm.aplicar.className = "botao " + (modo === "add" ? "botao-primario" : "botao-perigo");
     dm.dialogo.showModal();
-    dm.cancelar.focus();
+    (modo === "add" && catalogo().length ? $("dm-grupos").querySelector("input") : dm.cancelar).focus();
   }
+
+  function atualizarAplicar() {
+    if (modo === "add" && !dm.dialogo.dataset.ocupado) dm.aplicar.disabled = dmLista.marcados().length === 0;
+  }
+  $("dm-grupos").addEventListener("change", atualizarAplicar);
 
   function linhaOrigem(nome, q) {
     const li = document.createElement("li");
@@ -399,35 +446,53 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     return li;
   }
 
+  // Confere os tetos do assign antes de mandar; devolve a mensagem de erro ou "".
+  function erroDosTetos(numeros, grupos) {
+    if (numeros.length > MAX_NUMEROS) return "No máximo " + formatarNumero(MAX_NUMEROS) + " ramais por vez. Refine a seleção.";
+    if (!grupos) return "";
+    if (!grupos.length) return "Marque pelo menos um grupo.";
+    if (grupos.length > MAX_GRUPOS) return "Escolha no máximo " + MAX_GRUPOS + " grupos por vez.";
+    if (numeros.length * grupos.length > MAX_PARES) return "Ramais vezes grupos passa de " + formatarNumero(MAX_PARES) + ". Divida em partes.";
+    return "";
+  }
+
   dm.aplicar.addEventListener("click", async () => {
     const numeros = [...selecao];
-    if (numeros.length > MAX_MOVER) {
-      dm.erro.textContent = "No máximo " + formatarNumero(MAX_MOVER) + " ramais por vez. Refine a seleção.";
-      return;
-    }
-    const botoes = [dm.aplicar, dm.cancelar, bs.mover, bs.limpar, bs.destino, bs.resultados];
+    const grupos = modo === "add" ? dmLista.marcados() : null;
+    const erro = erroDosTetos(numeros, grupos);
+    if (erro) { dm.erro.textContent = erro; return; }
+    const botoes = [dm.aplicar, dm.cancelar, bs.adicionar, bs.remover, bs.limpar, bs.resultados];
     ocupar(dm.dialogo, botoes, true);
     try {
-      const r = await api.moverRamais(numeros, destinoMover);
-      const mudaram = r && Number.isFinite(r.changed) ? r.changed : numeros.length;
+      let texto;
+      if (modo === "add") {
+        const r = (await api.adicionarAGrupos(numeros, grupos)) || {};
+        const n = Number.isFinite(r.changed) ? r.changed : 0;
+        texto = n === 0 ? "Nenhum vínculo novo: os ramais já estavam nesses grupos." : plural(n, "vínculo novo gravado", "vínculos novos gravados") + ".";
+      } else {
+        const g = grupoRemover;
+        const r = (await api.removerDoGrupo(numeros, g)) || {};
+        const n = Number.isFinite(r.changed) ? r.changed : 0;
+        const sem = Number.isFinite(r.not_manual) ? r.not_manual : 0;
+        texto = (n === 0 ? "Nenhum vínculo manual removido de " + g : plural(n, "vínculo manual removido", "vínculos manuais removidos") + " de " + g)
+          + (sem ? "; " + plural(sem, "ramal sem vínculo manual", "ramais sem vínculo manual") + " (pela faixa ou fora do grupo)." : ".");
+      }
       delete dm.dialogo.dataset.ocupado;
       dm.dialogo.close();
       selecao.clear();
       ancora = null;
-      avisar(mudaram === 0 ? "Nenhum ramal mudou de grupo." : plural(mudaram, "ramal mudou", "ramais mudaram") + " de grupo.");
+      dmLista.limpar();
+      avisar(texto);
     } catch (e) {
       tratarErro(e, dm.erro); // seleção mantida para tentar de novo
     } finally {
       ocupar(dm.dialogo, botoes, false);
-      bs.destino.dispatchEvent(new Event("change")); // devolve o estado certo ao "Mover para grupo..."
+      atualizarAplicar();
       aoMudarSelecao();
     }
   });
 
-  preencherDestinos(bs.destino, true);
-
   return {
-    abrirCriar,
     abrirRamal,
     fecharDetalhe,
     definirAdmin(sim) {
@@ -436,7 +501,7 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
       $("botao-novo-grupo").hidden = !sim;
       if (!sim) { selecao.clear(); ancora = null; }
       aoMudarSelecao();
-      if (detalheAberto()) renderRamal(false);
+      if (detalheAberto()) renderRamal();
     },
     // Tique de 1 s: cronômetro da linha "Chamada" do detalhe.
     tique() {
@@ -446,18 +511,20 @@ export function iniciarEdicao({ dados, lista, aoSessaoEncerrada }) {
     // Saída do painel (sessão encerrada): detalhe e seleção não passam para o próximo usuário.
     parar() {
       fecharDetalhe();
+      drLista.limpar();
       selecao.clear();
       ancora = null;
       aoMudarSelecao();
     },
     aoMudarCatalogo() {
-      preencherDestinos(bs.destino, true);
-      bs.destino.dispatchEvent(new Event("change"));
-      if (detalheAberto()) { preencherDestinos(dr.destino, false); renderRamal(true); }
+      if (dm.dialogo.open && modo === "add") { dmLista.preencher(nomesCatalogo()); atualizarAplicar(); }
+      if (detalheAberto()) renderRamal();
       if (ng.dialogo.open && ng.nome.value.trim()) { ng.nomeErro.textContent = erroNomeGrupo(ng.nome.value, catalogo()); previaCriar(); }
     },
+    // Dados ou grupo aberto mudaram: detalhe e o botão "Remover deste grupo" da barra.
     aoMudarDados() {
-      if (detalheAberto()) renderRamal(false);
+      if (detalheAberto()) renderRamal();
+      renderBarra();
     },
     // Resultado completo de filtrar() sobre todos os dados (não só os cards desenhados).
     aoFiltrar(filtrados) {
