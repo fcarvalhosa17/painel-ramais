@@ -52,7 +52,7 @@ Tudo como **root** no PBX:
 ```sh
 cd /root
 command -v git >/dev/null || dnf install -y git
-git clone <URL deste repositorio> painel-ramais
+git clone https://repo.camvoip.com.br/cambox/cambox-asterisk18/painel-operacoes.git painel-ramais
 cd painel-ramais
 ./instalar.py verificar
 ./instalar.py instalar --pre
