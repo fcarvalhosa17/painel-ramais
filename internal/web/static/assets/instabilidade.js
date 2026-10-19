@@ -3,18 +3,22 @@
 // Texto do servidor (número, nome) só por textContent.
 
 import { api } from "./conexao.js";
-import { formatarNumero, dataHora } from "./estado.js";
+import { formatarNumero, dataHora, avisoPausa } from "./estado.js";
 
 const $ = (id) => document.getElementById(id);
 const INTERVALO = 30e3;
 const TODOS = "Todos os ramais";
 
-export function iniciarInstabilidade({ aoAbrir, aoSessaoEncerrada }) {
+// relogio(): hora do servidor no navegador (Date.now() corrigido pelo server_time), para o aviso de pausa (D42).
+export function iniciarInstabilidade({ aoAbrir, relogio, aoSessaoEncerrada }) {
   const lista = $("inst-lista");
   const estado = $("inst-estado");
   const texto = $("inst-estado-texto");
   const repetir = $("inst-repetir");
   const desde = $("inst-desde");
+  const pausa = $("inst-pausa");
+  let timerPausa = null;
+  let ultimo = null; // último summary, para tirar o aviso de pausa na hora em que ela acaba
   let grupo = "";
   let ligado = false;
   let timer = null;
@@ -41,11 +45,27 @@ export function iniciarInstabilidade({ aoAbrir, aoSessaoEncerrada }) {
       lista.replaceChildren();
       temDados = false;
       desde.hidden = true;
+      ultimo = null;
+      renderPausa();
       mostrarEstado("Não foi possível carregar a instabilidade de registro.", true);
     }
   }
 
+  // "Contagem de registros pausada até HH:MM (Asterisk reiniciado)": lido do summary a cada 30 s (pode chegar com
+  // até 30 s de atraso) e tirado sozinho quando paused_until passa.
+  function renderPausa() {
+    clearTimeout(timerPausa);
+    timerPausa = null;
+    const agora = relogio();
+    const t = ultimo ? avisoPausa(ultimo.paused_until, ultimo.pause_reason, agora) : "";
+    pausa.hidden = !t;
+    if (pausa.textContent !== t) pausa.textContent = t;
+    if (t) timerPausa = setTimeout(renderPausa, Math.max(1000, Date.parse(ultimo.paused_until) - agora + 500));
+  }
+
   function render(d) {
+    ultimo = d;
+    renderPausa();
     const itens = Array.isArray(d.items) ? d.items : [];
     let max = 1;
     for (const i of itens) max = Math.max(max, (i.lost_registration || 0) + (i.became_unreachable || 0));
@@ -136,6 +156,8 @@ export function iniciarInstabilidade({ aoAbrir, aoSessaoEncerrada }) {
       temDados = false;
       lista.replaceChildren();
       desde.hidden = true;
+      ultimo = null;
+      renderPausa();
       mostrarEstado("", false);
     },
   };

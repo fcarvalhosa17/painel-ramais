@@ -102,6 +102,7 @@ export function iniciarFilas({ dados, relogio, aoSessaoEncerrada }) {
 
   function abrir(q) {
     aberta = q;
+    filaMostrada = false; // força remontar as listas da fila que abriu
     fd.painel.hidden = false;
     renderDetalhe();
     lista.pintar(); // marca a fila aberta
@@ -115,6 +116,7 @@ export function iniciarFilas({ dados, relogio, aoSessaoEncerrada }) {
   function fechar(focar) {
     const q = aberta;
     aberta = null;
+    filaMostrada = false;
     fd.painel.hidden = true;
     lista.pintar();
     if (!focar) return;
@@ -123,45 +125,78 @@ export function iniciarFilas({ dados, relogio, aoSessaoEncerrada }) {
   }
   fd.fechar.addEventListener("click", () => fechar(true));
 
+  // Quem aguarda e agentes (D44): listas virtuais (ListaLinhas) remontadas só quando a fila muda (objeto novo no
+  // delta) ou quando o detalhe abre; o tique de 1 s só troca o tempo de espera das linhas desenhadas.
+  function criarEspera() {
+    const no = el("div", "fd-item");
+    no.setAttribute("role", "listitem");
+    return { no, pos: el("span", "fd-pos", no), quem: el("span", "fd-quem", no), tempo: el("span", "fd-tempo", no) };
+  }
+  function preencherEspera(ui, x) {
+    const quem = (x.number || "sem número") + (x.name ? " " + x.name : "");
+    ui.no.dataset.id = x.uniqueid;
+    ui.pos.textContent = String(x.position);
+    ui.quem.textContent = quem;
+    ui.quem.title = quem;
+    ui.tempo.textContent = espera(x.since);
+    ui.no.setAttribute("aria-label", "Posição " + x.position + ", " + quem + ", esperando há " + ui.tempo.textContent);
+  }
+  function criarAgente() {
+    const no = el("div", "fd-item fd-agente");
+    no.setAttribute("role", "listitem");
+    el("span", "fila-ag-ponto", no).setAttribute("aria-hidden", "true");
+    return { no, quem: el("span", "fd-quem", no), estado: el("span", "fd-estado", no) };
+  }
+  function preencherAgente(ui, m) {
+    const a = AGENTE[m.state] || AGENTE.unavailable;
+    const it = m.extension ? dados.porNumero.get(m.extension) : null;
+    const quem = m.extension ? m.extension + " " + ((it && it.ramal.name) || m.name || "sem nome") : m.name || m.interface;
+    const pausa = m.paused && m.state !== "paused" ? " (pausado)" : "";
+    const estado = a.rotulo + pausa + (m.pause_reason ? ": " + m.pause_reason : "") + " · atendidas " + formatarNumero(m.calls_taken || 0);
+    ui.no.dataset.estado = a.cor;
+    ui.quem.textContent = quem;
+    ui.estado.textContent = estado;
+    ui.no.title = quem + ", " + estado;
+    ui.no.setAttribute("aria-label", quem + ", " + estado);
+  }
+  const esperaLista = new ListaLinhas(fd.espera, { criar: criarEspera, preencher: preencherEspera, chave: (x) => x.uniqueid });
+  const agentesLista = new ListaLinhas(fd.agentes, { criar: criarAgente, preencher: preencherAgente, chave: (m) => m.interface });
+  // Objeto da fila desenhado nas listas (o delta troca o objeto inteiro quando ela muda; undefined = fila sumiu;
+  // false = nada desenhado ainda).
+  let filaMostrada = false;
+  let nomesMostrados = ""; // nomes dos ramais dos agentes desenhados (renomear um ramal remonta a lista)
+  const nomesDosAgentes = (f) => (f && Array.isArray(f.members) ? f.members : [])
+    .map((m) => { const it = m.extension ? dados.porNumero.get(m.extension) : null; return (it && it.ramal.name) || ""; }).join("|");
+
+  function definirListas(f) {
+    filaMostrada = f;
+    nomesMostrados = nomesDosAgentes(f);
+    const entries = f && Array.isArray(f.entries) ? f.entries : [];
+    const membros = f && Array.isArray(f.members) ? f.members : [];
+    esperaLista.itens = entries;
+    agentesLista.itens = membros;
+    esperaLista.pintar();
+    agentesLista.pintar();
+    fd.espera.setAttribute("aria-label", "Quem aguarda na fila, " + formatarNumero(entries.length));
+    fd.agentes.setAttribute("aria-label", "Agentes da fila, " + formatarNumero(membros.length));
+    fd.esperaVazio.hidden = !f || entries.length > 0;
+    fd.agentesVazio.hidden = !f || membros.length > 0;
+  }
+
   function renderDetalhe() {
     const f = dados.filas.get(aberta);
     fd.nome.textContent = nomeFila(aberta, dados.filas);
     fd.num.textContent = "fila " + aberta;
     fd.sumiu.hidden = !!f;
     fd.renomear.hidden = !admin || !f;
-    if (!f) {
-      fd.lida.textContent = "";
-      fd.espera.replaceChildren();
-      fd.agentes.replaceChildren();
-      fd.esperaVazio.hidden = fd.agentesVazio.hidden = true;
-      return;
-    }
+    // Remonta só se a fila mudou (objeto novo no delta) ou se o nome de um ramal de agente mudou; no tique, nenhum
+    // dos dois muda e as listas ficam como estão (ponytail: compara os nomes a cada chamada, O(agentes)).
+    if (f !== filaMostrada || nomesDosAgentes(f) !== nomesMostrados) definirListas(f);
+    if (!f) { fd.lida.textContent = ""; return; }
     fd.lida.textContent = (f.stats_at
       ? "Contadores desde o último reinício do Asterisk; lidos há " + idade(f.stats_at)
       : "Contadores aguardando leitura") + ". Atendidas " + formatarNumero(f.completed || 0) + ", abandonadas "
       + formatarNumero(f.abandoned || 0) + ", nível de serviço " + formatarPct(Number(f.service_level_perf) || 0, 100) + textoNs(f) + ".";
-    const entries = Array.isArray(f.entries) ? f.entries : [];
-    fd.espera.replaceChildren(...entries.map((x) => {
-      const li = el("li", "fd-item");
-      el("span", "fd-pos", li).textContent = String(x.position);
-      el("span", "fd-quem", li).textContent = (x.number || "sem número") + (x.name ? " " + x.name : "");
-      el("span", "fd-tempo", li).textContent = espera(x.since);
-      return li;
-    }));
-    fd.esperaVazio.hidden = entries.length > 0;
-    const membros = Array.isArray(f.members) ? f.members : [];
-    fd.agentes.replaceChildren(...membros.map((m) => {
-      const a = AGENTE[m.state] || AGENTE.unavailable;
-      const li = el("li", "fd-item fd-agente");
-      li.dataset.estado = a.cor;
-      el("span", "fila-ag-ponto", li).setAttribute("aria-hidden", "true");
-      const it = m.extension ? dados.porNumero.get(m.extension) : null;
-      el("span", "fd-quem", li).textContent = m.extension ? m.extension + " " + ((it && it.ramal.name) || m.name || "sem nome") : m.name || m.interface;
-      const pausa = m.paused && m.state !== "paused" ? " (pausado)" : "";
-      el("span", "fd-estado", li).textContent = a.rotulo + pausa + (m.pause_reason ? ": " + m.pause_reason : "") + " · atendidas " + formatarNumero(m.calls_taken || 0);
-      return li;
-    }));
-    fd.agentesVazio.hidden = membros.length > 0;
   }
 
   const textoNs = (f) => (f.service_level_s ? " em " + f.service_level_s + " s" : "");
@@ -218,7 +253,15 @@ export function iniciarFilas({ dados, relogio, aoSessaoEncerrada }) {
     render,
     tique() {
       lista.pintar();
-      if (aberta !== null) renderDetalhe();
+      if (aberta === null) return;
+      renderDetalhe(); // remonta as listas só se a fila mudou
+      esperaLista.paraVisiveis((ui, x) => {
+        const t = espera(x.since);
+        if (ui.tempo.textContent !== t) {
+          ui.tempo.textContent = t;
+          ui.no.setAttribute("aria-label", "Posição " + x.position + ", " + ui.quem.textContent + ", esperando há " + t);
+        }
+      });
     },
     definirAdmin(sim) {
       admin = sim;

@@ -241,7 +241,7 @@ input[type="checkbox"] { min-height: auto; width: 14px; height: 14px; margin: 0;
 .grupo-barra > .s-tocando { background: var(--tocando); }
 .grupo-barra > .s-inalc { background: var(--inalc); }
 .grupo-barra > .s-nao-reg { background: var(--nao-reg-barra); }
-.grupo-pe { display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: var(--texto-fraco); }
+.grupo-pe { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; width: 100%; font-size: 12px; color: var(--texto-fraco); }
 .grupo-alerta-forte { color: var(--inalc-fg); }
 
 /* ---------- últimas 24 h ---------- */
@@ -494,8 +494,8 @@ body.com-selecao .aviso-status { bottom: 90px; }
 .reg-campo select { max-width: 240px; }
 .reg-busca { flex: 0 1 260px; }
 .reg-colunas { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
-/* A tabela pede 980 px: a linha do tempo fica ao lado só em tela larga; senão desce para baixo dela. */
-.reg-principal { flex: 999 1 980px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+/* A tabela pede 1.064 px: a linha do tempo fica ao lado só em tela larga; senão desce para baixo dela. */
+.reg-principal { flex: 999 1 1064px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .reg-linha-tempo { flex: 1 1 320px; max-width: 100%; }
 
 .reg-graf { display: block; }
@@ -510,11 +510,11 @@ body.com-selecao .aviso-status { bottom: 90px; }
 .reg-sistema { font-size: 12px; color: var(--texto-fraco); }
 
 .reg-tabela { overflow-x: auto; }
-/* Colunas: 892 px mínimos + 8 vãos de 8 + 20 de padding = 976. */
-.reg-grade { min-width: 980px; }
+/* rc.9 (D38), 10 colunas: 968 px mínimos + 9 vãos de 8 + 20 de padding = 1.060. */
+.reg-grade { min-width: 1064px; }
 .reg-cabeca, .reg-linha {
   display: grid; align-items: center; gap: 8px; padding: 0 10px;
-  grid-template-columns: 80px minmax(110px, 1.2fr) minmax(110px, 1fr) 84px 96px 76px 92px 148px 96px;
+  grid-template-columns: 72px minmax(100px, 1.2fr) minmax(100px, 1fr) 72px 84px 72px 92px 132px 112px 132px;
 }
 .reg-cabeca { min-height: 34px; border-bottom: 1px solid var(--borda); }
 .reg-ordem {
@@ -616,3 +616,13 @@ body.com-selecao .aviso-status { bottom: 90px; }
 @media (forced-colors: active) {
   .fila-ag-ponto { forced-color-adjust: none; }
 }
+
+/* ---------- rc.9: aba Registros (desvios D38 a D43) ---------- */
+.reg-ocultar { font-size: 12px; color: var(--texto-fraco); }
+.reg-fora-parado { color: var(--desc-fg); }
+
+/* ---------- rc.9: detalhe da fila com rolagem virtual (desvios D44): linhas de altura fixa ---------- */
+.fd-lista { overflow-anchor: none; }
+.fd-lista > .fd-item { flex: none; }
+.fd-lista .fd-quem, .fd-lista .fd-estado { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+.fd-lista .fd-item:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }

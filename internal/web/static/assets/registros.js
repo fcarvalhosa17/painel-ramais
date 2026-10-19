@@ -1,11 +1,12 @@
-// Aba Registros (CONTRATOS 4.7.2 a 4.7.5, desvios D21 e D27).
+// Aba Registros (CONTRATOS 4.7.2 a 4.7.5, desvios D21, D27 e D38 a D43).
 // Tabela por cursor: uma chamada por vez, a próxima 5 s depois que a anterior terminou, só com a aba e o
-// documento visíveis; full:true substitui a tabela, full:false substitui ou insere pelo número (nunca remove).
+// documento visíveis; full:true substitui a tabela, full:false substitui ou insere pelo número e tira a linha que
+// deixou de passar na regra de lista. Os relógios de "Fora do ar há" andam no tique de 1 s, sem rede.
 // Gráfico por hora (24 h) ou por dia (7 e 30 dias), linha do tempo do ramal e CSV montado no navegador.
 // Texto do servidor só por textContent.
 
 import { api } from "./conexao.js";
-import { SEM_GRUPO, compararGrupos, formatarNumero, normalizar, dataHora } from "./estado.js";
+import { SEM_GRUPO, compararGrupos, formatarNumero, normalizar, dataHora, horaMinuto, avisoPausa } from "./estado.js";
 import { janela } from "./lista.js";
 
 const $ = (id) => document.getElementById(id);
@@ -33,25 +34,81 @@ export const ROTULO_SINAL = {
 const dois = (n) => (n < 10 ? "0" : "") + n;
 const inteiro = (v) => (Number.isFinite(v) ? Math.trunc(v) : 0);
 const plural = (n, um, varios) => formatarNumero(n) + " " + (n === 1 ? um : varios);
+const ms = (iso) => (iso ? Date.parse(iso) : NaN);
 
-// Segundos fora do ar como a tela mostra (CONTRATOS 4.7): os fechados no período mais o intervalo aberto,
-// contado de max(início do intervalo, from) até agora.
-export function tempoFora(row, fromMs, agoraMs) {
+// Fim dos relógios (CONTRATOS 4.7): agora, ou a queda do AMI (state_unknown_since), quando o estado é desconhecido.
+export const fimRelogio = (agoraMs, desconhecidoDesde) => {
+  const t = ms(desconhecidoDesde);
+  return Number.isNaN(t) ? agoraMs : Math.min(t, agoraMs);
+};
+
+// Tempo total fora do ar no período (CONTRATOS 4.7): down_s + (down_count_from ? fim - max(down_count_from, from) : 0).
+export function tempoFora(row, fromMs, fimMs) {
   let s = inteiro(row.down_s);
-  const aberto = row.down_open_since ? Date.parse(row.down_open_since) : NaN;
+  const aberto = ms(row.down_count_from);
   if (!Number.isNaN(aberto)) {
     const inicio = Number.isFinite(fromMs) ? Math.max(aberto, fromMs) : aberto;
-    s += Math.max(0, (agoraMs - inicio) / 1000);
+    s += Math.max(0, (fimMs - inicio) / 1000);
   }
   return Math.floor(s);
 }
 
+// "Fora do ar há" em segundos: só para down_kind observed (os outros não têm relógio); null se não se aplica.
+export function foraHaSegundos(row, fimMs) {
+  const desde = ms(row.down_since);
+  if (row.down_kind !== "observed" || Number.isNaN(desde)) return null;
+  return Math.max(0, Math.floor((fimMs - desde) / 1000));
+}
+
+// Duração (D45): "X d HH h" a partir de 1 dia, "H h MM min" a partir de 1 hora, "M min SS s", "S s".
 export function formatarDuracao(s) {
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), seg = s % 60;
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), seg = s % 60;
+  if (d) return d + " d " + dois(h) + " h";
   if (h) return h + " h " + dois(m) + " min";
   if (m) return m + " min " + dois(seg) + " s";
   return seg + " s";
 }
+
+// Data e hora local "19/10/2026 13:42".
+export function dataCompleta(iso) {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return "";
+  return dois(d.getDate()) + "/" + dois(d.getMonth() + 1) + "/" + d.getFullYear() + " " + dois(d.getHours()) + ":" + dois(d.getMinutes());
+}
+
+// Data de "fora desde antes da instalação do painel" (decisão do usuário, rc.9): o "dados desde" do cabeçalho
+// (since = reg_meta.since); sem ele, a hora em que o painel viu o ramal fora (down_since).
+const dataInstalacao = (row, since) => since || row.down_since;
+
+// Textos de "Fora do ar há" (CONTRATOS 4.7.2): { curto (célula), longo (title, aria-label e detalhe), vivo }.
+// since: o "since" do cabeçalho da resposta (data da instalação, para before_install).
+export function textoForaHa(row, fimMs, since) {
+  const s = foraHaSegundos(row, fimMs);
+  if (s !== null) { const t = formatarDuracao(s); return { curto: t, longo: "fora do ar há " + t, vivo: true }; }
+  if (row.down_kind === "unknown_start" && row.down_since) {
+    return { curto: "antes de " + dataHora(row.down_since), longo: "fora desde antes de " + dataCompleta(row.down_since), vivo: false };
+  }
+  if (row.down_kind === "before_install" && row.down_since) {
+    return { curto: "antes da instalação", longo: "fora desde antes da instalação do painel (" + dataCompleta(dataInstalacao(row, since)) + ")", vivo: false };
+  }
+  return { curto: "", longo: "", vivo: false };
+}
+
+// "Último registro": exato "dd/mm/aaaa hh:mm"; inexato "antes de dd/mm/aaaa hh:mm"; nunca: vazio.
+export function textoUltimoRegistro(row) {
+  const t = dataCompleta(row.last_registered);
+  return !t ? "" : row.last_registered_exact ? t : "antes de " + t;
+}
+
+// Regra de lista da 4.7: algum dos quatro contadores, down_s > 0 ou down_since não nulo.
+export function passaLista(r) {
+  return inteiro(r.lost_registration) + inteiro(r.became_unreachable) + inteiro(r.registered) + inteiro(r.reachable_again) > 0
+    || inteiro(r.down_s) > 0 || !!r.down_since;
+}
+
+// Faixa da ordem padrão (D39): 0 fora com hora (observed, unknown_start), 1 antes da instalação, 2 o resto.
+export const faixaFora = (r) => (r.down_since && (r.down_kind === "observed" || r.down_kind === "unknown_start") ? 0
+  : r.down_since && r.down_kind === "before_install" ? 1 : 2);
 
 export const ipPorta = (ip, porta) => (ip ? ip + (porta != null ? ":" + porta : "") : "");
 
@@ -68,7 +125,8 @@ export function passaGrupo(row, grupo) {
 const BOM = String.fromCharCode(0xfeff);
 const CABECALHO_CSV = [
   "Ramal", "Nome", "Grupos", "Perdeu registro", "Ficou inalcançável", "Registrou", "Voltou a ser alcançável",
-  "Última queda", "Último IP", "Tempo fora do ar (s)", "Removido",
+  "Última queda", "Último IP", "Fora do ar há (s)", "Último registro", "Tempo total fora no período (s)",
+  "Lacuna no período", "Removido",
 ];
 
 // Célula de texto que começa com =, +, -, @, TAB ou CR ganha ' na frente (injeção de fórmula, antes das aspas);
@@ -86,16 +144,32 @@ function dataCsv(iso) {
     + dois(d.getHours()) + ":" + dois(d.getMinutes()) + ":" + dois(d.getSeconds());
 }
 
-// linhas: [{ r, fora }] já filtradas e ordenadas como na tela. UTF-8 com BOM, ";" e CRLF.
-export function gerarCsv(linhas) {
+// "Fora do ar há (s)": segundos (observed, na hora da exportação), texto (unknown_start, before_install) ou vazio.
+function foraHaCsv(r, fimMs, since) {
+  const s = foraHaSegundos(r, fimMs);
+  if (s !== null) return celulaCsv(s, false);
+  if (r.down_kind === "unknown_start" && r.down_since) return celulaCsv("antes de " + dataCsv(r.down_since));
+  if (r.down_kind === "before_install" && r.down_since) return celulaCsv("antes da instalação do painel (" + dataCsv(dataInstalacao(r, since)) + ")");
+  return "";
+}
+
+function ultimoRegistroCsv(r) {
+  const t = dataCsv(r.last_registered);
+  return celulaCsv(!t ? "" : r.last_registered_exact ? t : "antes de " + t);
+}
+
+// linhas: [{ r }] já filtradas e ordenadas como na tela; fromMs e fimMs: início do período e fim dos relógios
+// (agora, ou state_unknown_since); since: data da instalação (cabeçalho). UTF-8 com BOM, ";" e CRLF.
+export function gerarCsv(linhas, fromMs, fimMs, since) {
   const out = [CABECALHO_CSV.map((c) => celulaCsv(c)).join(";")];
-  for (const { r, fora } of linhas) {
+  for (const { r } of linhas) {
     out.push([
       celulaCsv(r.number), celulaCsv(r.name || ""), celulaCsv((r.groups || []).join(", ")),
       celulaCsv(inteiro(r.lost_registration), false), celulaCsv(inteiro(r.became_unreachable), false),
       celulaCsv(inteiro(r.registered), false), celulaCsv(inteiro(r.reachable_again), false),
       celulaCsv(dataCsv(r.last_drop_at)), celulaCsv(ipPorta(r.last_ip, r.last_port)),
-      celulaCsv(inteiro(fora), false), celulaCsv(r.removed ? "sim" : "não"),
+      foraHaCsv(r, fimMs, since), ultimoRegistroCsv(r), celulaCsv(tempoFora(r, fromMs, fimMs), false),
+      celulaCsv(r.down_gap || r.down_kind === "unknown_start" ? "sim" : "não"), celulaCsv(r.removed ? "sim" : "não"),
     ].join(";"));
   }
   return BOM + out.join("\r\n") + "\r\n";
@@ -131,13 +205,17 @@ const ORDENS = {
   registrou: { desc: true, f: (a, b) => a.registrou - b.registrou },
   queda: { desc: true, f: (a, b) => a.queda - b.queda },
   ip: { desc: false, f: (a, b) => texto(a.r.last_ip || "", b.r.last_ip || "") },
-  fora: { desc: true, f: (a, b) => a.fora - b.fora },
-  // Ordem inicial: perdeu registro + ficou inalcançável, maior primeiro (desempate: perdeu registro).
-  instab: { desc: true, f: (a, b) => a.perdeu + a.inalc - (b.perdeu + b.inalc) || a.perdeu - b.perdeu },
+  ultreg: { desc: true, f: (a, b) => a.ultreg - b.ultreg },
+  // Ordem padrão (CONTRATOS 4.7.2, D39): três faixas sempre nesta ordem; a direção vale só na faixa (a).
+  foraha: { desc: false, faixas: true },
 };
 function comparador({ chave, desc }) {
+  const numero = ORDENS.numero.f;
+  if (ORDENS[chave].faixas) {
+    return (a, b) => a.faixa - b.faixa || (a.faixa === 0 ? (desc ? b.desde - a.desde : a.desde - b.desde) : 0) || numero(a, b);
+  }
   const f = ORDENS[chave].f;
-  return (a, b) => (desc ? f(b, a) : f(a, b)) || ORDENS.numero.f(a, b);
+  return (a, b) => (desc ? f(b, a) : f(a, b)) || numero(a, b);
 }
 
 // Rótulos do gráfico: hora ("19/10 13h") ou dia ("19/10"); no eixo, a cada 6 h ou a cada 5 dias, mais o último.
@@ -177,7 +255,8 @@ function span(classe, pai, papel) {
 
 export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
   const el = {
-    grupo: $("reg-grupo"), busca: $("reg-busca"), exportar: $("reg-exportar"),
+    grupo: $("reg-grupo"), busca: $("reg-busca"), ocultar: $("reg-ocultar"), exportar: $("reg-exportar"),
+    avisoEstado: $("reg-aviso-estado"), avisoPausa: $("reg-aviso-pausa"),
     desde: $("reg-desde"), tabela: $("reg-tabela"), corpo: $("reg-corpo"), altura: $("reg-altura"),
     contagem: $("reg-contagem"), estado: $("reg-estado"), estadoTexto: $("reg-estado-texto"), repetir: $("reg-repetir"),
     grafTitulo: $("reg-graf-titulo"), grafNota: $("reg-graf-nota"), graf: $("reg-graf"), barras: $("reg-graf-barras"),
@@ -187,20 +266,22 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
   const rl = {
     painel: $("reg-linha"), num: $("rl-num"), nome: $("rl-nome"), removido: $("rl-removido"), grupos: $("rl-grupos"),
     perdeu: $("rl-perdeu"), inalc: $("rl-inalc"), registrou: $("rl-registrou"), voltou: $("rl-voltou"),
-    sistema: $("rl-sistema"), fora: $("rl-fora"), estado: $("rl-estado"), estadoTexto: $("rl-estado-texto"),
+    sistema: $("rl-sistema"), foraHa: $("rl-foraha"), ultReg: $("rl-ultreg"), fora: $("rl-fora"), estado: $("rl-estado"), estadoTexto: $("rl-estado-texto"),
     repetir: $("rl-repetir"), eventos: $("rl-eventos"), limite: $("rl-limite"), fechar: $("rl-fechar"),
   };
   const cabecalhos = [...el.tabela.querySelectorAll("[role=\"columnheader\"]")];
-  const filtro = { periodo: "24h", grupo: "", busca: "" };
-  let ordem = { chave: "instab", desc: true };
+  // ocultarAntes: filtro "Ocultar fora desde antes da instalação" (D40), desligado ao abrir a aba.
+  const filtro = { periodo: "24h", grupo: "", busca: "", ocultarAntes: false };
+  let ordem = { chave: "foraha", desc: false };
 
-  // Tabela: mapa número -> { r, chave de busca }; meta da última resposta (from em ms, since).
+  // Tabela: mapa número -> { r, chave de busca }; meta da última resposta (from em ms, since e o cabeçalho rc.9:
+  // paused_until, pause_reason, state_unknown_since).
   let mapa = new Map();
   let cursor = "";
   let meta = null;
   let carregou = false;
   let falhou = false;
-  let linhas = []; // filtradas e ordenadas: [{ r, fora, perdeu, inalc, registrou, queda, grupos }]
+  let linhas = []; // filtradas e ordenadas: [{ r, perdeu, inalc, registrou, queda, ultreg, grupos, faixa, desde }]
   const pool = [];
   let exportando = false;
 
@@ -245,19 +326,26 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
   }
 
   function aplicar(d) {
-    meta = { from: Date.parse(d.from), since: d.since || null };
+    meta = {
+      from: Date.parse(d.from), since: d.since || null,
+      pausadaAte: d.paused_until || null, motivoPausa: d.pause_reason || null, desconhecidoDesde: d.state_unknown_since || null,
+    };
     cursor = typeof d.cursor === "string" ? d.cursor : "";
     const rows = Array.isArray(d.rows) ? d.rows : [];
     if (d.full) mapa = new Map();
     let linhaMudou = false;
     for (const r of rows) {
       if (!r || typeof r.number !== "string") continue;
-      mapa.set(r.number, { r, chave: normalizar(r.number + " " + (r.name || "")) });
+      // full:false traz as linhas tocadas sem a regra de lista (4.7.2): a que deixou de passar sai do mapa
+      // (o ramal que voltou a registrar e não tem mais nada no período).
       if (r.number === linhaAberta) linhaMudou = true;
+      if (!passaLista(r)) { mapa.delete(r.number); continue; }
+      mapa.set(r.number, { r, chave: normalizar(r.number + " " + (r.name || "")) });
     }
     carregou = true;
     falhou = false;
     renderDesde();
+    renderAvisos();
     renderTabela();
     // CONTRATOS 4.7.3: relê a linha do tempo quando a linha do ramal chega num full:false.
     if (linhaMudou && !d.full) carregarLinha(false);
@@ -269,17 +357,32 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     el.desde.textContent = "Dados desde " + dataHora(meta.since) + (incompleto ? " (período incompleto)" : "");
   }
 
+  // Avisos do cabeçalho (D41, D42) na faixa da nota "Dados desde"; a pausa some sozinha quando a hora passa.
+  // Roda a cada tique: os dois têm role="status", então o texto só é escrito quando muda (senão o leitor de tela
+  // repetiria o aviso a cada segundo).
+  function renderAvisos() {
+    const desconhecido = meta && meta.desconhecidoDesde;
+    const estado = desconhecido
+      ? "Estado de registro desconhecido desde " + horaMinuto(desconhecido) + " (painel sem conexão com o Asterisk)" : "";
+    el.avisoEstado.hidden = !estado;
+    if (el.avisoEstado.textContent !== estado) el.avisoEstado.textContent = estado;
+    const pausa = meta ? avisoPausa(meta.pausadaAte, meta.motivoPausa, relogio()) : "";
+    el.avisoPausa.hidden = !pausa;
+    if (el.avisoPausa.textContent !== pausa) el.avisoPausa.textContent = pausa;
+  }
+  const fimAgora = () => fimRelogio(relogio(), meta && meta.desconhecidoDesde);
+
   // ---------- tabela ----------
   function renderTabela() {
-    const agora = relogio();
     const termo = normalizar(filtro.busca);
     const out = [];
     for (const { r, chave } of mapa.values()) {
       if (!passaGrupo(r, filtro.grupo) || (termo && !chave.includes(termo))) continue;
+      if (filtro.ocultarAntes && r.down_kind === "before_install") continue;
       out.push({
-        r, fora: tempoFora(r, meta && meta.from, agora), perdeu: inteiro(r.lost_registration),
-        inalc: inteiro(r.became_unreachable), registrou: inteiro(r.registered),
-        queda: Date.parse(r.last_drop_at) || 0, grupos: (r.groups || []).join(", "),
+        r, perdeu: inteiro(r.lost_registration), inalc: inteiro(r.became_unreachable), registrou: inteiro(r.registered),
+        queda: Date.parse(r.last_drop_at) || 0, ultreg: Date.parse(r.last_registered) || 0, grupos: (r.groups || []).join(", "),
+        faixa: faixaFora(r), desde: Date.parse(r.down_since) || 0,
       });
     }
     out.sort(comparador(ordem));
@@ -344,7 +447,7 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     const c = {
       grupos: span("", no, "cell"), perdeu: span("reg-dir", no, "cell"),
       inalc: span("reg-dir", no, "cell"), registrou: span("reg-dir", no, "cell"), queda: span("reg-mono", no, "cell"),
-      ip: span("reg-mono", no, "cell"), fora: span("reg-dir", no, "cell"),
+      ip: span("reg-mono", no, "cell"), foraHa: span("reg-dir", no, "cell"), ultReg: span("reg-mono", no, "cell"),
     };
     el.corpo.append(no);
     return { no, abrir, nome, removido, c };
@@ -352,6 +455,7 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
 
   function preencherLinha(ui, l, idx) {
     const r = l.r;
+    ui.r = r;
     ui.no.style.transform = "translateY(" + idx * ALTURA_LINHA + "px)";
     ui.no.setAttribute("aria-rowindex", String(idx + 2));
     ui.no.dataset.numero = r.number;
@@ -366,8 +470,24 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     ui.c.registrou.textContent = formatarNumero(l.registrou);
     ui.c.queda.textContent = dataHora(r.last_drop_at) || AUSENTE;
     ui.c.ip.textContent = ipPorta(r.last_ip, r.last_port) || AUSENTE;
-    ui.c.fora.textContent = l.fora ? formatarDuracao(l.fora) : AUSENTE;
-    ui.c.fora.classList.toggle("reg-fora-aberto", !!r.down_open_since);
+    pintarForaHa(ui.c.foraHa, r);
+    const ult = textoUltimoRegistro(r);
+    ui.c.ultReg.textContent = ult || AUSENTE;
+    if (ult) ui.c.ultReg.setAttribute("aria-label", "último registro " + ult); else ui.c.ultReg.removeAttribute("aria-label");
+  }
+
+  // "Fora do ar há" (D38, D41): relógio ao vivo; parado e acinzentado com o estado desconhecido (AMI fora).
+  function pintarForaHa(cel, r) {
+    const t = textoForaHa(r, fimAgora(), meta && meta.since);
+    if (cel.textContent !== (t.curto || AUSENTE)) cel.textContent = t.curto || AUSENTE;
+    const parado = t.vivo && !!(meta && meta.desconhecidoDesde);
+    cel.classList.toggle("reg-fora-aberto", t.vivo && !parado);
+    cel.classList.toggle("reg-fora-parado", parado);
+    if (t.longo) {
+      const longo = t.longo + (parado ? " (relógio parado: estado desconhecido)" : "");
+      cel.title = longo;
+      cel.setAttribute("aria-label", longo);
+    } else { cel.removeAttribute("title"); cel.removeAttribute("aria-label"); }
   }
 
   el.corpo.addEventListener("click", (e) => {
@@ -440,6 +560,12 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
   }
   for (const b of document.querySelectorAll("#reg-periodo .seg")) b.addEventListener("click", () => definirPeriodo(b.dataset.periodo));
 
+  el.ocultar.addEventListener("change", () => {
+    filtro.ocultarAntes = el.ocultar.checked;
+    el.corpo.scrollTop = 0;
+    renderTabela();
+  });
+
   let timerBusca = null;
   el.busca.addEventListener("input", () => {
     clearTimeout(timerBusca);
@@ -466,7 +592,7 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     // Deixa o navegador pintar o botão desabilitado antes de montar o arquivo.
     setTimeout(() => {
       try {
-        baixar(gerarCsv(copia), nomeArquivoCsv(filtro.periodo, new Date()));
+        baixar(gerarCsv(copia, meta ? meta.from : NaN, fimAgora(), meta && meta.since), nomeArquivoCsv(filtro.periodo, new Date()));
       } finally {
         exportando = false;
         el.exportar.textContent = "Exportar CSV";
@@ -573,6 +699,7 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
   }
 
   function fecharLinha() {
+    linhaTempo = null;
     rl.painel.hidden = true;
     linhaAberta = null;
     pedidoLinha++;
@@ -607,8 +734,12 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     }
   }
 
+  // Linha do tempo aberta: a linha e o cabeçalho da última resposta, para o relógio do tique (D43).
+  let linhaTempo = null;
+
   function renderLinhaTempo(d) {
     const x = d.extension || {};
+    linhaTempo = { x, from: Date.parse(d.from), desconhecidoDesde: d.state_unknown_since || null, since: d.since || null };
     rl.nome.textContent = x.name || "sem nome";
     rl.removido.hidden = !x.removed;
     rl.grupos.textContent = (x.groups || []).join(", ") || AUSENTE;
@@ -617,12 +748,27 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     rl.registrou.textContent = formatarNumero(inteiro(x.registered));
     rl.voltou.textContent = formatarNumero(inteiro(x.reachable_again));
     rl.sistema.textContent = formatarNumero(inteiro(x.system_events));
-    const fora = tempoFora(x, Date.parse(d.from), relogio());
-    rl.fora.textContent = (fora ? formatarDuracao(fora) : "0 s") + (x.down_open_since ? " (fora do ar agora)" : "");
+    rl.ultReg.textContent = textoUltimoRegistro(x) || AUSENTE;
+    pintarRelogiosLinha();
     const evs = Array.isArray(d.events) ? d.events : [];
     rl.eventos.replaceChildren(...evs.map(evento));
     rl.limite.hidden = evs.length < (inteiro(d.events_limit) || 200);
     estadoLinha(evs.length ? "" : "Nenhuma ocorrência guardada no período.", false);
+  }
+
+  // "Fora do ar há" (frase completa) e "Tempo fora do ar no período" com o sufixo de lacuna (CONTRATOS 4.7, D43).
+  function pintarRelogiosLinha() {
+    if (!linhaTempo) return;
+    const { x, from, desconhecidoDesde, since } = linhaTempo;
+    const fim = fimRelogio(relogio(), desconhecidoDesde);
+    const t = textoForaHa(x, fim, since);
+    const parado = t.vivo && !!desconhecidoDesde;
+    rl.foraHa.textContent = t.vivo ? t.curto + (parado ? " (parado: estado desconhecido)" : "") : t.longo || AUSENTE;
+    rl.foraHa.classList.toggle("reg-fora-aberto", t.vivo && !parado);
+    rl.foraHa.classList.toggle("reg-fora-parado", parado);
+    const sufixo = x.down_gap || x.down_kind === "unknown_start" ? " (com lacuna: painel parado)"
+      : x.down_kind === "before_install" ? " (conta desde a instalação do painel)" : "";
+    rl.fora.textContent = formatarDuracao(tempoFora(x, from, fim)) + sufixo;
   }
 
   function evento(e) {
@@ -646,10 +792,13 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
   });
 
   return {
-    // Aba Registros visível (e painel ativo) ou não.
+    // Aba Registros visível (e painel ativo) ou não. O filtro "Ocultar fora desde antes da instalação" volta
+    // desligado a cada abertura da aba (D40, não é lembrado).
     mostrar(sim) {
+      const abrindo = sim && !visivel;
       visivel = sim;
       if (!sim) { clearTimeout(timer); timer = null; return; }
+      if (abrindo) { filtro.ocultarAntes = false; el.ocultar.checked = false; }
       preencherGrupos();
       el.grafNota.textContent = filtro.grupo || TODOS;
       renderTabela();
@@ -670,6 +819,14 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     aoMudarCatalogo() {
       if (visivel) preencherGrupos();
     },
+    // Tique de 1 s com a aba visível: só os relógios das linhas desenhadas e da linha do tempo, sem reordenar e
+    // sem rede (a ordem é pela data, não pela duração); o aviso de pausa some quando a hora passa.
+    tique() {
+      if (!visivel) return;
+      for (const ui of pool) if (!ui.no.hidden && ui.r) pintarForaHa(ui.c.foraHa, ui.r);
+      pintarRelogiosLinha();
+      renderAvisos();
+    },
     // Saída do painel: para o ciclo e apaga o que o próximo usuário não deve ver.
     parar() {
       visivel = false;
@@ -686,6 +843,7 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
       el.barras.replaceChildren();
       el.eixo.replaceChildren();
       renderDesde();
+      renderAvisos();
       fecharLinha();
       renderTabela();
     },

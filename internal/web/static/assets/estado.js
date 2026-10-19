@@ -362,3 +362,27 @@ export function erroNomeFila(nome) {
   if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(n) || /[^\S ]/u.test(n)) return "O nome tem caractere invisível, de controle ou espaço especial.";
   return "";
 }
+
+// ---------- relatório de registro (rc.9, CONTRATOS 4.7, cabeçalho) ----------
+
+// Hora local "13:42".
+export function horaMinuto(iso) {
+  const d = iso ? new Date(iso) : null;
+  return !d || Number.isNaN(d.getTime()) ? "" : dois(d.getHours()) + ":" + dois(d.getMinutes());
+}
+
+// Aviso de pausa da contagem (desvios D42): só com paused_until no futuro (agora = relógio do navegador corrigido
+// pelo server_time); some quando a hora passa ou o campo volta null.
+export function avisoPausa(pausedUntil, motivo, agoraMs) {
+  const t = pausedUntil ? Date.parse(pausedUntil) : NaN;
+  if (Number.isNaN(t) || t <= agoraMs) return "";
+  return "Contagem de registros pausada até " + horaMinuto(pausedUntil) + (motivo === "asterisk_restart" ? " (Asterisk reiniciado)" : "");
+}
+
+// Rodapé da linha de grupo (rc.9, item 11, opção b do usuário): cada estado separado, com singular;
+// "inalcançáveis" só quando houver. "Desconhecido" fica fora. A ordem "Mais problemas" continua pela soma dos dois.
+export function textoProblemas(p) {
+  const nr = p.nao_registrado || 0, ina = p.inalcancavel || 0;
+  return formatarNumero(nr) + (nr === 1 ? " não registrado" : " não registrados")
+    + (ina ? " · " + formatarNumero(ina) + (ina === 1 ? " inalcançável" : " inalcançáveis") : "");
+}

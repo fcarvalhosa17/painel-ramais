@@ -3,7 +3,7 @@
 
 import {
   ESTADOS, SETA, DIRECAO, contagens, agregarGrupos, filtrar, formatarNumero, formatarPct, normalizar,
-  textoFaixas, direcoes, chamadaPrincipal, duracaoMs, formatarCronometro, outroLado, gruposDe,
+  textoFaixas, direcoes, chamadaPrincipal, duracaoMs, formatarCronometro, outroLado, gruposDe, textoProblemas,
 } from "./estado.js";
 import { Dados, atrasoReconexao } from "./dados.js";
 import { api, CanalAoVivo } from "./conexao.js";
@@ -166,6 +166,7 @@ const instabilidade = iniciarInstabilidade({
     trocarAba("registros");
     $("rl-fechar").focus();
   },
+  relogio: () => Date.now() + dados.desvioMs,
   aoSessaoEncerrada: () => semSessao(),
 });
 
@@ -254,6 +255,7 @@ function tique() {
   renderInfo();
   edicao.tique();
   chamadas.tique();
+  registros.tique();
 }
 
 // ---------- quadro: tudo que depende dos dados, num requestAnimationFrame ----------
@@ -353,7 +355,7 @@ function renderIndicadores() {
   $("ind-espera").textContent = leitura(totais.em_espera);
 }
 
-// ---------- coluna Grupos: barra empilhada, % registrados e "N com problema" ----------
+// ---------- coluna Grupos: barra empilhada, % registrados, "X não registrados" e "Y inalcançáveis" (item 11) ----------
 const linhasGrupo = new Map(); // nome ("" = Todos os ramais) -> nós da linha
 let chaveOrdemGrupos = "";
 
@@ -406,7 +408,7 @@ function renderGrupos() {
     ui.segs.forEach((s, i) => { s.style.width = w(larguras[i] || 0); });
     ui.n.textContent = formatarNumero(e.n);
     ui.reg.textContent = formatarPct(e.reg, e.n) + " registrados";
-    ui.alerta.textContent = formatarNumero(e.ruins) + " com problema";
+    ui.alerta.textContent = textoProblemas(e.p); // destaque e ordem continuam pela soma (ruins)
     ui.alerta.classList.toggle("grupo-alerta-forte", e.problema > 0.25);
     ui.b.setAttribute("aria-pressed", String(e.nome === filtros.grupo));
   }

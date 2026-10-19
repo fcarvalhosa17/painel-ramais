@@ -166,6 +166,7 @@
       <h2 id="inst-titulo" class="bloco-titulo">INSTABILIDADE DE REGISTRO (24 H)</h2>
       <span id="inst-grupo" class="bloco-nota">Todos os ramais</span>
     </div>
+    <p id="inst-pausa" class="bloco-nota" role="status" hidden></p>
     <ol id="inst-lista" class="inst-lista" aria-label="Ramais com mais quedas de registro nas últimas 24 horas"></ol>
     <div id="inst-estado" class="inst-estado" hidden>
       <p id="inst-estado-texto"></p>
@@ -272,8 +273,11 @@
       <span class="so-leitor">Buscar ramal nos registros</span>
       <input id="reg-busca" type="search" placeholder="Ramal ou nome" autocomplete="off" spellcheck="false">
     </label>
+    <label class="opcao reg-ocultar"><input id="reg-ocultar" type="checkbox"> <span>Ocultar fora desde antes da instalação</span></label>
     <button id="reg-exportar" class="botao" type="button" disabled>Exportar CSV</button>
     <span id="reg-desde" class="bloco-nota"></span>
+    <span id="reg-aviso-estado" class="bloco-nota reg-aviso" role="status" hidden></span>
+    <span id="reg-aviso-pausa" class="bloco-nota reg-aviso" role="status" hidden></span>
   </div>
 
   <div class="reg-colunas">
@@ -321,7 +325,8 @@
                 <span role="columnheader" aria-sort="none" data-chave="registrou" class="reg-dir"><button type="button" class="reg-ordem">Registrou</button></span>
                 <span role="columnheader" aria-sort="none" data-chave="queda"><button type="button" class="reg-ordem">Última queda</button></span>
                 <span role="columnheader" aria-sort="none" data-chave="ip"><button type="button" class="reg-ordem">Último IP</button></span>
-                <span role="columnheader" aria-sort="none" data-chave="fora" class="reg-dir"><button type="button" class="reg-ordem">Fora do ar</button></span>
+                <span role="columnheader" aria-sort="ascending" data-chave="foraha" class="reg-dir"><button type="button" class="reg-ordem">Fora do ar há</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="ultreg"><button type="button" class="reg-ordem">Último registro</button></span>
               </div>
             </div>
             <div id="reg-corpo" class="reg-corpo pr-scroll" role="rowgroup" tabindex="0" aria-label="Ramais com ocorrência">
@@ -352,7 +357,9 @@
         <dt>Registrou</dt><dd id="rl-registrou" class="mono"></dd>
         <dt>Voltou a ser alcançável</dt><dd id="rl-voltou" class="mono"></dd>
         <dt>Eventos do sistema</dt><dd id="rl-sistema" class="mono"></dd>
-        <dt>Fora do ar</dt><dd id="rl-fora" class="mono"></dd>
+        <dt>Fora do ar há</dt><dd id="rl-foraha" class="mono"></dd>
+        <dt>Último registro</dt><dd id="rl-ultreg" class="mono"></dd>
+        <dt>Tempo fora do ar no período</dt><dd id="rl-fora" class="mono"></dd>
       </dl>
       <h3 id="rl-titulo" class="dg-sub">Linha do tempo</h3>
       <div id="rl-estado" class="inst-estado" hidden>
@@ -453,10 +460,10 @@
         <p id="fd-lida" class="bloco-nota"></p>
         <button id="fd-renomear" class="botao fd-renomear" type="button" hidden>Renomear</button>
         <h3 class="dg-sub">Aguardando</h3>
-        <ol id="fd-espera" class="fd-lista" aria-label="Quem aguarda na fila"></ol>
+        <div id="fd-espera" class="fd-lista pr-scroll" role="list" aria-label="Quem aguarda na fila"></div>
         <p id="fd-espera-vazio" class="vazio" hidden>Ninguém aguardando.</p>
         <h3 class="dg-sub">Agentes</h3>
-        <ul id="fd-agentes" class="fd-lista" aria-label="Agentes da fila"></ul>
+        <div id="fd-agentes" class="fd-lista pr-scroll" role="list" aria-label="Agentes da fila"></div>
         <p id="fd-agentes-vazio" class="vazio" hidden>Fila sem agentes.</p>
       </section>
 

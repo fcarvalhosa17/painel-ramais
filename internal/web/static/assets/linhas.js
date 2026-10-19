@@ -133,6 +133,11 @@ export class ListaLinhas {
     this.irPara(Math.min(n - 1, Math.max(0, alvo)));
   }
 
+  // Só as linhas desenhadas: f(ui, item) troca o que mudou (o tempo ao vivo) sem remontar a lista nem reordenar.
+  paraVisiveis(f) {
+    for (const ui of this.pool) if (!ui.no.hidden && ui.item) f(ui, ui.item);
+  }
+
   // Leva o foco ao item i, rolando a janela o mínimo para ele aparecer.
   irPara(i) {
     this.focoChave = this.op.chave(this.itens[i]);
