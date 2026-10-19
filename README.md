@@ -76,7 +76,7 @@ de acesso direto só existem pelo `instalar.py`). Nenhum pacote do Issabel é de
 | `/usr/lib/systemd/system/painel-ramais.socket` | root 0644 | socket activation: `ListenStream=127.0.0.1:8790`; o systemd mantém a porta ocupada mesmo com o daemon parado ou em crash |
 | `/usr/lib/systemd/system/painel-ramais.service` | root 0644 | `Restart=always`; `Requires=painel-ramais.socket`; recebe o socket via `LISTEN_FDS` (fora do systemd, em desenvolvimento e testes, o daemon abre a porta sozinho) |
 | `/etc/httpd/conf.d/painel-ramais.conf` | root 0644 | gerado no `%post` a partir de `/usr/share/painel-ramais/httpd.conf.tmpl`; removido na desinstalação |
-| bloco `; BEGIN painel-ramais` em `/etc/asterisk/manager_custom.conf` | asterisk 0640 | usuário AMI e `eventfilter` (desde a rc.7 inclui `Event: Shutdown`, para o reinício do Asterisk não virar instabilidade); **nunca** se edita `manager.conf` |
+| bloco `; BEGIN painel-ramais` em `/etc/asterisk/manager_custom.conf` | asterisk 0640 | usuário AMI, `read = system,call,agent` e 29 `eventfilter` (desde a rc.7 inclui `Event: Shutdown`, para o reinício do Asterisk não virar instabilidade; desde a rc.8 inclui os onze eventos de fila e agente, só leitura: a classe `write` não muda); **nunca** se edita `manager.conf` |
 
 Se o `listen:` do `config.yaml` não for `127.0.0.1:8790`, o `%post` cria o drop-in `/etc/systemd/system/painel-ramais.socket.d/listen.conf` com o endereço certo (e o remove na desinstalação). Nenhuma porta nova é exposta: todo acesso passa pela 443 do Apache (`https://<servidor>/painel-ramais/`). `/debug` e
 `/api/health` ficam fora do proxy e só respondem em `127.0.0.1`.
@@ -151,7 +151,7 @@ painel-ramais version
 - `group import ... -` lê o CSV do stdin (o `/dev/stdin` também funciona no Linux).
 - `capturar` (decisão da homologação) grava frames brutos do AMI real, só com a allowlist, em arquivo novo (modo 0600; recusa sobrescrever): conecta, faz o snapshot e uma amostra de consultas de nome, grava o tráfego ao vivo por `--minutos` (fracionário; máx. 720; Ctrl-C encerra antes) e termina com um snapshot final. Segredos (`Secret`, `Password`, `Md5Cred`, `Challenge`…) saem sempre mascarados (`***`). `--anonimizar` troca números externos (sequências de pelo menos `--digitos-externos` dígitos), nomes e IPv4 por ficcionais, sempre o mesmo ficcional para o mesmo original; é melhor esforço (IPv6 não é tratado): revise o arquivo antes de compartilhar. Formato do arquivo: seção 18.
 - `session purge` apaga as sessões vencidas; `--all` apaga todas (todo mundo faz login de novo) e manda o SIGHUP para o daemon fechar os WebSockets. Imprime a quantidade removida.
-- `token` imprime o token no stdout e nada mais. `--ttl` máximo 60 s. Uso: testes e diagnóstico.
+- `token` imprime o token no stdout e nada mais. `--ttl` máximo 60 s. Uso: diagnóstico.
 - Depois de `user ...` ou `group ...` com sucesso, a CLI pega o PID com `systemctl show -p MainPID --value painel-ramais` e manda SIGHUP (mesmo usuário, não precisa de root). Daemon parado: avisa e sai 0. Falha no sinal: avisa `rode: systemctl reload painel-ramais` e sai 0 (o banco já foi gravado).
 - Códigos de saída: 0 sucesso; 1 erro de uso ou validação (mensagem cita a linha do CSV); 2 erro de ambiente (banco, arquivo, permissão); 3 `user add` de usuário que já existe (nada alterado). O 3 existe para o `instalar.py` ser idempotente sem ler o banco. Só no `serve`: 4 = Asterisk abaixo da versão mínima (13); a unit deve ter `RestartPreventExitStatus=4` para não reiniciar em laço.
 - `version` imprime uma linha `painel-ramais <versao> schema <user_version que o binário conhece>` (exemplo: `painel-ramais 0.1.1 schema 2`). O `instalar.py` usa o `schema` para decidir o rollback (seção 15.5).
@@ -183,6 +183,16 @@ O mesmo arquivo com `;` (`Suporte;2000-2099`) também é aceito, desde que o arq
 - A tela tem as abas Ramais e Registros. O bloco "Instabilidade de registro (24 h)" da aba Ramais mostra até 10 ramais que mais perderam registro ou ficaram inalcançáveis, filtrável por grupo. A aba Registros lista, por ramal, as ocorrências em 24 h, 7 dias ou 30 dias, com linha do tempo e exportação CSV (rotas `GET /api/registrations*`, só leitura, qualquer papel; contrato na seção 4.7 do `docs/CONTRATOS.md`).
 - Reinício do Asterisk (`Shutdown`, `FullyBooted` ou reconexão do AMI) abre uma janela de 120 s em que as transições não entram no ranking.
 - Os dados do relatório começam na instalação da rc.7 (a tela mostra "Dados desde ..."); não há histórico anterior. Retenção de 30 dias.
+
+### Tela: aba Chamadas e filas (rc.8)
+
+- A tela ganha a aba **Chamadas**, ao lado de Ramais e Registros, com a mesma permissão de antes (administrador e Operator, menu PBX).
+- Contadores no topo e três listas com rolagem virtual (sem teto de linhas): chamadas em andamento (uma linha por `Linkedid`, inclusive as que não passam por ramal, como tronco para fila), chamadas em espera nas filas e a lista de filas. Chamada por DAHDI, IAX2 ou Khomp deixa de aparecer como "Interna": a direção segue o inventário de ramais.
+- Painel de filas: por fila, quem aguarda e há quanto tempo, estado e pausa dos agentes, atendidas, abandonadas e nível de serviço; clicar na fila abre o detalhe. Tudo em memória, sem histórico de chamadas. As listas e "Chamadas ativas" navegam por teclado.
+- **Renomear fila: só administrador** (e só se o usuário ainda estiver no grupo `administrator` do `acl.db`). Rota `POST /api/queues/rename` (`{"queue":"600","name":"Suporte N1"}`; nome vazio apaga), `403` para outros papéis e `404` para fila fora da projeção. O nome fica na tabela `queue_names` (esquema 5); sem nome a tela mostra `Fila <número>`. Contrato na seção 4.8 do `docs/CONTRATOS.md`.
+- A única action nova no AMI é `QueueStatus` (somente leitura). Em Asterisk sem o módulo de filas a lista fica vazia, sem erro (`queues.unsupported` no health).
+- "Todos os ramais" passou a ser nome **proibido** de grupo (é o item fixo do seletor da tela), na tela, no CSV pela API e em `group import`. Grupo antigo com esse nome continua no banco e pode ser renomeado ou excluído. "+ Novo grupo" voltou ao seletor de destino.
+- O gravador do relatório de registro agora divide o lote em sublotes e nunca perde ocorrência em silêncio: o que falhar duas vezes é contado no health (`registrations.lost_events`) e vai para o log.
 
 ## 5. API consumida pela Fase 2
 
@@ -355,7 +365,9 @@ Enviado no lugar do replay quando não dá para continuar, ou para todos os clie
 ```
 
 - `deps[].status`: `ok`, `fail` ou `unknown` (por exemplo, sem permissão de leitura em `/etc/asterisk/manager.conf`). `unknown` também deixa o status em `degraded` e o `detail` diz o que fazer. Exceção deliberada: o `%post` tira o acesso de "outros" de `manager_custom.conf` (o-rwx, dono asterisk) e o serviço não entra no grupo asterisk; então `EACCES` ao ler `manager.conf` ou `manager_custom.conf` é esperado e o item `manager_custom_include` passa a `ok` se o Login AMI foi aceito (`detail`: "não legível pelo serviço (esperado, o-rwx); login AMI aceito confirma o usuário"), `fail` se o Login foi recusado e `unknown` se ainda não houve Login. Arquivo ausente continua `fail`.
-- `registrations` (rc.7): fila do gravador do relatório de registro (`queue_len`/`queue_cap`, `dropped` = ocorrências descartadas com a fila cheia, `write_errors` = lotes que falharam, `suppressed_until` = fim da janela de reinício do Asterisk, ou `null`). Não muda o `status`.
+- `registrations` (rc.7): fila do gravador do relatório de registro (`queue_len`/`queue_cap`, `dropped` = ocorrências descartadas com a fila cheia, `write_errors` = lotes que falharam, `suppressed_until` = fim da janela de reinício do Asterisk, ou `null`). Não muda o `status`. rc.8: `write_errors` conta sublotes perdidos; `lost_events` = ocorrências perdidas nesses sublotes desde a subida; `lost_since` e `lost_until` = menor e maior hora (RFC 3339) dessas ocorrências, ou `null` se nada se perdeu.
+- `live_calls` (rc.8): linhas da projeção de chamadas (pode diferir de `active_calls`, que não conta chamada só de DAHDI/IAX2).
+- `queues` (rc.8): `count` (filas na projeção), `last_full_at` (última `QueueStatus` completa lida, ou `null`), `refresh_errors` (leituras de fila que falharam desde a subida), `unsupported` (`true` se o Asterisk não tem o módulo de filas). Não muda o `status`.
 - `ami_user` vem do resultado do último Login da conexão única (não abre segunda conexão).
 - `events_per_s`: média dos últimos 60 s. `lag_ms`: agora menos a hora de leitura do último evento processado. `queue.overflows`: quantas vezes a fila encheu e forçou ressincronização (seção 11.3); `queue.len` e `queue.cap` são da fila do leitor AMI (a que pode estourar).
 
@@ -393,7 +405,7 @@ que o painel nunca usa, como `GetConfig` (leitura de segredos SIP e AMI) e `Modu
 `Hangup` e `MixMonitor` com o parâmetro `Command` (execução como o usuário `asterisk`, AST-2014-006). A mitigação é compensatória, não elimina o risco.
 
 **Controles compensatórios (obrigatórios):**
-1. Lista fixa de actions no código do cliente AMI do daemon: qualquer action fora dela é recusada **antes de chegar ao socket**, com log de erro, e há teste unitário (veja `docs/CONTRATOS.md` 7.1).
+1. Lista fixa de actions no código do cliente AMI do daemon: qualquer action fora dela é recusada **antes de chegar ao socket**, com log de erro, (veja `docs/CONTRATOS.md` 7.1). Na rc.8 a única action nova é `QueueStatus` (só leitura; `QueueReload`, `QueueReset` e as demais de fila continuam proibidas).
 2. `permit = 127.0.0.1/255.255.255.255` e `deny = 0.0.0.0/0.0.0.0` na conta; segredo `/etc/painel-ramais/ami-secret` com permissão 0600 e dono `painel-ramais`.
 3. Unit systemd endurecida: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `ReadWritePaths=/var/lib/painel-ramais` (só isso), `CapabilityBoundingSet=` vazio, `RestrictAddressFamilies`, `MemoryDenyWriteExecute`, `UMask=0077` e outras (veja `packaging/painel-ramais.service`).
    Para validar no laboratório: `systemd-analyze security painel-ramais` (a nota exposta é o ponto de partida; registre o resultado na homologação).
@@ -405,6 +417,8 @@ e o bloqueio de `X-Forwarded-*` em `/api/health` e `/debug`. Acesso externo: só
 
 ### RPM de rollback e instalador
 
+- **Atualização rc.6 para rc.8 (a rc.7 não foi instalada):** uma subida do daemon migra o banco do esquema 3 para o 5 (3 para 4, depois 4 para 5, cada um na sua transação) e guarda **um** backup, `painel.db.bak-v3`. O `%post` regrava o bloco AMI (`read = system,call,agent`, `Event: Shutdown` e os onze eventos de fila) e faz `manager reload`. De rc.7 para rc.8 só há 4 para 5, com backup `painel.db.bak-v4`.
+- **Rollback rc.8 para rc.6:** a rc.6 recusa banco de esquema 4 ou 5. O `./instalar.py rollback` restaura sozinho o `painel.db.bak-v3` (o banco atual fica como `painel.db.rollback-<data>`) e avisa antes de confirmar que serão perdidos: nomes de fila, vínculos de ramal em vários grupos, relatório de registros e tudo o que foi gravado depois da atualização (histórico, sessões, usuários, grupos). Sem o `.bak-v3`, o rollback não mexe em nada e sai com 2.
 - **Rollback rc.7 para rc.6:** a rc.7 usa o banco no esquema 4 e a rc.6 recusa abri-lo. O `./instalar.py rollback` restaura sozinho o `painel.db.bak-v3` (o banco 4 fica guardado como `painel.db.rollback-<data>`) e avisa antes de confirmar: vínculos de ramal em vários grupos, relatório de registros e tudo o que foi gravado depois da atualização (histórico, sessões, usuários, grupos) é perdido. Sem o `.bak-v3`, o rollback não mexe em nada e sai com 2.
 - O instalador guarda o RPM anterior em `/var/lib/painel-ramais-instalador/` (acessível só ao root, 0700), **aceito pelo usuário** (decisão 3). Antes do `rollback` confere o nome do pacote e o **SHA-256** gravado na instalação. `./instalar.py remover --purge` apaga esse diretório também.
 - O instalador roda como root e nunca lê nem grava como root em diretório do usuário do serviço: usa `runuser -u painel-ramais`, e o CSV de grupos vai pelo stdin da CLI. O `%post` edita o `manager_custom.conf` como o usuário `asterisk`.
@@ -546,17 +560,12 @@ Cada `.esperado.json` ao lado é o oráculo do ponto a ponto. Detalhes: `testdat
 
 ## 11. Desenvolvimento
 
-Windows, PowerShell: `.\build.ps1 build | test | rpm | bundle | all` (Go e nfpm do PATH ou de `.tools\`; `bundle` usa `python` para `tools/bundle.py`).
-Testes do instalador: `python -m unittest` (stdlib, Python 3.6+). Compatibilidade: `vermin --target=3.6- instalar.py tools/bundle.py`
-(venv local em `.tools\venv`, ignorado pelo git). Fim de linha LF em tudo que vai para o Linux: `tools\check-lf.ps1`.
+Windows, PowerShell: `.uild.ps1 build | rpm | bundle | all | release` (Go e nfpm do PATH ou de `.tools\`; `bundle` usa `python` para `tools/bundle.py`). O repositório não traz testes automatizados: o critério de pronto é compilar (`GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build ./...`) e a conferência no servidor, seguindo o `docs/homologacao/ROTEIRO-MANUAL.md`.
+Compatibilidade do instalador com Python 3.6: `vermin --target=3.6- instalar.py tools/bundle.py` (venv local em `.toolsenv`, ignorado pelo git). Fim de linha LF em tudo que vai para o Linux: `tools\check-lf.ps1`.
 
 ### O que não roda automaticamente
 
-Nada roda no GitHub além da publicação da release feita pelo `.\build.ps1 release` (único caminho de publicação). Consequências, a registrar como lacunas:
-
-- `go test -race` **não roda**: não há gcc local (o detector de corrida exige cgo). Os testes de Go e de Python (`go vet`, `go test ./...`, `python -m unittest`) rodam só localmente, antes de cada commit.
-- O teste de RPM em Rocky 8 (`rpm -i/-U/-e`, rc -> final) **deixa de rodar sozinho**. Só manual, num container Rocky: `tools/ci-build.sh <versao>` gera os RPMs e `tools/rpm-smoke.sh` os exercita.
-- Os testes de instalação, upgrade, rollback e carga reais são feitos **no servidor**, seguindo o `docs/homologacao/ROTEIRO-MANUAL.md`.
+Nada roda no GitHub além da publicação da release feita pelo `.uild.ps1 release` (único caminho de publicação). O teste de RPM em Rocky 8 (`rpm -i/-U/-e`) só roda manual, num container Rocky: `tools/ci-build.sh <versao>` gera os RPMs e `tools/rpm-smoke.sh` os exercita. Instalação, upgrade, rollback e carga reais são feitos **no servidor**.
 
 ### Ferramentas de build reproduzíveis (sem administrador)
 

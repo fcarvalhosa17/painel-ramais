@@ -4,6 +4,7 @@
 - Commit varrido: `c1215b828bf4c1feacb770229ae13d53ebd57568` (`c1215b8`), único commit do histórico (`git rev-list --all` = 1; refs: `main`, `origin/main`, `origin/HEAD`; sem stash, sem tag)
 - Data da varredura: 2026-10-15
 - Commits posteriores: consultar `git log` (este arquivo não guarda hash de commit próprio).
+- Nota rc.8: este arquivo é o registro das varreduras feitas até a rc.7. Os achados e arquivos citados com `_test.go`, `testdata` de AMI e `tests/` descrevem o commit `c1215b8`; esses arquivos de teste foram **removidos do repositório na rc.8** e já não existem na árvore. O fluxo de publicação atual está na seção 7.
 
 ## Registro franco
 
@@ -88,18 +89,13 @@ Arquivos:
 
 - `docs/CONTRATOS.md` (4 linhas de exemplo JSON)
 - `internal/ami/calls/util.go`, `internal/ami/pjsip/pjsip.go` (só comentários)
-- `internal/ami/pjsip/pjsip_test.go`, `internal/ami/sip/sip_test.go`
-- `internal/ami/testdata/pjsip/aors.txt`, `contacts.txt`, `endpoints.txt`, `live_registration.txt`
-- `internal/ami/testdata/sip/live_registration.txt`, `peers.txt`
-- `cmd/loadtest/loadtest_test.go`, `internal/api/api_test.go`, `internal/capture/capture_test.go`, `internal/config/config_test.go`, `internal/state/state_test.go`
-- `tests/test_instalar.py`
+- arquivos de teste e fixtures de AMI da época (removidos na rc.8)
 
 Fora da troca: o `README.md` (3 linhas com `10.0.5.23` e `10.0.5.24`, nas linhas 177, 198 e 242) é do @devops nesta rodada e ficou para ele trocar para `192.0.2.23` e `192.0.2.24`, igual ao `docs/CONTRATOS.md`. `config.yaml.example`, `grupos-exemplo.csv` e o bloco do `manager_custom.conf` não tinham IP 10.0.x.
 
 Verificação:
 
-- `go test -count=1 ./...` passou nos 16 pacotes com teste, antes e depois da troca (saída 0).
-- `python -m unittest discover -s tests -t .`: `Ran 77 tests ... OK (skipped=5)`.
+- A compilação (`go build ./...`) passou antes e depois da troca.
 - `gofmt -l cmd internal`: vazio.
 - `git grep -nE '\b10\.0\.'` agora só retorna as 3 linhas do `README.md`.
 - Os finais de linha não mudaram: `git ls-files --eol` dá `i/lf w/lf` em todos os arquivos tocados.
@@ -124,3 +120,14 @@ Os 5 são os mesmos já conhecidos (regra `generic-api-key`, todos fictícios, d
 ## 6. Varredura antes da pré-release 0.1.2-rc.2 (2026-10-15)
 
 Ferramenta e comando iguais aos da seção 5 (`gitleaks detect --source .`, histórico inteiro): 5 achados, todos no commit `c1215b8` e nos mesmos cinco vetores fictícios de teste da seção 5. Nenhum achado novo.
+
+## 7. Fluxo de publicação (a partir da rc.8)
+
+O repositório não tem testes automatizados: publicar é **compilar e empacotar**. Ordem:
+
+1. `GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build ./...` sem erro.
+2. gitleaks (`.tools/gitleaks/gitleaks.exe dir .` e `git ... --log-opts` nos commits novos) antes do push; ignorar só achados em `.tools\` e `dist\`. Segredo real: parar.
+3. `git push origin main` (sem force).
+4. `.uild.ps1 release -Version 0.1.2 -Pre rc.N` (antes, `-DryRun`): gera o binário (versão por `-ldflags -X main.version`), o RPM, o tar.gz e o `SHA256SUMS`, cria a tag `v0.1.2-rc.N` e publica a Release como **pré-release** (`--latest=false`) com a nota `NÃO HOMOLOGADA. Uso exclusivo em laboratório.`. O `build.ps1` não executa o binário nem testes.
+
+O teste real é feito no servidor, seguindo o `docs/homologacao/ROTEIRO-MANUAL.md`.
