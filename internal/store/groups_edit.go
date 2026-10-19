@@ -33,24 +33,41 @@ func (e *invalidError) Is(target error) bool { return target == ErrInvalid }
 
 func invalidf(format string, a ...any) error { return &invalidError{fmt.Sprintf(format, a...)} }
 
-// ValidGroupName e a regra unica de nome de grupo (CSV, tela e CLI): 1 a 64 caracteres, sem
-// controle/formatacao invisivel, sem espaco que nao seja o U+0020 (NBSP, U+3000...), sem espaco nas pontas
-// e diferente do nome reservado "Sem grupo".
-func ValidGroupName(name string) error {
+// AllGroupsName e o nome que a tela reserva para a visao de todos os ramais (D17 do desvios.md); a
+// partir da rc.8 o daemon recusa grupo novo com esse nome (CONTRATOS 9). Grupo antigo com o nome continua.
+const AllGroupsName = "Todos os ramais"
+
+// validLabel confere o texto de um rotulo dado por pessoa (nome de grupo, nome de fila): 1 a 64
+// caracteres, sem controle/formatacao invisivel, sem espaco que nao seja o U+0020 (NBSP, U+3000...) e sem
+// espaco nas pontas. what entra na mensagem ("nome do grupo", "nome da fila").
+func validLabel(name, what string) error {
 	if n := utf8.RuneCountInString(name); n < 1 || n > MaxGroupNameRunes {
-		return invalidf("nome do grupo deve ter de 1 a %d caracteres", MaxGroupNameRunes)
+		return invalidf("%s deve ter de 1 a %d caracteres", what, MaxGroupNameRunes)
 	}
 	if strings.ContainsFunc(name, badNameRune) {
-		return invalidf("nome do grupo com caractere de controle ou de formatacao invisivel")
+		return invalidf("%s com caractere de controle ou de formatacao invisivel", what)
 	}
 	if strings.ContainsFunc(name, func(r rune) bool { return r != ' ' && unicode.Is(unicode.Zs, r) }) {
-		return invalidf("nome do grupo so aceita o espaco comum (U+0020), nao NBSP, U+3000 ou outros espacos")
+		return invalidf("%s so aceita o espaco comum (U+0020), nao NBSP, U+3000 ou outros espacos", what)
 	}
 	if name != strings.TrimSpace(name) {
-		return invalidf("nome do grupo nao pode ter espaco nas pontas")
+		return invalidf("%s nao pode ter espaco nas pontas", what)
+	}
+	return nil
+}
+
+// ValidGroupName e a regra unica de nome de grupo (CSV, tela e CLI): validLabel mais os nomes
+// reservados "Sem grupo" e "Todos os ramais" (sem diferenciar maiusculas). Vale para o nome NOVO:
+// update e delete acham o grupo atual sem validar o nome dele.
+func ValidGroupName(name string) error {
+	if err := validLabel(name, "nome do grupo"); err != nil {
+		return err
 	}
 	if strings.EqualFold(name, noGroupName) {
 		return invalidf("%q e nome reservado", noGroupName)
+	}
+	if strings.EqualFold(name, AllGroupsName) {
+		return invalidf("%q e nome reservado", AllGroupsName)
 	}
 	return nil
 }
