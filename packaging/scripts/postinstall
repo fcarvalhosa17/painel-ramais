@@ -93,6 +93,15 @@ AMIEOF
 # que o proprio asterisk ja alcanca). Nada e gravado fora de /etc/asterisk.
 as_asterisk() { runuser -u asterisk -- "$@"; }
 
+# rc.9 (ADR-011 decisao 7): conferencia, so aviso, depois de gravar o bloco (ou de achar o bloco igual). O bloco do painel
+# tem de ter os 29 eventfilter (CONTRATOS 7.2); sem os de fila a entrada e a saida de agentes so aparece na reconciliacao
+# de 10 min. Le o arquivo como usuario asterisk. Nao muda nada.
+EVENTFILTERS_ESPERADOS=29
+conferir_filtros() {
+  N=$(as_asterisk cat "$MANAGER_CUSTOM" 2>/dev/null | sed -n "/^$BEGIN_MARK/,/^$END_MARK/p" | grep -c '^eventfilter = Event:')
+  [ "$N" = "$EVENTFILTERS_ESPERADOS" ] || warn "bloco AMI com $N eventfilter (esperado $EVENTFILTERS_ESPERADOS); rode ./instalar.py instalar de novo"
+}
+
 if [ -d /etc/asterisk ] && command -v runuser >/dev/null 2>&1 && getent passwd asterisk >/dev/null 2>&1; then
   TMPD=$(mktemp -d /run/painel-ramais-post.XXXXXX 2>/dev/null)
   if [ -z "$TMPD" ]; then
@@ -124,6 +133,7 @@ if [ -d /etc/asterisk ] && command -v runuser >/dev/null 2>&1 && getent passwd a
           else
             warn "asterisk nao encontrado; manager reload nao executado"
           fi
+          conferir_filtros
         else
           # a gravacao no lugar pode ter truncado o arquivo: $TMPD/orig e a unica copia do original, NAO apagar
           KEEP_TMPD=1
@@ -132,6 +142,7 @@ if [ -d /etc/asterisk ] && command -v runuser >/dev/null 2>&1 && getent passwd a
       else
         as_asterisk chmod o-rwx "$MANAGER_CUSTOM" 2>/dev/null
         log "bloco AMI ja atualizado"
+        conferir_filtros
       fi
     fi
     [ -n "$KEEP_TMPD" ] || rm -rf "$TMPD"

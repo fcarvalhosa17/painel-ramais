@@ -457,6 +457,84 @@ def c_perm_manager_custom():
     return (OK, "Permissao de manager_custom.conf", "modo %o" % (modo & 0o777))
 
 
+# rc.9 (ADR-011 decisoes 6 e 7): os 29 eventfilter do bloco do painel em manager_custom.conf, na ordem do bloco; copia
+# literal do packaging/scripts/postinstall (ami_block). O instalador nunca edita o arquivo (D9): so confere.
+EVENTOS_AMI = (
+    "ContactStatus",
+    "PeerStatus",
+    "DeviceStateChange",
+    "Newchannel",
+    "Newstate",
+    "NewCallerid",
+    "NewConnectedLine",
+    "DialBegin",
+    "DialEnd",
+    "BridgeEnter",
+    "BridgeLeave",
+    "Hangup",
+    "Hold",
+    "Unhold",
+    "Reload",
+    "ModuleLoadReport",
+    "FullyBooted",
+    "Shutdown",
+    "QueueCallerJoin",
+    "QueueCallerLeave",
+    "QueueCallerAbandon",
+    "QueueMemberStatus",
+    "QueueMemberPause",
+    "QueueMemberAdded",
+    "QueueMemberRemoved",
+    "AgentCalled",
+    "AgentConnect",
+    "AgentComplete",
+    "AgentRingNoAnswer",
+)
+
+
+def c_eventfilter():
+    """Confere o bloco do painel em manager_custom.conf contra os 29 eventfilter (CONTRATOS 7.2). Nunca ERRO."""
+    titulo = "Filtro de eventos AMI"
+    corrigir = ("Rode ./instalar.py instalar (o %%post regrava o bloco e faz manager reload) e depois "
+                "systemctl restart %s (o Asterisk copia o filtro para a sessao so no Login)." % PKG)
+    try:
+        with open(MANAGER_CUSTOM) as f:
+            txt = f.read()
+    except (OSError, IOError):
+        return (AVISO, titulo, "nao consegui ler %s. %s" % (MANAGER_CUSTOM, corrigir))
+    m = re.search(r"^; BEGIN painel-ramais.*?^; END painel-ramais\s*$", txt, flags=re.M | re.S)
+    if not m:
+        return (OK, titulo, "bloco do painel ausente (o pacote grava)")
+    tem = re.findall(r"^eventfilter\s*=\s*Event:\s*(\S+)\s*$", m.group(0), re.M)
+    faltam = [n for n in EVENTOS_AMI if n not in tem]
+    sobram = sorted(set(n for n in tem if n not in EVENTOS_AMI))
+    if faltam:
+        return (AVISO, "Filtro de eventos AMI do painel incompleto: faltam %s" % ", ".join(faltam), corrigir)
+    if sobram:
+        return (AVISO, "Filtro de eventos AMI do painel com nomes a mais: %s" % ", ".join(sobram), corrigir)
+    return (OK, titulo, "%d eventos no bloco do painel" % len(EVENTOS_AMI))
+
+
+def c_relogio():
+    """Relogio sincronizado? So AVISO, nunca ERRO (ADR-011 decisao 6): os tempos do painel dependem dele."""
+    titulo = "Relogio do servidor"
+    corrigir = "systemctl enable --now chronyd && chronyc makestep"
+    rc, out = run(["timedatectl", "show", "-p", "NTPSynchronized", "--value"])
+    v = out.strip().lower()
+    if rc == 0 and v in ("yes", "no"):
+        sincronizado = v == "yes"
+    else:
+        rc, out = run(["timedatectl"])
+        achou = re.search(r"(?:System clock synchronized|NTP synchronized):\s*(yes|no)", out, re.I) if rc == 0 else None
+        if not achou:
+            return (AVISO, "%s: nao consegui conferir se esta sincronizado" % titulo,
+                    "Confira com timedatectl. Para sincronizar: " + corrigir)
+        sincronizado = achou.group(1).lower() == "yes"
+    if sincronizado:
+        return (OK, titulo, "sincronizado")
+    return (AVISO, "%s nao esta sincronizado (os tempos do painel ficam errados)" % titulo, corrigir)
+
+
 # ---------------------------------------------------------------- item do menu do Issabel (PLANO secao 8c)
 
 MENU_ID = "painel_ramais"
@@ -712,7 +790,7 @@ def executar_checagens(rpm_bundle=None):
         if tec:
             r.extend(c_actions(tec))
             r.extend(c_eventos(tec))
-    r.extend([c_manager_include(), c_conflito_ami(), c_perm_manager_custom()])
+    r.extend([c_manager_include(), c_conflito_ami(), c_eventfilter(), c_relogio(), c_perm_manager_custom()])
     r.extend(c_httpd())
     r.extend([c_selinux(), c_porta(), c_disco(), c_painel(rpm_bundle)])
     r.extend(c_informativo())
@@ -1195,6 +1273,9 @@ def cmd_status(args):
         dizer(linha)
     for nivel, tit, det in (c_menu_item(), c_menu_permissoes(), c_menu_chave()):
         dizer("Menu:             %s %s%s" % (nivel, tit, (" - " + det) if det else ""))
+    # rc.9: so AVISO, nunca muda o codigo de saida (relogio e filtro de eventos AMI do bloco do painel)
+    for rotulo, (nivel, tit, det) in (("Relogio:          ", c_relogio()), ("Filtro AMI:       ", c_eventfilter())):
+        dizer("%s%s %s%s" % (rotulo, nivel, tit, (" - " + det) if det else ""))
     try:
         h = ler_health(ler_porta())
     except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
@@ -1205,6 +1286,7 @@ def cmd_status(args):
     dizer("AMI:              conectado=%s tecnologia=%s asterisk=%s" % (ami.get("connected"), ami.get("technology"), ami.get("asterisk_version")))
     dizer("Ramais:           " + json.dumps(h.get("extensions", {})))
     dizer("Clientes WS:      %s" % h.get("ws_clients", "?"))
+    dizer("Filas:            eventos recebidos " + json.dumps(h.get("queues", {}).get("events_received", {})))
     for d in h.get("deps", []):
         dizer("Dependencia %-24s %s  %s" % (d.get("name"), d.get("status"), d.get("detail", "")))
     return EXIT_OK if ativo and h.get("status") == "ok" else EXIT_FALHA
@@ -1265,10 +1347,17 @@ def cmd_rollback(args):
             raise Falha("O banco esta no esquema %d, mais novo que o da versao anterior (%d), e nao existe o backup %s. "
                         "Rollback nao e seguro; nada foi alterado." % (sch_db, sch_ant, bak))
         if sch_ant == 3 and sch_db >= 4:
-            # rc.7 ou rc.8 (esquema 4 ou 5) para a rc.6 (esquema 3): a rc.6 recusa abrir banco 4 ou 5, entao o .bak-v3 e restaurado sempre
+            # rc.7, rc.8 ou rc.9 (esquema 4 a 6) para a rc.6 (esquema 3): a rc.6 recusa abrir banco 4 ou mais, entao o .bak-v3 e restaurado sempre
             dizer("ATENCAO: voltando para a rc.6 (esquema 3); o banco esta no esquema %d. O banco volta ao estado de antes da "
-                  "atualizacao (%s). Os vinculos de ramal em mais de um grupo, o relatorio de registros, os nomes de fila e tudo o que "
-                  "foi gravado depois da atualizacao (historico, sessoes, usuarios e grupos) serao PERDIDOS." % (sch_db, os.path.basename(bak)))
+                  "atualizacao (%s). Os vinculos de ramal em mais de um grupo, o relatorio de registros, o estado de registro dos "
+                  "ramais (fora do ar e ultimo registro), os nomes de fila e tudo o que foi gravado depois da atualizacao "
+                  "(historico, sessoes, usuarios e grupos) serao PERDIDOS." % (sch_db, os.path.basename(bak)))
+        if sch_ant == 5 and sch_db >= 6:
+            # rc.9 (esquema 6) para a rc.8 (esquema 5): o .bak-v5 foi feito na subida da rc.9
+            dizer("ATENCAO: voltando para a rc.8 (esquema 5); o banco esta no esquema %d. O banco volta ao estado de antes da "
+                  "atualizacao para a rc.9 (%s). O estado de registro persistente dos ramais (fora do ar desde quando e ultimo "
+                  "registro, reg_state) e tudo o que foi gravado depois da atualizacao para a rc.9 (historico, relatorio de "
+                  "registros, sessoes, usuarios e grupos) serao PERDIDOS." % (sch_db, os.path.basename(bak)))
         dizer("ATENCAO: o banco sera trocado pelo backup %s. O historico, as sessoes e as mudancas de usuario e de grupo "
               "feitas depois do upgrade serao PERDIDOS." % os.path.basename(bak))
     dir_do_root_seguro(INSTALADOR_DIR)
