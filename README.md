@@ -119,29 +119,30 @@ cd painel-ramais-<versao>
 Antes de atualizar, faça uma cópia do banco do painel. Como root:
 
 ```sh
-systemctl stop painel-ramais.service
+systemctl stop painel-ramais.socket painel-ramais.service
 runuser -u painel-ramais -- sh -c 'cd /var/lib/painel-ramais && B=painel.db.antes-$(date +%Y%m%d) && cp -p painel.db $B && for s in -wal -shm; do [ -e painel.db$s ] && cp -p painel.db$s $B$s; done; ls -l painel.db*'
 cd /root/painel-ramais && git pull && ./instalar.py instalar --pre
+systemctl is-active painel-ramais.socket || systemctl start painel-ramais.socket
 ```
 
 A cópia fica como `painel.db.antes-AAAAMMDD` (com a data do dia) na mesma pasta do banco. Por que fazer assim:
 
-- O serviço é parado antes para ninguém gravar no banco durante a cópia. Assim a cópia fica consistente.
+- O serviço e o socket (`painel-ramais.socket`, que guarda a porta do painel e religaria o serviço sozinho se alguém abrisse a tela) são
+  parados antes para ninguém gravar no banco durante a cópia. Assim a cópia fica consistente.
 - O banco é SQLite: dados recentes podem estar ainda no arquivo `painel.db-wal`. Por isso a cópia leva junto o `-wal` e o `-shm`,
   quando existem.
 - `cp -p` mantém dono, permissões e datas. A cópia roda como o usuário do serviço (`runuser -u painel-ramais`) para não deixar
   arquivo de root dentro da pasta do painel.
 - O `ls -l` no fim deve listar a cópia (e o `-wal` e o `-shm`, se havia) com o mesmo tamanho do original.
 
-Cuidado: mesmo com o serviço parado, o systemd continua reservando a porta do painel (`painel-ramais.socket`). Se alguém abrir a tela
-durante a cópia, o systemd religa o serviço sozinho. Feche as telas do painel antes e, depois da cópia, rode
-`systemctl is-active painel-ramais.service`: deve dizer `inactive`. Se disser `active`, pare de novo e refaça a cópia.
+Com o socket parado a tela do painel fica fora do ar durante a cópia; é o esperado. O `instalar.py` religa o socket e o serviço no fim.
+A última linha do bloco só confere isso: o socket deve voltar a `active`.
 
 Depois da cópia:
 
-- Não precisa religar o serviço: o `instalar.py` religa sozinho no fim da instalação.
+- Não precisa religar nada: o `instalar.py` religa o socket e o serviço sozinho no fim da instalação.
 - Se o `instalar.py` parar antes de instalar o pacote (por exemplo, `verificar` com `ERRO` ou sem acesso ao GitHub), o serviço
-  continua parado. Religue com `systemctl start painel-ramais.service` e corrija o problema antes de tentar de novo.
+  continua parado. Religue com `systemctl start painel-ramais.socket painel-ramais.service` e corrija o problema antes de tentar de novo.
 - O banco é convertido para o formato da versão nova na primeira subida, e o próprio painel guarda um backup automático
   (`painel.db.bak-v<N>`), usado pelo rollback (seção 7).
 - Atualizando da rc.8 para a rc.9, o banco passa do esquema 5 para o 6 e o painel guarda sozinho `painel.db.bak-v5` na primeira
@@ -174,6 +175,35 @@ cd /root/painel-ramais
 - Ao voltar da rc.8 para a rc.6 (só quando a rc.8 é a versão anterior guardada) **perde-se**: os nomes de fila, os vínculos de ramal em mais de um grupo, o relatório de registros
   e tudo o que foi gravado depois da atualização (histórico, sessões, usuários e grupos). O instalador avisa isso antes de pedir a
   confirmação.
+
+### Restaurar a copia manual do painel.db
+
+Use só se a atualização deu errado e você quer o banco exatamente como estava na cópia feita na seção 6. Isso **perde tudo o que foi
+gravado depois da cópia**. Como root (troque `AAAAMMDD` pela data da sua cópia):
+
+```sh
+systemctl stop painel-ramais.socket painel-ramais.service
+cd /var/lib/painel-ramais
+C=painel.db.antes-AAAAMMDD
+ls -l $C*
+for s in "" -wal -shm; do [ -e painel.db$s ] && mv painel.db$s painel.db.antes-restauracao-$(date +%Y%m%d)$s; done
+runuser -u painel-ramais -- sh -c 'for s in "" -wal -shm; do [ -e "$1$s" ] && cp -p "$1$s" "painel.db$s"; done; ls -l painel.db*' sh "$C"
+systemctl start painel-ramais.socket painel-ramais.service
+systemctl is-active painel-ramais.socket painel-ramais.service
+cd /root/painel-ramais && ./instalar.py status
+curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:8790/api/health
+```
+
+- O `ls -l $C*` tem de listar a cópia (e o `-wal` e o `-shm`, se foram copiados). Se não listar nada, pare: não há o que restaurar.
+- O banco atual não é apagado: vira `painel.db.antes-restauracao-<data>` (com o `-wal` e o `-shm`, se havia). Os arquivos `-wal` e `-shm`
+  atuais saem do lugar de propósito: um `-wal` que não é da cópia, deixado ao lado do banco restaurado, pode ser reaplicado sobre ele e
+  misturar dados. Só voltam ao lugar os `-wal` e `-shm` que existiam na cópia.
+- Depois do `ls -l` final, `painel.db` (e `-wal`/`-shm`, se voltaram) deve ter dono `painel-ramais` e grupo `painel-ramais`. Se não
+  tiver: `chown painel-ramais:painel-ramais painel.db*`.
+- Os dois serviços ficam habilitados no boot: o socket guarda a porta e o serviço (que depende do socket) mantém a coleta do AMI.
+  Por isso sobem os dois, e o `is-active` deve responder `active` duas vezes.
+- Se o banco restaurado for de um formato mais antigo que o painel instalado, o painel o converte de novo na subida e guarda um novo
+  `painel.db.bak-v<N>`. Se for de um formato mais novo, o painel recusa abrir o banco (volte antes a versão, seção 7).
 
 ### Remover o painel
 

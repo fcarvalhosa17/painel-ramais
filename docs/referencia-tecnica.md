@@ -532,7 +532,7 @@ Para acompanhar a memória em produção, use `./instalar.py status` (seção "A
 ## 11. Desenvolvimento
 
 Windows, PowerShell: `.\build.ps1 build | rpm | bundle | all | release` (Go e nfpm do PATH ou de `.tools\`; `bundle` usa `python` para `tools/bundle.py`). O repositório não traz testes automatizados: o critério de pronto é compilar (`GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build ./...`) e a conferência no servidor, seguindo o `docs/homologacao/ROTEIRO-MANUAL.md`.
-Compatibilidade do instalador com Python 3.6: `vermin --target=3.6- instalar.py tools/bundle.py` (venv local em `.toolsenv`, ignorado pelo git). Fim de linha LF em tudo que vai para o Linux: `tools\check-lf.ps1`.
+Compatibilidade do instalador com Python 3.6: `vermin --target=3.6- instalar.py tools/bundle.py` (venv local em `.tools\venv`, ignorado pelo git). Fim de linha LF em tudo que vai para o Linux: `tools\check-lf.ps1`.
 
 ### O que não roda automaticamente
 

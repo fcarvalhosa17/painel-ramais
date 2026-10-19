@@ -128,7 +128,7 @@ O repositório não tem testes automatizados: publicar é **compilar e empacotar
 1. `GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build ./...` sem erro.
 2. gitleaks (`.tools/gitleaks/gitleaks.exe dir .` e `git ... --log-opts` nos commits novos) antes do push; ignorar só achados em `.tools\` e `dist\`. Segredo real: parar.
 3. `git push origin main` (sem force).
-4. `.uild.ps1 release -Version 0.1.2 -Pre rc.N` (antes, `-DryRun`): gera o binário (versão por `-ldflags -X main.version`), o RPM, o tar.gz e o `SHA256SUMS`, cria a tag `v0.1.2-rc.N` e publica a Release como **pré-release** (`--latest=false`) com a nota `NÃO HOMOLOGADA. Uso exclusivo em laboratório.`. O `build.ps1` não executa o binário nem testes.
+4. `.\build.ps1 release -Version 0.1.2 -Pre rc.N` (antes, `-DryRun`): gera o binário (versão por `-ldflags -X main.version`), o RPM, o tar.gz e o `SHA256SUMS`, cria a tag `v0.1.2-rc.N` e publica a Release como **pré-release** (`--latest=false`) com a nota `NÃO HOMOLOGADA. Uso exclusivo em laboratório.`. O `build.ps1` não executa o binário nem testes.
 
 O teste real é feito no servidor, seguindo o `docs/homologacao/ROTEIRO-MANUAL.md`.
 
