@@ -1,7 +1,7 @@
 # Equivalente ao Makefile. Uso: .\build.ps1 [build|test|rpm|bundle|all|release] [-Version 0.1.1] [-Pre rc.N] [-DryRun]
 # Pre-release: -Version 0.1.2 -Pre rc.1 (ou -Version 0.1.2-rc.1). Tag v0.1.2-rc.1; RPM Version 0.1.2, Release 0.1.rc.1
 # (rpmvercmp: 0.1.2-1 final > 0.1.2-0.1.rc.1 > 0.1.1-1; sem til no nome do arquivo, que o GitHub reescreve). Release com --prerelease.
-# release: testa, gera RPM + tar.gz + dist/SHA256SUMS, cria a tag v<Version> e publica a Release via gh. Com -DryRun nao cria tag nem Release.
+# release: gera RPM + tar.gz + dist/SHA256SUMS (so compila e empacota; nao roda go test), cria a tag v<Version> e publica a Release via gh. Com -DryRun nao cria tag nem Release.
 # Ferramentas: go e nfpm do PATH ou de .tools\ (go\bin\go.exe, nfpm.exe, nfpm\nfpm.exe).
 param(
     [ValidateSet('build', 'test', 'rpm', 'bundle', 'all', 'release')][string]$Target = 'build',
@@ -103,7 +103,7 @@ function Release {
     & $gh auth status *> $null
     if ($LASTEXITCODE -ne 0) { Falha 'gh nao autenticado (rode: gh auth login).' } else { Write-Host '[ok] gh autenticado' }
 
-    Test; Rpm; Bundle
+    Rpm; Bundle
 
     $rpm = "painel-ramais-$Version-$Rel.x86_64.rpm"
     $tgz = "painel-ramais-$Full.tar.gz"
@@ -147,7 +147,7 @@ try {
         'test'  { Test }
         'rpm'   { Rpm }
         'bundle' { Rpm; Bundle }
-        'all'   { Test; Rpm; Bundle }
+        'all'   { Rpm; Bundle }
         'release' { Release }
     }
 }
