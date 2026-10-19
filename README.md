@@ -230,7 +230,7 @@ Tabela de problemas comuns e onde olhar: `docs/referencia-tecnica.md`, seção 7
   leitura, o cadastro do menu (`/var/www/db/menu.db`, para saber se o item existe) e as permissões (`/var/www/db/acl.db`, para saber
   quem é do grupo administrator).
 
-O que ele acrescenta ao servidor, além do próprio serviço, e que a remoção desfaz (seção 7):
+O que ele acrescenta ao servidor, além do próprio serviço (a remoção, seção 7, desfaz tudo menos o ajuste do SELinux):
 
 - o arquivo próprio do Apache `/etc/httpd/conf.d/painel-ramais.conf`;
 - o item **Painel de Ramais** no menu PBX, registrado com a ferramenta do Issabel (`issabel-menumerge`), e o módulo em
