@@ -67,7 +67,7 @@ func ValidNumber(number string) error {
 }
 
 // normalizeRanges valida e devolve as faixas ordenadas por inicio. Sobreposicao entre as
-// proprias faixas e entrada invalida; sobreposicao com OUTRO grupo e conflito (checkRangeConflicts).
+// proprias faixas do grupo e entrada invalida; faixas de grupos diferentes podem se sobrepor (ADR-006).
 func normalizeRanges(in []Range) ([]Range, error) {
 	if len(in) > MaxGroupRanges {
 		return nil, invalidf("no maximo %d faixas por grupo", MaxGroupRanges)
@@ -117,45 +117,6 @@ func findGroup(ctx context.Context, tx *sql.Tx, name string) (int64, string, err
 	return id, stored, err
 }
 
-// checkRangeConflicts recusa faixa que cruza faixa de OUTRO grupo (exceptID); lista ate 20 conflitos.
-func checkRangeConflicts(ctx context.Context, tx *sql.Tx, rs []Range, exceptID int64) error {
-	const maxMsgs = 20
-	var msgs []string
-	total := 0
-	for _, r := range rs {
-		rows, err := tx.QueryContext(ctx, `SELECT g.name, x.range_start, x.range_end FROM group_ranges x
-			JOIN groups g ON g.id = x.group_id WHERE x.group_id <> ? AND x.range_start <= ? AND ? <= x.range_end`,
-			exceptID, r.End, r.Start)
-		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			var name string
-			var a, b int64
-			if err := rows.Scan(&name, &a, &b); err != nil {
-				rows.Close()
-				return err
-			}
-			total++
-			if len(msgs) < maxMsgs {
-				msgs = append(msgs, fmt.Sprintf("%d-%d sobrepoe %d-%d do grupo %q", r.Start, r.End, a, b, name))
-			}
-		}
-		err = rows.Err()
-		rows.Close()
-		if err != nil {
-			return err
-		}
-	}
-	if total == 0 {
-		return nil
-	}
-	if total > maxMsgs {
-		msgs = append(msgs, fmt.Sprintf("... e mais %d", total-maxMsgs))
-	}
-	return fmt.Errorf("%w:\n%s", ErrOverlap, strings.Join(msgs, "\n"))
-}
-
 func insertRanges(ctx context.Context, tx *sql.Tx, gid int64, rs []Range) error {
 	for _, r := range rs {
 		if _, err := tx.ExecContext(ctx, "INSERT INTO group_ranges(group_id, range_start, range_end) VALUES(?,?,?)",
@@ -178,7 +139,7 @@ func uniqueToExists(err error, name string) error {
 }
 
 // CreateGroup cria o grupo e suas faixas (opcionais) numa transacao, com a auditoria.
-// ErrExists se o nome ja existe (sem diferenciar maiusculas), ErrOverlap se uma faixa cruza outro grupo.
+// ErrExists se o nome ja existe (sem diferenciar maiusculas). Faixa que cruza a de OUTRO grupo e aceita.
 func (s *Store) CreateGroup(ctx context.Context, subject, name string, ranges []Range, now time.Time) error {
 	if err := ValidGroupName(name); err != nil {
 		return err
@@ -196,9 +157,6 @@ func (s *Store) CreateGroup(ctx context.Context, subject, name string, ranges []
 	case err == nil:
 		return fmt.Errorf("%w: %q", ErrExists, name)
 	case !errors.Is(err, ErrNotFound):
-		return err
-	}
-	if err := checkRangeConflicts(ctx, tx, rs, 0); err != nil {
 		return err
 	}
 	var gid int64
@@ -222,7 +180,7 @@ type GroupEdit struct {
 }
 
 // UpdateGroup renomeia e/ou troca as faixas do grupo numa transacao so, com a auditoria; devolve
-// o nome final. Renomear leva o historico junto (history.group_name). ErrNotFound, ErrExists, ErrOverlap.
+// o nome final. Renomear leva o historico junto (history.group_name). ErrNotFound, ErrExists.
 func (s *Store) UpdateGroup(ctx context.Context, subject, name string, ed GroupEdit, now time.Time) (string, error) {
 	if ed.NewName == nil && ed.Ranges == nil {
 		return "", invalidf("informe new_name ou ranges")
@@ -273,9 +231,6 @@ func (s *Store) UpdateGroup(ctx context.Context, subject, name string, ed GroupE
 			return "", err
 		}
 		if !sameRanges(have, rs) {
-			if err := checkRangeConflicts(ctx, tx, rs, gid); err != nil {
-				return "", err
-			}
 			// O trigger group_ranges_immutable barra UPDATE; DELETE + INSERT na mesma transacao.
 			if _, err := tx.ExecContext(ctx, "DELETE FROM group_ranges WHERE group_id = ?", gid); err != nil {
 				return "", err
@@ -330,11 +285,16 @@ func renameHistory(ctx context.Context, tx *sql.Tx, from, to string) error {
 		args []any
 	}{
 		{`UPDATE history AS d SET registered = d.registered + o.registered, unregistered = d.unregistered + o.unregistered,
-			unreachable = d.unreachable + o.unreachable, in_call = d.in_call + o.in_call
+			unreachable = d.unreachable + o.unreachable, in_call = d.in_call + o.in_call,
+			lost_registration = CASE WHEN d.lost_registration IS NULL AND o.lost_registration IS NULL THEN NULL
+				ELSE COALESCE(d.lost_registration, 0) + COALESCE(o.lost_registration, 0) END,
+			became_unreachable = CASE WHEN d.became_unreachable IS NULL AND o.became_unreachable IS NULL THEN NULL
+				ELSE COALESCE(d.became_unreachable, 0) + COALESCE(o.became_unreachable, 0) END
 			FROM history AS o WHERE d.group_name = ? AND o.group_name = ? AND d.minute = o.minute AND d.gap = 0 AND o.gap = 0`,
 			[]any{to, from}},
 		{`UPDATE history AS d SET registered = o.registered, unregistered = o.unregistered,
-			unreachable = o.unreachable, in_call = o.in_call, gap = 0
+			unreachable = o.unreachable, in_call = o.in_call, gap = 0,
+			lost_registration = o.lost_registration, became_unreachable = o.became_unreachable
 			FROM history AS o WHERE d.group_name = ? AND o.group_name = ? AND d.minute = o.minute AND d.gap = 1 AND o.gap = 0`,
 			[]any{to, from}},
 		{`DELETE FROM history WHERE group_name = ? AND minute IN (SELECT minute FROM history WHERE group_name = ?)`,
@@ -374,49 +334,79 @@ func (s *Store) DeleteGroup(ctx context.Context, subject, name string, now time.
 	return tx.Commit()
 }
 
-// AssignGroup aplica o vinculo manual a todos os numeros numa transacao so (tudo ou nada). group:
-// nil remove o vinculo manual (o ramal volta para a faixa); "Sem grupo" fixa "Sem grupo" manual
-// (vence a faixa); outro nome fixa esse grupo (ErrNotFound se nao existe, e nada e aplicado).
-// Devolve quantos ramais mudaram de fato; sem mudanca nao grava nem audita.
-func (s *Store) AssignGroup(ctx context.Context, subject string, numbers []string, group *string, now time.Time) (int, error) {
+// MaxAssignGroups e MaxAssignPairs limitam uma atribuicao em massa (CONTRATOS 4.6).
+const (
+	MaxAssignGroups = 20
+	MaxAssignPairs  = 100_000 // ramais x grupos
+)
+
+// validNumbers confere a lista de ramais de uma atribuicao: de 1 a MaxAssignNumbers, cada um valido, sem repeticao.
+func validNumbers(numbers []string) error {
 	if len(numbers) < 1 || len(numbers) > MaxAssignNumbers {
-		return 0, invalidf("numbers deve ter de 1 a %d ramais", MaxAssignNumbers)
+		return invalidf("numbers deve ter de 1 a %d ramais", MaxAssignNumbers)
 	}
 	seen := make(map[string]struct{}, len(numbers))
 	for _, n := range numbers {
 		if err := ValidNumber(n); err != nil {
-			return 0, err
+			return err
 		}
 		if _, dup := seen[n]; dup {
-			return 0, invalidf("ramal %q repetido em numbers", n)
+			return invalidf("ramal %q repetido em numbers", n)
 		}
 		seen[n] = struct{}{}
+	}
+	return nil
+}
+
+// validAssignGroup confere o nome de um grupo numa atribuicao: 1 a 64 caracteres e diferente de "Sem grupo"
+// (que nao e grupo: e onde fica o ramal sem nenhum vinculo). Grupo inexistente e ErrNotFound (404), la na transacao.
+func validAssignGroup(name string) error {
+	if n := utf8.RuneCountInString(name); n < 1 || n > MaxGroupNameRunes {
+		return invalidf("nome do grupo deve ter de 1 a %d caracteres", MaxGroupNameRunes)
+	}
+	if strings.EqualFold(name, noGroupName) {
+		return invalidf("%s não é grupo: é onde fica o ramal sem nenhum vínculo", noGroupName)
+	}
+	return nil
+}
+
+// AddToGroups cria o vinculo MANUAL de cada ramal com cada grupo, numa transacao so (tudo ou nada).
+// So acrescenta: o par que ja existe nao conta e nao e regravado. O ramal que ja esta no grupo pela
+// faixa recebe o vinculo mesmo assim (passa a valer se a faixa mudar). Devolve os pares gravados agora;
+// zero nao grava nem audita. ErrNotFound se algum grupo nao existe (nada e aplicado).
+func (s *Store) AddToGroups(ctx context.Context, subject string, numbers, groups []string, now time.Time) (int, error) {
+	if err := validNumbers(numbers); err != nil {
+		return 0, err
+	}
+	if len(groups) < 1 || len(groups) > MaxAssignGroups {
+		return 0, invalidf("groups deve ter de 1 a %d grupos", MaxAssignGroups)
+	}
+	if len(numbers)*len(groups) > MaxAssignPairs {
+		return 0, invalidf("ramais x grupos acima de %d por pedido", MaxAssignPairs)
+	}
+	seen := make(map[string]struct{}, len(groups))
+	for _, g := range groups {
+		if err := validAssignGroup(g); err != nil {
+			return 0, err
+		}
+		if _, dup := seen[nameKey(g)]; dup {
+			return 0, invalidf("grupo %q repetido em groups", g)
+		}
+		seen[nameKey(g)] = struct{}{}
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback()
-	var gid any // nil = NULL = "Sem grupo" manual
-	var label any
-	switch {
-	case group == nil:
-	case strings.EqualFold(*group, noGroupName):
-		label = noGroupName
-	default:
-		id, stored, err := findGroup(ctx, tx, *group)
-		if err != nil {
+	ids := make([]int64, len(groups))
+	stored := make([]string, len(groups))
+	for i, g := range groups {
+		if ids[i], stored[i], err = findGroup(ctx, tx, g); err != nil {
 			return 0, err
 		}
-		gid, label = id, stored
 	}
-	var stmt *sql.Stmt
-	if group == nil {
-		stmt, err = tx.PrepareContext(ctx, "DELETE FROM extension_groups WHERE number = ?")
-	} else {
-		// O WHERE do upsert faz o RowsAffected contar so quem mudou de fato.
-		stmt, err = tx.PrepareContext(ctx, upsertManualSQL+" WHERE extension_groups.group_id IS NOT excluded.group_id")
-	}
+	stmt, err := tx.PrepareContext(ctx, insertManualSQL)
 	if err != nil {
 		return 0, err
 	}
@@ -424,30 +414,78 @@ func (s *Store) AssignGroup(ctx context.Context, subject string, numbers []strin
 	changed := 0
 	sample := make([]string, 0, auditSample)
 	for _, n := range numbers {
-		var res sql.Result
-		if group == nil {
-			res, err = stmt.ExecContext(ctx, n)
-		} else {
-			res, err = stmt.ExecContext(ctx, n, gid, now.Unix(), subject)
-		}
-		if err != nil {
-			return 0, err
-		}
-		if k, _ := res.RowsAffected(); k > 0 {
-			changed++
-			if len(sample) < auditSample {
-				sample = append(sample, n)
+		added := false
+		for _, gid := range ids {
+			res, err := stmt.ExecContext(ctx, n, gid, now.Unix(), subject)
+			if err != nil {
+				return 0, err
 			}
+			if k, _ := res.RowsAffected(); k > 0 {
+				changed++
+				added = true
+			}
+		}
+		if added && len(sample) < auditSample {
+			sample = append(sample, n)
 		}
 	}
 	if changed == 0 {
 		return 0, nil
 	}
 	if err := auditTx(ctx, tx, now, subject, "assign", map[string]any{
-		"group": label, "requested": len(numbers), "changed": changed, "numbers": sample}); err != nil {
+		"mode": "add", "groups": stored, "requested": len(numbers), "changed": changed, "numbers": sample}); err != nil {
 		return 0, err
 	}
 	return changed, tx.Commit()
+}
+
+// RemoveFromGroup apaga o vinculo MANUAL de cada ramal com o grupo, numa transacao so. Ramal sem
+// vinculo manual com o grupo (esta la pela faixa, ou nem esta) nao muda nada e conta em notManual:
+// nao existe exclusao de faixa. Zero alterados nao grava nem audita. ErrNotFound se o grupo nao existe.
+func (s *Store) RemoveFromGroup(ctx context.Context, subject string, numbers []string, group string, now time.Time) (changed, notManual int, err error) {
+	if err := validNumbers(numbers); err != nil {
+		return 0, 0, err
+	}
+	if err := validAssignGroup(group); err != nil {
+		return 0, 0, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback()
+	gid, stored, err := findGroup(ctx, tx, group)
+	if err != nil {
+		return 0, 0, err
+	}
+	stmt, err := tx.PrepareContext(ctx, "DELETE FROM extension_groups WHERE number = ? AND group_id = ?")
+	if err != nil {
+		return 0, 0, err
+	}
+	defer stmt.Close()
+	sample := make([]string, 0, auditSample)
+	for _, n := range numbers {
+		res, err := stmt.ExecContext(ctx, n, gid)
+		if err != nil {
+			return 0, 0, err
+		}
+		if k, _ := res.RowsAffected(); k > 0 {
+			changed++
+			if len(sample) < auditSample {
+				sample = append(sample, n)
+			}
+		} else {
+			notManual++
+		}
+	}
+	if changed == 0 {
+		return 0, notManual, nil
+	}
+	if err := auditTx(ctx, tx, now, subject, "assign", map[string]any{
+		"mode": "remove", "groups": []string{stored}, "requested": len(numbers), "changed": changed, "numbers": sample}); err != nil {
+		return 0, 0, err
+	}
+	return changed, notManual, tx.Commit()
 }
 
 // AuditRow e uma linha de group_audit.

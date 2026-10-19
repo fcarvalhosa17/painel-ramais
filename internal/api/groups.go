@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -41,19 +40,20 @@ func (s *Server) groupsImport(w http.ResponseWriter, r *http.Request, sess store
 		writeError(w, http.StatusBadRequest, "invalid_csv", err.Error())
 		return
 	}
-	if err := s.Store.ImportGroups(r.Context(), sess.Subject, rows, in.Replace, s.Now()); err != nil {
-		if errors.Is(err, store.ErrOverlap) {
+	res, err := s.Store.ImportGroups(r.Context(), sess.Subject, rows, in.Replace, s.Now())
+	if err != nil {
+		if errors.Is(err, store.ErrOverlap) || errors.Is(err, store.ErrInvalid) { // faixa cruzada no mesmo grupo ou teto de faixas
 			writeError(w, http.StatusBadRequest, "invalid_csv", err.Error())
 			return
 		}
 		s.internalError(w, r, err)
 		return
 	}
-	s.log.Info("grupos importados", requestIDKey, requestID(r), "sub", sess.Subject, "rows", len(rows), "replace", in.Replace)
+	s.log.Info("grupos importados", requestIDKey, requestID(r), "sub", sess.Subject, "rows", res.Rows, "ignored", res.Ignored, "replace", in.Replace)
 	if !s.reloadGroups(w, r) {
 		return
 	}
-	writeOK(w, map[string]any{"rows": len(rows), "replace": in.Replace}, nil)
+	writeOK(w, map[string]any{"rows": res.Rows, "replace": in.Replace, "ignored": res.Ignored}, nil)
 }
 
 // groupsDelete: POST /api/groups/delete (so administrador, C6).
@@ -178,50 +178,69 @@ func (s *Server) groupsUpdate(w http.ResponseWriter, r *http.Request, sess store
 	writeOK(w, map[string]any{"name": final}, nil)
 }
 
-// groupsAssign: POST /api/groups/assign {numbers, group} (so administrador). group: nome do grupo,
-// "Sem grupo" (manual, vence a faixa) ou null (remove o manual: o ramal volta para a faixa).
-// Uma transacao so: ou todos os ramais mudam ou nenhum.
+// groupsAssign: POST /api/groups/assign (so administrador), vinculo manual em massa, atomico (uma
+// transacao). mode "add": {numbers, groups} acrescenta o vinculo em 1 a 20 grupos; mode "remove":
+// {numbers, group} apaga so o vinculo manual com um grupo (ramal pela faixa nao muda: not_manual).
+// O formato antigo, sem mode, responde 400.
 func (s *Server) groupsAssign(w http.ResponseWriter, r *http.Request, sess store.Session) {
 	var in struct {
-		Numbers []string        `json:"numbers"`
-		Group   json.RawMessage `json:"group"` // ausente (len 0) e diferente de null
+		Mode    string   `json:"mode"`
+		Numbers []string `json:"numbers"`
+		Groups  []string `json:"groups"`
+		Group   *string  `json:"group"`
 	}
 	if !decodeBodyMax(w, r, &in, maxAssignBodyBytes) {
 		return
 	}
-	var group *string
-	switch {
-	case len(in.Group) == 0:
-		writeError(w, http.StatusBadRequest, "bad_request", "Campo group obrigatorio (nome do grupo, \"Sem grupo\" ou null)")
-		return
-	case string(in.Group) != "null":
-		var g string
-		if err := json.Unmarshal(in.Group, &g); err != nil {
-			writeError(w, http.StatusBadRequest, "bad_request", "group deve ser texto ou null")
-			return
-		}
-		g = strings.TrimSpace(g)
-		if n := utf8.RuneCountInString(g); n < 1 || n > store.MaxGroupNameRunes {
-			writeError(w, http.StatusBadRequest, "bad_request", fmt.Sprintf("Nome do grupo deve ter de 1 a %d caracteres", store.MaxGroupNameRunes))
-			return
-		}
-		group = &g
+	switch in.Mode {
+	case "add":
+		s.assignAdd(w, r, sess, in.Numbers, in.Groups, in.Group != nil)
+	case "remove":
+		s.assignRemove(w, r, sess, in.Numbers, in.Group, in.Groups != nil)
+	default:
+		writeError(w, http.StatusBadRequest, "bad_request", "Campo mode obrigatorio: add ou remove")
 	}
-	changed, err := s.Store.AssignGroup(r.Context(), sess.Subject, in.Numbers, group, s.Now())
+}
+
+func (s *Server) assignAdd(w http.ResponseWriter, r *http.Request, sess store.Session, numbers, groups []string, hasGroup bool) {
+	if hasGroup {
+		writeError(w, http.StatusBadRequest, "bad_request", "mode add usa groups (lista), nao group")
+		return
+	}
+	trimmed := make([]string, len(groups))
+	for i, g := range groups {
+		trimmed[i] = strings.TrimSpace(g)
+	}
+	changed, err := s.Store.AddToGroups(r.Context(), sess.Subject, numbers, trimmed, s.Now())
 	if err != nil {
 		s.groupsWriteError(w, r, err)
 		return
 	}
-	target := "(remove manual)"
-	if group != nil {
-		target = *group
-	}
-	s.log.Info("ramais atribuidos a grupo", requestIDKey, requestID(r), "sub", sess.Subject, "group", target,
-		"requested", len(in.Numbers), "changed", changed)
+	s.log.Info("ramais atribuidos a grupo", requestIDKey, requestID(r), "sub", sess.Subject, "groups", trimmed,
+		"requested", len(numbers), "changed", changed)
 	if changed > 0 && !s.reloadGroups(w, r) {
 		return
 	}
 	writeOK(w, map[string]any{"changed": changed}, nil)
+}
+
+func (s *Server) assignRemove(w http.ResponseWriter, r *http.Request, sess store.Session, numbers []string, group *string, hasGroups bool) {
+	if hasGroups || group == nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "mode remove usa group (um grupo), nao groups")
+		return
+	}
+	name := strings.TrimSpace(*group)
+	changed, notManual, err := s.Store.RemoveFromGroup(r.Context(), sess.Subject, numbers, name, s.Now())
+	if err != nil {
+		s.groupsWriteError(w, r, err)
+		return
+	}
+	s.log.Info("ramais retirados de grupo", requestIDKey, requestID(r), "sub", sess.Subject, "group", name,
+		"requested", len(numbers), "changed", changed, "not_manual", notManual)
+	if changed > 0 && !s.reloadGroups(w, r) {
+		return
+	}
+	writeOK(w, map[string]any{"changed": changed, "not_manual": notManual}, nil)
 }
 
 // reloadGroups devolve false (e ja respondeu) se a recarga falhou: os grupos estao no

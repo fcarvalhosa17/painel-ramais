@@ -62,6 +62,10 @@ func (c *cli) open(cfgPath string) (*config.Config, *store.Store, int) {
 		c.errf("banco: %v", err)
 		return nil, nil, exitEnv
 	}
+	if rep := st.MigrationReport(); rep.NoGroupDropped > 0 { // esta CLI foi quem migrou o banco
+		c.errf("aviso: %d vinculo(s) \"Sem grupo\" manual descartado(s) na migracao: %s",
+			rep.NoGroupDropped, strings.Join(rep.NoGroupSample, ","))
+	}
 	return cfg, st, exitOK
 }
 

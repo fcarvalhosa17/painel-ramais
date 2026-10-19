@@ -13,7 +13,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"painel-ramais/internal/model"
 	"painel-ramais/internal/store"
 )
 
@@ -77,29 +76,36 @@ func (c *cli) groupImport(st *store.Store, path string, replace bool) int {
 		c.errf("CSV rejeitado, nada foi gravado:\n%v", err)
 		return exitUsage
 	}
-	if err := st.ImportGroups(context.Background(), cliSubject, rows, replace, now()); err != nil {
-		if errors.Is(err, store.ErrOverlap) {
+	res, err := st.ImportGroups(context.Background(), cliSubject, rows, replace, now())
+	if err != nil {
+		if errors.Is(err, store.ErrOverlap) || errors.Is(err, store.ErrInvalid) {
 			c.errf("CSV rejeitado, nada foi gravado:\n%v", err)
 			return exitUsage
 		}
 		c.errf("banco: %v", err)
 		return exitEnv
 	}
-	fmt.Fprintf(c.stdout, "%d linha(s) importada(s)\n", len(rows))
+	fmt.Fprintf(c.stdout, "%d linha(s) importada(s)\n", res.Rows-res.Ignored)
+	if res.Ignored > 0 { // repetidas, ja existentes ou "Sem grupo,N"
+		fmt.Fprintf(c.stdout, "%d linha(s) ignorada(s)\n", res.Ignored)
+	}
 	return exitOK
 }
 
-// groupList imprime "nome<TAB>faixas" e, quando o grupo tem ramais atribuidos a mao, uma terceira
-// coluna com esses numeros. "Sem grupo" so aparece se houver ramal fixado nele a mao (sem faixas).
+// groupList imprime "nome<TAB>faixas" e, quando o grupo tem ramais vinculados a mao, uma terceira
+// coluna com esses numeros. O mesmo numero pode aparecer em varios grupos (N:N); "Sem grupo" nao tem
+// linha (e implicito).
 func (c *cli) groupList(st *store.Store) int {
 	data, err := st.LoadGroupData(context.Background())
 	if err != nil {
 		c.errf("banco: %v", err)
 		return exitEnv
 	}
-	manual := map[string][]string{} // grupo -> numeros atribuidos a mao
-	for number, g := range data.Manual {
-		manual[g] = append(manual[g], number)
+	manual := map[string][]string{} // grupo -> numeros vinculados a mao
+	for number, groups := range data.Manual {
+		for _, g := range groups {
+			manual[g] = append(manual[g], number)
+		}
 	}
 	line := func(name string, ranges []store.Range) {
 		parts := make([]string, len(ranges))
@@ -123,9 +129,6 @@ func (c *cli) groupList(st *store.Store) int {
 	}
 	for _, g := range data.Groups {
 		line(g.Name, g.Ranges)
-	}
-	if len(manual[model.NoGroup]) > 0 {
-		line(model.NoGroup, nil)
 	}
 	return exitOK
 }

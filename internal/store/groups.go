@@ -10,14 +10,16 @@ import (
 )
 
 // GroupRow e uma linha do CSV; Line aponta a linha de origem nas mensagens. Manual=false e uma
-// faixa Start-End do grupo Name. Manual=true e um ramal unico (Number, o texto digitado) atribuido a
-// mao ao grupo Name; Name == "Sem grupo" e o "Sem grupo" manual. Start e End valem o numero do ramal.
+// faixa Start-End do grupo Name. Manual=true e um ramal unico (Number, o texto digitado) vinculado
+// a mao ao grupo Name; Start e End valem o numero do ramal. Skip = a linha nao muda nada e sai como
+// ignorada: repetida no arquivo, ou "Sem grupo,N" (arquivo antigo; "Sem grupo" e implicito).
 type GroupRow struct {
 	Line       int
 	Name       string
 	Start, End int64
 	Manual     bool
 	Number     string
+	Skip       bool
 }
 
 // Range e uma faixa gravada.
@@ -30,10 +32,10 @@ type Group struct {
 }
 
 // GroupData e o catalogo completo mais os vinculos manuais, lidos numa transacao so.
-// Manual mapeia numero -> nome do grupo, ou "Sem grupo" quando o vinculo manual e "sem grupo".
+// Manual mapeia numero -> nomes dos grupos onde ha vinculo manual (rc.7: N:N), ordenados por nome.
 type GroupData struct {
 	Groups []Group
-	Manual map[string]string
+	Manual map[string][]string
 }
 
 // RangeRow e uma faixa com o nome do grupo (para o daemon montar a busca por ramal).
@@ -42,96 +44,116 @@ type RangeRow struct {
 	Name       string
 }
 
-// ImportGroups grava as linhas de uma vez (tudo ou nada). Com replace, apaga
-// todos os grupos e vinculos manuais antes, na mesma transacao, e checa sobreposicao so dentro do
-// arquivo (ja feita por ParseGroupsCSV). Sem replace, tambem checa as faixas que existem; um
-// vinculo manual do arquivo SOBRESCREVE o manual que o ramal ja tinha. A auditoria vai na mesma transacao.
-func (s *Store) ImportGroups(ctx context.Context, subject string, rows []GroupRow, replace bool, now time.Time) error {
+// ImportResult resume uma importacao: Rows = linhas de dados lidas; Ignored = linhas que nao
+// mudaram nada (repetidas no arquivo, faixa ou vinculo que ja existia, "Sem grupo,N").
+type ImportResult struct{ Rows, Ignored int }
+
+// ImportGroups grava as linhas de uma vez (tudo ou nada). Com replace, apaga todos os grupos
+// (faixas e vinculos manuais saem por cascade) antes, na mesma transacao. Sem replace SO ACRESCENTA
+// (ADR-006): nunca apaga nem troca faixa ou vinculo existente, e confere as faixas do mesmo grupo que
+// ja existem (faixa identica e ignorada; faixa que cruza e erro). A auditoria vai na mesma transacao.
+func (s *Store) ImportGroups(ctx context.Context, subject string, rows []GroupRow, replace bool, now time.Time) (ImportResult, error) {
+	res := ImportResult{Rows: len(rows)}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return res, err
 	}
 	defer tx.Rollback()
+	work := append([]GroupRow(nil), rows...) // skipExistingRanges marca Skip: nao mexe na lista do chamador
 	if replace {
-		if _, err := tx.ExecContext(ctx, "DELETE FROM groups"); err != nil { // cascade apaga os manuais com grupo
-			return err
+		if _, err := tx.ExecContext(ctx, "DELETE FROM groups"); err != nil { // cascade apaga faixas e vinculos
+			return res, err
 		}
-		if _, err := tx.ExecContext(ctx, "DELETE FROM extension_groups"); err != nil { // e os "Sem grupo" manuais
-			return err
-		}
-	} else if err := checkExisting(ctx, tx, rows); err != nil {
-		return err
+	} else if err := skipExistingRanges(ctx, tx, work); err != nil {
+		return res, err
 	}
-	nManual := 0
-	for _, r := range rows {
-		var gid any // nil = NULL = "Sem grupo" manual
-		if !r.Manual || !strings.EqualFold(r.Name, noGroupName) {
-			var id int64
-			if err := tx.QueryRowContext(ctx,
-				"INSERT INTO groups(name, created_at) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET name = name RETURNING id",
-				r.Name, now.Unix()).Scan(&id); err != nil {
-				return fmt.Errorf("linha %d: grupo %q: %w", r.Line, r.Name, err)
-			}
-			gid = id
+	nRanges, nManual := 0, 0
+	touched := map[int64]string{} // grupos que receberam faixa nova: o teto de faixas vale depois de gravar
+	for _, r := range work {
+		if r.Skip {
+			res.Ignored++
+			continue
+		}
+		var gid int64
+		if err := tx.QueryRowContext(ctx,
+			"INSERT INTO groups(name, created_at) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET name = name RETURNING id",
+			r.Name, now.Unix()).Scan(&gid); err != nil {
+			return res, fmt.Errorf("linha %d: grupo %q: %w", r.Line, r.Name, err)
 		}
 		if r.Manual {
-			nManual++
-			if _, err := tx.ExecContext(ctx, upsertManualSQL, r.Number, gid, now.Unix(), subject); err != nil {
-				return fmt.Errorf("linha %d: %w", r.Line, err)
+			out, err := tx.ExecContext(ctx, insertManualSQL, r.Number, gid, now.Unix(), subject)
+			if err != nil {
+				return res, fmt.Errorf("linha %d: %w", r.Line, err)
+			}
+			if n, _ := out.RowsAffected(); n == 0 { // o vinculo ja existia
+				res.Ignored++
+			} else {
+				nManual++
 			}
 			continue
 		}
 		if _, err := tx.ExecContext(ctx, "INSERT INTO group_ranges(group_id, range_start, range_end) VALUES(?,?,?)",
 			gid, r.Start, r.End); err != nil {
-			if strings.Contains(err.Error(), "faixa sobreposta") {
-				return fmt.Errorf("linha %d: %w", r.Line, ErrOverlap)
+			if strings.Contains(err.Error(), "faixa sobreposta") { // rede de seguranca: o trigger do banco
+				return res, fmt.Errorf("linha %d: %w", r.Line, ErrOverlap)
 			}
-			return fmt.Errorf("linha %d: %w", r.Line, err)
+			return res, fmt.Errorf("linha %d: %w", r.Line, err)
+		}
+		nRanges++
+		touched[gid] = r.Name
+	}
+	for gid, name := range touched {
+		var n int
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM group_ranges WHERE group_id = ?", gid).Scan(&n); err != nil {
+			return res, err
+		}
+		if n > MaxGroupRanges {
+			return res, invalidf("o grupo %q ficaria com %d faixas; o maximo e %d por grupo. Nada foi gravado", name, n, MaxGroupRanges)
 		}
 	}
 	if err := auditTx(ctx, tx, now, subject, "import", map[string]any{
-		"rows": len(rows), "replace": replace, "ranges": len(rows) - nManual, "manual": nManual}); err != nil {
-		return err
+		"rows": len(rows), "replace": replace, "ranges": nRanges, "manual": nManual, "ignored": res.Ignored}); err != nil {
+		return res, err
 	}
-	return tx.Commit()
+	return res, tx.Commit()
 }
 
-// upsertManualSQL grava (ou troca) o vinculo manual de um ramal.
-const upsertManualSQL = `INSERT INTO extension_groups(number, group_id, updated_at, updated_by) VALUES(?,?,?,?)
-	ON CONFLICT(number) DO UPDATE SET group_id = excluded.group_id, updated_at = excluded.updated_at, updated_by = excluded.updated_by`
+// insertManualSQL grava o vinculo manual ramal -> grupo; o par que ja existe nao e regravado
+// (RowsAffected 0), para o chamador contar so o que mudou de fato.
+const insertManualSQL = `INSERT INTO extension_groups(number, group_id, updated_at, updated_by) VALUES(?,?,?,?)
+	ON CONFLICT(number, group_id) DO NOTHING`
 
-func checkExisting(ctx context.Context, tx *sql.Tx, rows []GroupRow) error {
-	rs, err := tx.QueryContext(ctx, "SELECT g.name, r.range_start, r.range_end FROM group_ranges r JOIN groups g ON g.id = r.group_id")
+// skipExistingRanges confere as faixas do arquivo contra as que o MESMO grupo ja tem no banco (faixas
+// de grupos diferentes podem se sobrepor, ADR-006): faixa identica a uma existente vira Skip; faixa
+// que cruza outra e erro. Guarda so as primeiras mensagens e CONTA o resto: linhas x faixas pode
+// dar milhoes de cruzamentos e juntar todas as mensagens esgotaria a memoria.
+func skipExistingRanges(ctx context.Context, tx *sql.Tx, rows []GroupRow) error {
+	have, err := groupRanges(ctx, tx)
 	if err != nil {
 		return err
 	}
-	var have []RangeRow
-	for rs.Next() {
-		var x RangeRow
-		if err := rs.Scan(&x.Name, &x.Start, &x.End); err != nil {
-			rs.Close()
-			return err
-		}
-		have = append(have, x)
+	byGroup := map[string][]RangeRow{}
+	for _, h := range have {
+		k := nameKey(h.Name)
+		byGroup[k] = append(byGroup[k], h)
 	}
-	if err := rs.Err(); err != nil {
-		return err
-	}
-	rs.Close()
-	// Guarda so as primeiras mensagens e CONTA o resto: linhas x faixas pode dar milhoes de
-	// sobreposicoes e juntar todas as mensagens esgotaria a memoria.
 	const maxMsgs = 20
 	var msgs []string
 	total := 0
-	for _, r := range rows {
-		if r.Manual { // vinculo manual vence a faixa: nao conflita com ela
+	for i := range rows {
+		r := &rows[i]
+		if r.Manual || r.Skip {
 			continue
 		}
-		for _, h := range have {
+		for _, h := range byGroup[nameKey(r.Name)] {
+			if r.Start == h.Start && r.End == h.End {
+				r.Skip = true
+				break
+			}
 			if r.Start <= h.End && h.Start <= r.End {
 				total++
 				if len(msgs) < maxMsgs {
-					msgs = append(msgs, fmt.Sprintf("linha %d: %d-%d sobrepoe %d-%d do grupo %q ja gravado", r.Line, r.Start, r.End, h.Start, h.End, h.Name))
+					msgs = append(msgs, fmt.Sprintf("linha %d: faixa %d-%d cruza a faixa %d-%d ja gravada no grupo %q", r.Line, r.Start, r.End, h.Start, h.End, h.Name))
 				}
 			}
 		}
@@ -230,23 +252,18 @@ func (s *Store) LoadGroupData(ctx context.Context) (GroupData, error) {
 	if err != nil {
 		return GroupData{}, err
 	}
-	rs, err := tx.QueryContext(ctx, "SELECT e.number, g.name FROM extension_groups e LEFT JOIN groups g ON g.id = e.group_id")
+	rs, err := tx.QueryContext(ctx, "SELECT e.number, g.name FROM extension_groups e JOIN groups g ON g.id = e.group_id ORDER BY e.number, g.name")
 	if err != nil {
 		return GroupData{}, err
 	}
 	defer rs.Close()
-	manual := map[string]string{}
+	manual := map[string][]string{}
 	for rs.Next() {
-		var number string
-		var name sql.NullString
+		var number, name string
 		if err := rs.Scan(&number, &name); err != nil {
 			return GroupData{}, err
 		}
-		if name.Valid {
-			manual[number] = name.String
-		} else {
-			manual[number] = noGroupName
-		}
+		manual[number] = append(manual[number], name)
 	}
 	if err := rs.Err(); err != nil {
 		return GroupData{}, err
