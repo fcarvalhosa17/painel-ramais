@@ -1,13 +1,27 @@
-// Bloco "Instabilidade de registro (24 h)" da coluna Grupos (CONTRATOS 4.7.1, desvios D20).
-// Busca ao ligar, ao trocar de grupo e a cada 30 s, só com a aba Ramais e o documento visíveis.
+// Bloco "Instabilidade de registro (24 h)" da coluna Visões (CONTRATOS 4.7.1, desvios D20).
+// Busca ao ligar, ao trocar as visões e a cada 30 s, só com a aba Ramais e o documento visíveis.
 // Texto do servidor (número, nome) só por textContent.
 
 import { api } from "./conexao.js";
-import { formatarNumero, dataHora, avisoPausa } from "./estado.js";
+import { formatarNumero, dataHora, avisoPausa, rotuloVisoes } from "./estado.js";
 
 const $ = (id) => document.getElementById(id);
 const INTERVALO = 30e3;
-const TODOS = "Todos os ramais";
+const MAX_ITENS = 10;
+const somaItem = (i) => (i.lost_registration || 0) + (i.became_unreachable || 0);
+const ordemItens = (a, b) => somaItem(b) - somaItem(a) || (b.lost_registration || 0) - (a.lost_registration || 0)
+  || (a.number < b.number ? -1 : a.number > b.number ? 1 : 0);
+
+// Summary de uma ou várias visões ([] = todos os ramais). O daemon filtra uma visão por pedido; com várias, um pedido
+// por visão, juntando pelo número: os contadores do ramal não dependem da visão, e os 10 primeiros da união estão
+// sempre entre os 10 primeiros de alguma visão (mesma ordem do CONTRATOS 4.7.1).
+async function resumoDasVisoes(visoes) {
+  if (visoes.length <= 1) return api.resumoRegistros(visoes[0] || "");
+  const respostas = await Promise.all(visoes.map((v) => api.resumoRegistros(v)));
+  const porNumero = new Map();
+  for (const r of respostas) for (const i of (r && Array.isArray(r.items) ? r.items : [])) porNumero.set(i.number, i);
+  return { ...(respostas[0] || {}), items: [...porNumero.values()].sort(ordemItens).slice(0, MAX_ITENS) };
+}
 
 // relogio(): hora do servidor no navegador (Date.now() corrigido pelo server_time), para o aviso de pausa (D42).
 export function iniciarInstabilidade({ aoAbrir, relogio, aoSessaoEncerrada }) {
@@ -19,10 +33,10 @@ export function iniciarInstabilidade({ aoAbrir, relogio, aoSessaoEncerrada }) {
   const pausa = $("inst-pausa");
   let timerPausa = null;
   let ultimo = null; // último summary, para tirar o aviso de pausa na hora em que ela acaba
-  let grupo = "";
+  let visoes = [];
   let ligado = false;
   let timer = null;
-  let pedido = 0; // resposta de pedido antigo (outro grupo, bloco desligado) é descartada
+  let pedido = 0; // resposta de pedido antigo (outras visões, bloco desligado) é descartada
   let temDados = false;
 
   function mostrarEstado(t, comRepetir) {
@@ -36,7 +50,7 @@ export function iniciarInstabilidade({ aoAbrir, relogio, aoSessaoEncerrada }) {
     const meu = ++pedido;
     if (!temDados) mostrarEstado("Carregando...", false);
     try {
-      const d = await api.resumoRegistros(grupo);
+      const d = await resumoDasVisoes(visoes);
       if (meu !== pedido) return;
       render(d || {});
     } catch (e) {
@@ -139,11 +153,11 @@ export function iniciarInstabilidade({ aoAbrir, relogio, aoSessaoEncerrada }) {
 
   return {
     mostrar,
-    definirGrupo(nome) {
-      if (nome === grupo) return;
-      grupo = nome;
-      $("inst-grupo").textContent = nome || TODOS;
-      // Não mostra o ranking do grupo anterior enquanto o novo carrega.
+    definirVisoes(novas) {
+      if (novas.join("\n") === visoes.join("\n")) return;
+      visoes = novas;
+      $("inst-grupo").textContent = rotuloVisoes(novas);
+      // Não mostra o ranking das visões anteriores enquanto o novo carrega.
       pedido++;
       temDados = false;
       lista.replaceChildren();

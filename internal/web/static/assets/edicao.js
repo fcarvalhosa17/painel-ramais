@@ -7,7 +7,7 @@
 import { api } from "./conexao.js";
 import {
   ROTULO, SEM_GRUPO, compararGrupos, formatarNumero, lerFaixas, contarComFaixas, erroNomeGrupo, linhaRamal,
-  gruposDe, origensDoRamal, faixaDoNumero, textoFaixa,
+  gruposDe, origensDoRamal, faixaDoNumero, textoFaixa, rotuloVisao,
 } from "./estado.js";
 
 const $ = (id) => document.getElementById(id);
@@ -98,6 +98,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
   let timerAviso = null;
   function avisar(texto) {
     const el = $("aviso-status");
+    delete el.dataset.tipo; // tira a cor do aviso de teto de visões (visoes.js)
     el.textContent = texto;
     clearTimeout(timerAviso);
     timerAviso = setTimeout(() => { el.textContent = ""; }, 5000);
@@ -125,9 +126,9 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     const { faixas, erro } = lerFaixas(ng.faixas.value);
     ng.faixasErro.textContent = erro;
     if (erro) { ng.previa.textContent = ""; return; }
-    if (!faixas.length) { ng.previa.textContent = "Sem faixa, o grupo começa vazio e recebe ramais adicionados à mão."; return; }
+    if (!faixas.length) { ng.previa.textContent = "Sem faixa, a visão começa vazia e recebe ramais adicionados à mão."; return; }
     const c = contarComFaixas(dados.itens, faixas, null);
-    ng.previa.textContent = plural(c.pelaFaixa, "ramal existente entra", "ramais existentes entram") + " no grupo (sem sair dos grupos em que já está).";
+    ng.previa.textContent = plural(c.pelaFaixa, "ramal existente entra", "ramais existentes entram") + " na visão (sem sair das visões em que já está).";
   }
 
   ng.faixas.addEventListener("input", previaCriar);
@@ -154,13 +155,13 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
       delete ng.dialogo.dataset.ocupado;
       ng.dialogo.close();
       const criado = (r && r.name) || nome;
-      avisar("Grupo " + criado + " criado.");
+      avisar("Visão " + criado + " criada.");
       if (depoisDeCriar) depoisDeCriar(criado);
     } catch (err) {
       tratarErro(err, ng.erro);
     } finally {
       ocupar(ng.dialogo, [ng.criar], false);
-      ng.criar.textContent = "Criar grupo";
+      ng.criar.textContent = "Criar visão";
     }
   });
 
@@ -173,7 +174,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     const b = document.createElement("button");
     b.type = "button";
     b.className = "botao-pequeno marcar-novo";
-    b.textContent = "+ Novo grupo";
+    b.textContent = "+ Nova visão";
     b.hidden = true;
     b.addEventListener("click", () => abrirCriar((nome) => listaGrupos.marcarQuandoAparecer(nome)));
     caixa.after(b);
@@ -233,7 +234,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     dr.grupos.replaceChildren(...origensDoRamal(r, dados.grupos).map(({ nome, origem }) => {
       const li = document.createElement("li");
       const n = document.createElement("span");
-      n.textContent = nome;
+      n.textContent = rotuloVisao(nome);
       const o = document.createElement("span");
       o.className = "dr-origem";
       o.textContent = " (" + origem + ")";
@@ -267,7 +268,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     const candidatos = nomesCatalogo().filter((n) => !ja.has(n));
     drLista.preencher(candidatos);
     dr.addVazio.hidden = candidatos.length > 0;
-    dr.addVazio.textContent = catalogo().length ? "O ramal já está em todos os grupos." : "Nenhum grupo cadastrado.";
+    dr.addVazio.textContent = catalogo().length ? "O ramal já está em todas as visões." : "Nenhuma visão cadastrada.";
     atualizarAdicionar();
     const g = grupoRemovivel();
     const noGrupo = !!g && ja.has(g);
@@ -276,10 +277,10 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     const pelaFaixa = (r.range_groups || []).includes(g);
     const manual = (r.manual_groups || []).includes(g);
     dr.remover.disabled = ocupadoRamal || pelaFaixa || !manual;
-    dr.remover.setAttribute("aria-label", "Remover o ramal " + r.number + " do grupo " + g);
+    dr.remover.setAttribute("aria-label", "Remover o ramal " + r.number + " da visão " + g);
     const f = pelaFaixa ? faixaDoNumero(r.number, dados.grupos, g) : null;
     dr.removerNota.hidden = !pelaFaixa;
-    dr.removerNota.textContent = pelaFaixa ? "Este ramal pertence ao grupo pela faixa" + (f ? " " + textoFaixa(f) : "") + "." : "";
+    dr.removerNota.textContent = pelaFaixa ? "Este ramal pertence à visão pela faixa" + (f ? " " + textoFaixa(f) : "") + "." : "";
   }
 
   function atualizarAdicionar() {
@@ -308,7 +309,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
   dr.adicionar.addEventListener("click", () => {
     const grupos = drLista.marcados();
     if (!grupos.length) return;
-    if (grupos.length > MAX_GRUPOS) { dr.erro.textContent = "Escolha no máximo " + MAX_GRUPOS + " grupos por vez."; return; }
+    if (grupos.length > MAX_GRUPOS) { dr.erro.textContent = "Escolha no máximo " + MAX_GRUPOS + " visões por vez."; return; }
     gravarRamal((n) => api.adicionarAGrupos([n], grupos), (n) => {
       drLista.limpar();
       return "Ramal " + n + " adicionado a " + grupos.join(", ") + ".";
@@ -318,7 +319,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     const g = grupoRemovivel();
     if (!g) return;
     gravarRamal((n) => api.removerDoGrupo([n], g), (n, r) => (r.changed
-      ? "Ramal " + n + " removido do grupo " + g + "."
+      ? "Ramal " + n + " removido da visão " + g + "."
       : "O ramal " + n + " não tinha vínculo manual com " + g + "; nada mudou."));
   });
 
@@ -368,7 +369,7 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
   function renderBarra() {
     const g = grupoRemovivel();
     bs.remover.hidden = !g;
-    if (g) bs.remover.setAttribute("aria-label", "Remover os ramais selecionados do grupo " + g);
+    if (g) bs.remover.setAttribute("aria-label", "Remover os ramais selecionados da visão " + g);
   }
 
   function renderBotaoResultados() {
@@ -437,31 +438,31 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
     const notas = [];
     dv.erro.textContent = "";
     if (modo === "add") {
-      dv.resumo.textContent = "Adicionar " + plural(total, "ramal", "ramais") + " aos grupos marcados.";
+      dv.resumo.textContent = "Adicionar " + plural(total, "ramal", "ramais") + " às visões marcadas.";
       dv.gruposCaixa.hidden = false;
       dvLista.preencher(nomesCatalogo());
       dv.origens.replaceChildren();
-      if (!catalogo().length) notas.push("Nenhum grupo cadastrado. Crie um em Novo grupo.");
-      notas.push("Os ramais continuam nos grupos em que já estão.");
+      if (!catalogo().length) notas.push("Nenhuma visão cadastrada. Crie uma em Nova visão.");
+      notas.push("Os ramais continuam nas visões em que já estão.");
       const ausentes = contarAusentes();
       if (ausentes) notas.push(plural(ausentes, "número selecionado não está", "números selecionados não estão") + " mais no PBX e vai junto (o vínculo é pelo número).");
       atualizarAplicar();
     } else {
-      dv.resumo.textContent = "Remover " + plural(total, "ramal", "ramais") + " do grupo " + g + ".";
+      dv.resumo.textContent = "Remover " + plural(total, "ramal", "ramais") + " da visão " + g + ".";
       dv.gruposCaixa.hidden = true;
       const c = resumirRemocao(g);
       dv.origens.replaceChildren(
-        linhaOrigem("Saem do grupo (vínculo manual)", c.saem),
+        linhaOrigem("Saem da visão (vínculo manual)", c.saem),
         linhaOrigem("Continuam pela faixa", c.pelaFaixa),
-        linhaOrigem("Não estão no grupo", c.fora),
+        linhaOrigem("Não estão na visão", c.fora),
       );
-      if (c.pelaFaixa) notas.push(plural(c.pelaFaixa, "continua", "continuam") + " no grupo pela faixa; para tirá-" + (c.pelaFaixa === 1 ? "lo" : "los") + ", edite a faixa.");
+      if (c.pelaFaixa) notas.push(plural(c.pelaFaixa, "continua", "continuam") + " na visão pela faixa; para tirá-" + (c.pelaFaixa === 1 ? "lo" : "los") + ", edite a faixa.");
       if (c.ausentes) notas.push(plural(c.ausentes, "número selecionado não está", "números selecionados não estão") + " mais no PBX; o vínculo manual dele" + (c.ausentes === 1 ? "" : "s") + " também sai.");
       dv.aplicar.disabled = false;
     }
     dv.notas.textContent = notas.join(" ");
     dv.notas.hidden = !notas.length;
-    dv.aplicar.textContent = modo === "add" ? "Adicionar" : "Remover do grupo";
+    dv.aplicar.textContent = modo === "add" ? "Adicionar" : "Remover da visão";
     dv.aplicar.className = "botao " + (modo === "add" ? "botao-primario" : "botao-perigo");
     dv.dialogo.showModal();
     (modo === "add" && catalogo().length ? $("dv-grupos").querySelector("input") : dv.cancelar).focus();
@@ -486,9 +487,9 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
   function erroDosTetos(numeros, grupos) {
     if (numeros.length > MAX_NUMEROS) return "No máximo " + formatarNumero(MAX_NUMEROS) + " ramais por vez. Refine a seleção.";
     if (!grupos) return "";
-    if (!grupos.length) return "Marque pelo menos um grupo.";
-    if (grupos.length > MAX_GRUPOS) return "Escolha no máximo " + MAX_GRUPOS + " grupos por vez.";
-    if (numeros.length * grupos.length > MAX_PARES) return "Ramais vezes grupos passa de " + formatarNumero(MAX_PARES) + ". Divida em partes.";
+    if (!grupos.length) return "Marque pelo menos uma visão.";
+    if (grupos.length > MAX_GRUPOS) return "Escolha no máximo " + MAX_GRUPOS + " visões por vez.";
+    if (numeros.length * grupos.length > MAX_PARES) return "Ramais vezes visões passa de " + formatarNumero(MAX_PARES) + ". Divida em partes.";
     return "";
   }
 
@@ -504,14 +505,14 @@ export function iniciarEdicao({ dados, lista, grupoAberto, aoSessaoEncerrada }) 
       if (modo === "add") {
         const r = (await api.adicionarAGrupos(numeros, grupos)) || {};
         const n = Number.isFinite(r.changed) ? r.changed : 0;
-        texto = n === 0 ? "Nenhum vínculo novo: os ramais já estavam nesses grupos." : plural(n, "vínculo novo gravado", "vínculos novos gravados") + ".";
+        texto = n === 0 ? "Nenhum vínculo novo: os ramais já estavam nessas visões." : plural(n, "vínculo novo gravado", "vínculos novos gravados") + ".";
       } else {
         const g = grupoRemover;
         const r = (await api.removerDoGrupo(numeros, g)) || {};
         const n = Number.isFinite(r.changed) ? r.changed : 0;
         const sem = Number.isFinite(r.not_manual) ? r.not_manual : 0;
         texto = (n === 0 ? "Nenhum vínculo manual removido de " + g : plural(n, "vínculo manual removido", "vínculos manuais removidos") + " de " + g)
-          + (sem ? "; " + plural(sem, "ramal sem vínculo manual", "ramais sem vínculo manual") + " (pela faixa ou fora do grupo)." : ".");
+          + (sem ? "; " + plural(sem, "ramal sem vínculo manual", "ramais sem vínculo manual") + " (pela faixa ou fora da visão)." : ".");
       }
       delete dv.dialogo.dataset.ocupado;
       dv.dialogo.close();

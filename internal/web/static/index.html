@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="light">
 <title>Painel de Ramais</title>
 <link rel="icon" href="/painel-ramais/assets/icone.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/painel-ramais/assets/app.css">
-<link rel="preload" href="/painel-ramais/assets/fonts/BarlowSemiCondensed-Bold.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/painel-ramais/assets/fonts/IBMPlexSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/painel-ramais/assets/fonts/Barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/painel-ramais/assets/fonts/Exo2-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="modulepreload" href="/painel-ramais/assets/estado.js">
 <link rel="modulepreload" href="/painel-ramais/assets/dados.js">
 <link rel="modulepreload" href="/painel-ramais/assets/conexao.js">
@@ -21,6 +21,7 @@
 <link rel="modulepreload" href="/painel-ramais/assets/linhas.js">
 <link rel="modulepreload" href="/painel-ramais/assets/chamadas.js">
 <link rel="modulepreload" href="/painel-ramais/assets/filas.js">
+<link rel="modulepreload" href="/painel-ramais/assets/visoes.js">
 <script type="module" src="/painel-ramais/assets/app.js"></script>
 </head>
 <body>
@@ -39,7 +40,7 @@
 
 <section id="tela-mensagem" class="tela-mensagem">
   <div class="cartao-aviso">
-    <img class="marca-grande" src="/painel-ramais/assets/icone.svg" alt="" width="40" height="40">
+    <img class="marca-grande" src="/painel-ramais/assets/cam-logo.png" alt="CAM Tecnologia" width="1027" height="271">
     <h1 class="aviso-titulo">Painel de Ramais</h1>
     <p id="mensagem-texto" class="aviso-texto">Carregando...</p>
   </div>
@@ -47,7 +48,7 @@
 
 <section id="tela-login" class="tela-mensagem" hidden>
   <form id="form-login" class="cartao-aviso form-login" novalidate>
-    <img class="marca-grande" src="/painel-ramais/assets/icone.svg" alt="" width="40" height="40">
+    <img class="marca-grande" src="/painel-ramais/assets/cam-logo.png" alt="CAM Tecnologia" width="1027" height="271">
     <h1 class="aviso-titulo">Acesso de emergência</h1>
     <p class="aviso-texto">Usuário <strong>emergencia</strong>. A senha está no arquivo do servidor indicado na instalação.</p>
     <label class="campo">
@@ -63,12 +64,13 @@
 
 <header class="topo">
   <div class="topo-esq">
+    <img class="topo-logo" src="/painel-ramais/assets/cam-logo.png" alt="CAM Tecnologia" width="1027" height="271">
     <h1 class="topo-titulo">Painel de Ramais</h1>
     <span id="status-conexao" class="selo-vivo" data-status="conectando"><span class="selo-vivo-pino" aria-hidden="true"></span><span id="status-texto">CONECTANDO</span></span>
     <span id="topo-info" class="topo-info"></span>
   </div>
   <div class="topo-dir">
-    <div id="abas" class="segmentado" role="tablist" aria-label="Telas do painel">
+    <div id="abas" class="segmentado abas" role="tablist" aria-label="Telas do painel">
       <button type="button" class="seg" role="tab" id="aba-btn-ramais" data-aba="ramais" aria-selected="true" aria-controls="aba-ramais">Ramais</button>
       <button type="button" class="seg" role="tab" id="aba-btn-chamadas" data-aba="chamadas" aria-selected="false" aria-controls="aba-chamadas" tabindex="-1">Chamadas</button>
       <button type="button" class="seg" role="tab" id="aba-btn-registros" data-aba="registros" aria-selected="false" aria-controls="aba-registros" tabindex="-1">Registros</button>
@@ -77,8 +79,8 @@
       <button type="button" class="seg" data-modo="compacto" aria-pressed="true">Compacto</button>
       <button type="button" class="seg" data-modo="cartoes" aria-pressed="false">Cartões</button>
     </div>
-    <button id="botao-grupos" class="botao" type="button" hidden><svg class="icone icone-15" aria-hidden="true"><use href="#i-grupos"/></svg>Gerenciar grupos</button>
-    <button id="botao-novo-grupo" class="botao" type="button" hidden><svg class="icone icone-15" aria-hidden="true"><use href="#i-mais"/></svg>Novo grupo</button>
+    <button id="botao-grupos" class="botao" type="button" hidden><svg class="icone icone-15" aria-hidden="true"><use href="#i-grupos"/></svg>Gerenciar visões</button>
+    <button id="botao-novo-grupo" class="botao" type="button" hidden><svg class="icone icone-15" aria-hidden="true"><use href="#i-mais"/></svg>Nova visão</button>
     <button id="botao-sair" class="botao" type="button" hidden><svg class="icone icone-15" aria-hidden="true"><use href="#i-sair"/></svg>Sair</button>
     <button id="botao-cheia" class="botao botao-quadrado" type="button" aria-label="Tela cheia" hidden><svg class="icone icone-16" aria-hidden="true"><use id="icone-cheia" href="#i-cheia"/></svg></button>
   </div>
@@ -94,7 +96,7 @@
   <div class="ind">
     <span class="ind-rotulo">RAMAIS</span>
     <span id="ind-total" class="ind-valor">0</span>
-    <span id="ind-grupos" class="ind-sub">em 0 grupos</span>
+    <span id="ind-grupos" class="ind-sub">em 0 visões</span>
   </div>
   <div class="ind">
     <span class="ind-rotulo"><span class="ind-chave" data-estado="livre"></span>REGISTRADOS</span>
@@ -104,7 +106,7 @@
   <div class="ind">
     <span class="ind-rotulo"><span class="ind-chave" data-estado="nao_registrado"></span>NÃO REGISTRADOS</span>
     <span id="ind-nao-reg" class="ind-valor">0</span>
-    <span id="ind-pior" class="ind-sub">pior grupo: nenhum</span>
+    <span id="ind-pior" class="ind-sub">pior visão: nenhuma</span>
   </div>
   <div class="ind">
     <span class="ind-rotulo"><span class="ind-chave" data-estado="inalcancavel"></span>INALCANÇÁVEIS</span>
@@ -125,16 +127,17 @@
 
 <div id="aba-ramais" class="colunas" role="tabpanel" aria-labelledby="aba-btn-ramais">
 
-<aside class="col-esq" aria-label="Grupos">
+<aside class="col-esq" aria-label="Visões">
   <section class="bloco bloco-grupos">
     <div class="bloco-cabeca bloco-cabeca-centro">
-      <h2 class="bloco-titulo">GRUPOS</h2>
-      <div class="ordem" role="group" aria-label="Ordenar grupos">
+      <h2 class="bloco-titulo">VISÕES</h2>
+      <div class="ordem" role="group" aria-label="Ordenar visões">
         <button type="button" class="ordem-btn" data-ordem="nome" aria-pressed="false">Nome</button>
         <button type="button" class="ordem-btn" data-ordem="problemas" aria-pressed="true">Mais problemas</button>
       </div>
     </div>
-    <div id="grupos-lista" class="grupos-lista pr-scroll"></div>
+    <p id="visoes-dica" class="bloco-nota">Clique escolhe uma visão; Ctrl ou Cmd + clique soma ou tira.</p>
+    <div id="grupos-lista" class="grupos-lista pr-scroll" role="group" aria-label="Visões" aria-describedby="visoes-dica"></div>
   </section>
 
   <section class="bloco bloco-hist">
@@ -159,6 +162,7 @@
       <span class="hist-leg"><span class="leg-chamadas" aria-hidden="true"></span><span id="hist-pico">Em chamada (pico 0)</span></span>
       <span class="hist-leg"><span class="leg-nao-reg" aria-hidden="true"></span>Não registrados</span>
     </div>
+    <p id="hist-overlap" class="bloco-nota" hidden>Ramais em mais de uma visão podem ser contados duas vezes neste gráfico.</p>
   </section>
 
   <section class="bloco bloco-inst" aria-labelledby="inst-titulo">
@@ -189,7 +193,7 @@
     <label class="busca">
       <svg class="icone icone-15" aria-hidden="true"><use href="#i-busca"/></svg>
       <span class="so-leitor">Buscar ramal</span>
-      <input id="filtro-busca" type="search" placeholder="Ramal, nome ou IP (busca em todos os grupos)" autocomplete="off" spellcheck="false">
+      <input id="filtro-busca" type="search" placeholder="Ramal, nome ou IP (busca em todas as visões)" autocomplete="off" spellcheck="false">
     </label>
   </div>
 
@@ -221,7 +225,7 @@
     <span id="dr-estado" class="selo-estado"><span class="selo-ponto" aria-hidden="true"></span><span id="dr-estado-texto"></span></span>
     <p id="dr-sumiu" class="dialogo-contexto" hidden>Este ramal não existe mais no PBX.</p>
     <dl class="detalhe-dados">
-      <dt>Grupos</dt><dd><ul id="dr-grupos" class="dr-grupos"></ul></dd>
+      <dt>Visões</dt><dd><ul id="dr-grupos" class="dr-grupos"></ul></dd>
       <dt>Chamada</dt><dd id="dr-chamada" class="mono"></dd>
       <dt>IP</dt><dd id="dr-ip" class="mono"></dd>
       <dt>Aparelho</dt><dd id="dr-ua"></dd>
@@ -229,13 +233,13 @@
     </dl>
     <div id="dr-admin" class="dr-admin" hidden>
       <fieldset class="marcar-caixa">
-        <legend class="campo-rotulo">Adicionar ao grupo</legend>
+        <legend class="campo-rotulo">Adicionar às visões</legend>
         <div id="dr-add-lista" class="marcar-lista pr-scroll"></div>
-        <p id="dr-add-vazio" class="campo-ajuda" hidden>O ramal já está em todos os grupos.</p>
+        <p id="dr-add-vazio" class="campo-ajuda" hidden>O ramal já está em todas as visões.</p>
       </fieldset>
-      <button id="dr-adicionar" class="botao botao-primario" type="button" disabled>Adicionar ao grupo</button>
+      <button id="dr-adicionar" class="botao botao-primario" type="button" disabled>Adicionar às visões</button>
       <div id="dr-remover-caixa" class="dr-remover" hidden>
-        <button id="dr-remover" class="botao botao-perigo" type="button" aria-describedby="dr-remover-nota">Remover deste grupo</button>
+        <button id="dr-remover" class="botao botao-perigo" type="button" aria-describedby="dr-remover-nota">Remover desta visão</button>
         <p id="dr-remover-nota" class="dr-nota" hidden></p>
       </div>
       <p id="dr-erro" class="campo-erro" role="alert"></p>
@@ -264,10 +268,13 @@
       <button type="button" class="seg" data-periodo="7d" aria-pressed="false">7 dias</button>
       <button type="button" class="seg" data-periodo="30d" aria-pressed="false">30 dias</button>
     </div>
-    <label class="reg-campo">
-      <span class="so-leitor">Grupo</span>
-      <select id="reg-grupo"></select>
-    </label>
+    <details id="reg-visoes" class="visoes">
+      <summary class="visoes-botao"><span class="visoes-prefixo">Visões:</span> <span class="visoes-rotulo">Todos os ramais</span></summary>
+      <div class="visoes-painel">
+        <p class="visoes-dica">Clique escolhe uma visão; Ctrl ou Cmd + clique soma ou tira.</p>
+        <div class="visoes-lista pr-scroll" role="group" aria-label="Visões"></div>
+      </div>
+    </details>
     <label class="busca reg-busca">
       <svg class="icone icone-15" aria-hidden="true"><use href="#i-busca"/></svg>
       <span class="so-leitor">Buscar ramal nos registros</span>
@@ -305,6 +312,7 @@
           <span class="hist-leg"><span class="leg-inalc" aria-hidden="true"></span>Ficou inalcançável</span>
           <span id="reg-graf-max" class="reg-graf-max"></span>
         </div>
+        <p id="reg-graf-overlap" class="bloco-nota" hidden>Ramais em mais de uma visão podem ser contados duas vezes neste gráfico.</p>
         <p id="reg-sistema" class="reg-sistema"></p>
       </section>
 
@@ -319,7 +327,7 @@
               <div class="reg-cabeca" role="row" aria-rowindex="1">
                 <span role="columnheader" aria-sort="none" data-chave="numero"><button type="button" class="reg-ordem">Ramal</button></span>
                 <span role="columnheader" aria-sort="none" data-chave="nome"><button type="button" class="reg-ordem">Nome</button></span>
-                <span role="columnheader" aria-sort="none" data-chave="grupos"><button type="button" class="reg-ordem">Grupos</button></span>
+                <span role="columnheader" aria-sort="none" data-chave="grupos"><button type="button" class="reg-ordem">Visões</button></span>
                 <span role="columnheader" aria-sort="none" data-chave="perdeu" class="reg-dir"><button type="button" class="reg-ordem">Perdeu registro</button></span>
                 <span role="columnheader" aria-sort="none" data-chave="inalc" class="reg-dir"><button type="button" class="reg-ordem">Ficou inalcançável</button></span>
                 <span role="columnheader" aria-sort="none" data-chave="registrou" class="reg-dir"><button type="button" class="reg-ordem">Registrou</button></span>
@@ -351,7 +359,7 @@
       </div>
       <span id="rl-removido" class="selo-estado" data-estado="desconhecido" hidden><span class="selo-ponto" aria-hidden="true"></span>REMOVIDO</span>
       <dl class="detalhe-dados">
-        <dt>Grupos</dt><dd id="rl-grupos"></dd>
+        <dt>Visões</dt><dd id="rl-grupos"></dd>
         <dt>Perdeu registro</dt><dd id="rl-perdeu" class="mono"></dd>
         <dt>Ficou inalcançável</dt><dd id="rl-inalc" class="mono"></dd>
         <dt>Registrou</dt><dd id="rl-registrou" class="mono"></dd>
@@ -394,10 +402,13 @@
   </section>
 
   <div class="ch-filtros">
-    <label class="reg-campo">
-      <span class="so-leitor">Grupo</span>
-      <select id="ch-grupo"></select>
-    </label>
+    <details id="ch-visoes" class="visoes">
+      <summary class="visoes-botao"><span class="visoes-prefixo">Visões:</span> <span class="visoes-rotulo">Todos os ramais</span></summary>
+      <div class="visoes-painel">
+        <p class="visoes-dica">Clique escolhe uma visão; Ctrl ou Cmd + clique soma ou tira.</p>
+        <div class="visoes-lista pr-scroll" role="group" aria-label="Visões"></div>
+      </div>
+    </details>
     <label class="busca ch-busca">
       <svg class="icone icone-15" aria-hidden="true"><use href="#i-busca"/></svg>
       <span class="so-leitor">Buscar nas chamadas</span>
@@ -483,19 +494,19 @@
 
 <dialog id="dialogo-grupos" class="dialogo" aria-labelledby="dg-titulo">
   <div class="dialogo-cabeca">
-    <h2 id="dg-titulo" class="dialogo-titulo">Grupos</h2>
+    <h2 id="dg-titulo" class="dialogo-titulo">Visões</h2>
     <button id="dg-fechar" class="botao-fechar" type="button" aria-label="Fechar"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
   </div>
   <div class="dialogo-corpo">
     <section class="dg-lista" aria-labelledby="dg-lista-titulo">
-      <h3 id="dg-lista-titulo" class="dg-sub">Grupos cadastrados</h3>
+      <h3 id="dg-lista-titulo" class="dg-sub">Visões cadastradas</h3>
       <p id="dg-lista-estado" class="vazio" hidden></p>
       <p id="dg-ok-lista" class="dg-ok" role="status"></p>
       <ul id="dg-lista" class="dg-itens pr-scroll"></ul>
     </section>
     <form id="dg-form" class="dg-importar" novalidate>
       <h3 class="dg-sub">Importar CSV</h3>
-      <p class="campo-ajuda">Faixa: <code>grupo,2000-2099</code> (um número só: <code>2150-2150</code>). Ramal avulso <code>grupo,2150</code> põe o ramal no grupo, além das faixas. O mesmo ramal pode estar em vários grupos; faixas de grupos diferentes podem se cruzar. Sem "Substituir", a importação só acrescenta. <code>Sem grupo,N</code> é ignorado.</p>
+      <p class="campo-ajuda">Duas colunas, visão e ramal ou faixa, separadas por vírgula ou ponto e vírgula; cabeçalho <code>visao,ramal</code> opcional. Faixa: <code>Suporte,2000-2099</code> (um número só: <code>Suporte,2150-2150</code>). Ramal avulso <code>Suporte,2150</code> põe o ramal na visão, além das faixas. O mesmo ramal pode estar em várias visões; faixas de visões diferentes podem se cruzar. Sem "Substituir", a importação só acrescenta.</p>
       <label class="campo">
         <span class="campo-rotulo">Arquivo</span>
         <input id="dg-arquivo" type="file" accept=".csv,text/csv,text/plain">
@@ -504,17 +515,17 @@
         <span class="campo-rotulo">Ou cole o conteúdo</span>
         <textarea id="dg-texto" rows="7" spellcheck="false" aria-describedby="dg-erro"></textarea>
       </label>
-      <label class="opcao"><input id="dg-substituir" type="checkbox"> <span>Substituir todos os grupos atuais</span></label>
+      <label class="opcao"><input id="dg-substituir" type="checkbox"> <span>Substituir todas as visões atuais</span></label>
       <pre id="dg-erro" class="campo-erro dg-erro" role="alert"></pre>
       <p id="dg-ok" class="dg-ok" role="status"></p>
-      <button id="dg-importar" class="botao botao-primario" type="submit">Importar grupos</button>
+      <button id="dg-importar" class="botao botao-primario" type="submit">Importar visões</button>
     </form>
   </div>
 </dialog>
 
 <dialog id="dialogo-novo-grupo" class="dialogo dialogo-estreito" aria-labelledby="ng-titulo">
   <div class="dialogo-cabeca">
-    <h2 id="ng-titulo" class="dialogo-titulo">Novo grupo</h2>
+    <h2 id="ng-titulo" class="dialogo-titulo">Nova visão</h2>
     <button class="botao-fechar" type="button" data-fechar aria-label="Fechar"><svg class="icone icone-14" aria-hidden="true"><use href="#i-fechar"/></svg></button>
   </div>
   <form id="ng-form" class="dialogo-pilha" novalidate>
@@ -532,7 +543,7 @@
     <p id="ng-previa" class="previa" aria-live="polite"></p>
     <p id="ng-erro" class="campo-erro" role="alert"></p>
     <div class="dialogo-botoes">
-      <button id="ng-criar" class="botao botao-primario" type="submit">Criar grupo</button>
+      <button id="ng-criar" class="botao botao-primario" type="submit">Criar visão</button>
       <button class="botao" type="button" data-fechar>Cancelar</button>
     </div>
   </form>
@@ -546,7 +557,7 @@
   <div class="dialogo-pilha">
     <p id="dv-resumo" class="dv-resumo"></p>
     <fieldset id="dv-grupos-caixa" class="marcar-caixa" hidden>
-      <legend class="campo-rotulo">Grupos</legend>
+      <legend class="campo-rotulo">Visões</legend>
       <div id="dv-grupos" class="marcar-lista pr-scroll"></div>
     </fieldset>
     <ul id="dv-origens" class="dv-origens"></ul>
@@ -581,8 +592,8 @@
 
 <div id="barra-selecao" class="barra-selecao" role="region" aria-label="Ramais selecionados" hidden>
   <p id="bs-contagem" class="bs-contagem" aria-live="polite"></p>
-  <button id="bs-adicionar" class="botao botao-primario" type="button">Adicionar aos grupos...</button>
-  <button id="bs-remover" class="botao botao-perigo" type="button" hidden>Remover deste grupo...</button>
+  <button id="bs-adicionar" class="botao botao-primario" type="button">Adicionar às visões...</button>
+  <button id="bs-remover" class="botao botao-perigo" type="button" hidden>Remover desta visão...</button>
   <button id="bs-limpar" class="botao" type="button">Limpar seleção</button>
 </div>
 <p id="aviso-status" class="aviso-status" role="status"></p>

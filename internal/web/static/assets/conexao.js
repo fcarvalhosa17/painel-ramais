@@ -12,7 +12,7 @@ export class ErroApi extends Error {
   }
 }
 
-async function chamar(metodo, caminho, corpo) {
+async function chamar(metodo, caminho, corpo, comMeta = false) {
   const opcoes = { method: metodo, credentials: "same-origin", headers: {}, cache: "no-store" };
   if (corpo !== undefined) {
     opcoes.headers["Content-Type"] = "application/json";
@@ -26,9 +26,17 @@ async function chamar(metodo, caminho, corpo) {
   }
   let env = null;
   try { env = await resp.json(); } catch { /* corpo sem JSON: tratado abaixo */ }
-  if (resp.ok && env && env.success) return env.data;
+  if (resp.ok && env && env.success) return comMeta ? { dados: env.data, meta: env.meta || {} } : env.data;
   const erro = env && env.error ? env.error : {};
   throw new ErroApi(resp.status, erro.code || "http_" + resp.status, erro.message);
+}
+
+// Séries por visão (/api/history e /api/registrations/series): group repetido = soma das visões; com 2 ou mais, o
+// meta.overlap do envelope diz se algum ramal está em mais de uma (a soma pode contá-lo duas vezes).
+async function serieDasVisoes(caminho, q, visoes) {
+  for (const v of visoes) q.append("group", v);
+  const r = await chamar("GET", caminho + "?" + q.toString(), undefined, true);
+  return { ...(r.dados || {}), sobreposicao: r.meta.overlap === true };
 }
 
 export const api = {
@@ -37,11 +45,8 @@ export const api = {
   login: (password) => chamar("POST", "api/login", { username: "emergencia", password }),
   logout: () => chamar("POST", "api/logout", {}),
   snapshot: () => chamar("GET", "api/snapshot"),
-  historico: (de, ate, grupo) => {
-    const q = new URLSearchParams({ from: de.toISOString(), to: ate.toISOString() });
-    if (grupo) q.set("group", grupo);
-    return chamar("GET", "api/history?" + q.toString());
-  },
+  // visoes: [] = total da instalação.
+  historico: (de, ate, visoes) => serieDasVisoes("api/history", new URLSearchParams({ from: de.toISOString(), to: ate.toISOString() }), visoes),
   grupos: () => chamar("GET", "api/groups"),
   importarGrupos: (csv, replace) => chamar("POST", "api/groups/import", { csv, replace }),
   removerGrupo: (name) => chamar("POST", "api/groups/delete", { name }),
@@ -62,11 +67,7 @@ export const api = {
     return chamar("GET", "api/registrations?" + q.toString());
   },
   registrosRamal: (number, period) => chamar("GET", "api/registrations/extension?" + new URLSearchParams({ number, period }).toString()),
-  serieRegistros: (period, grupo) => {
-    const q = new URLSearchParams({ period });
-    if (grupo) q.set("group", grupo);
-    return chamar("GET", "api/registrations/series?" + q.toString());
-  },
+  serieRegistros: (period, visoes) => serieDasVisoes("api/registrations/series", new URLSearchParams({ period }), visoes),
 };
 
 // Ciclo de vida do WebSocket. eventos: { aoDelta(msg), aoPrecisarSnapshot(), aoReconectar(), aoSessaoEncerrada(), aoStatus(status, detalhe) }

@@ -4,7 +4,9 @@
 import {
   ESTADOS, SETA, DIRECAO, contagens, agregarGrupos, filtrar, formatarNumero, formatarPct, normalizar,
   textoFaixas, direcoes, chamadaPrincipal, duracaoMs, formatarCronometro, outroLado, gruposDe, textoProblemas,
+  naVisoes, rotuloVisao, rotuloVisoes,
 } from "./estado.js";
+import { ligarItemVisao } from "./visoes.js";
 import { Dados, atrasoReconexao } from "./dados.js";
 import { api, CanalAoVivo } from "./conexao.js";
 import { Lista } from "./lista.js";
@@ -22,7 +24,7 @@ const TOKEN = /^#t=([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/;
 const SESSAO_ENCERRADA = "Sessão encerrada. Abra de novo pelo menu PBX do Issabel.";
 const MIN = 60e3;
 const DIA = 24 * 3600e3;
-const TODOS = "Todos os ramais"; // escopo "" (filtros.grupo vazio): não é grupo, nunca entra no catálogo
+const TODOS = "Todos os ramais"; // escopo [] (filtros.visoes vazio): não é visão, nunca entra no catálogo
 const CHAMADA_LONGA_MS = 20 * MIN; // tempo em laranja acima de 20 min
 const TRACO = String.fromCharCode(0x2014); // sem leitura: "—" como no design (decorate), nunca 0
 const CHAVE_MODO = "painel-ramais.modo";
@@ -139,7 +141,8 @@ $("botao-sair").addEventListener("click", async () => {
 // ---------- estado da tela ----------
 const dados = new Dados();
 // desligados: estados que o usuário apagou nos chips (vazio = todos, como o "Todos" do design).
-const filtros = { busca: "", desligados: new Set(), grupo: "" };
+// visoes: visões escolhidas na coluna Visões ([] = todos os ramais); a tela mostra a união, sem repetir ramal.
+const filtros = { busca: "", desligados: new Set(), visoes: [] };
 let grupos = []; // agregado por grupo (só grupos com ramal)
 let porNome = new Map();
 let nomesGrupos = []; // catálogo (inclui grupos vazios) mais os grupos que têm ramal (o "Sem grupo")
@@ -156,13 +159,15 @@ let timerRelogio = null;
 
 const lista = new Lista($("lista"), $("lista-altura"));
 const areaGrupos = iniciarGrupos({ dados, aoSessaoEncerrada: () => semSessao() });
-const edicao = iniciarEdicao({ dados, lista, grupoAberto: () => filtros.grupo, aoSessaoEncerrada: () => semSessao() });
+// Só uma visão escolhida conta como "aberta" para remover vínculo; várias ou todos os ramais, nenhuma.
+const visaoUnica = () => (filtros.visoes.length === 1 ? filtros.visoes[0] : "");
+const edicao = iniciarEdicao({ dados, lista, grupoAberto: visaoUnica, aoSessaoEncerrada: () => semSessao() });
 const registros = iniciarRegistros({ dados, relogio: () => Date.now() + dados.desvioMs, aoSessaoEncerrada: () => semSessao() });
 const chamadas = iniciarChamadas({ dados, relogio: () => Date.now() + dados.desvioMs, aoSessaoEncerrada: () => semSessao() });
 const instabilidade = iniciarInstabilidade({
-  // Clique no ramal do bloco: aba Registros com 24 h, o grupo atual e a linha do tempo dele.
+  // Clique no ramal do bloco: aba Registros com 24 h, as visões atuais e a linha do tempo dele.
   aoAbrir(numero) {
-    registros.abrirRamal(numero, filtros.grupo);
+    registros.abrirRamal(numero, filtros.visoes);
     trocarAba("registros");
     $("rl-fechar").focus();
   },
@@ -272,9 +277,10 @@ function quadro() {
     grupos = agregarGrupos(dados.itens);
     porNome = new Map(grupos.map((g) => [g.nome, g]));
     nomesGrupos = [...new Set([...dados.grupos.map((g) => g.name), ...grupos.map((g) => g.nome)])];
-    // A tela abre em "Todos os ramais" (filtros.grupo ""); se o grupo selecionado some (excluído, renomeado
-    // ou fora do catálogo), volta para ele. Roda antes do filtro deste quadro: lista, chips e histórico já saem certos.
-    if (filtros.grupo && !nomesGrupos.includes(filtros.grupo)) selecionarGrupo("", false);
+    // A tela abre em "Todos os ramais" (filtros.visoes []); visão escolhida que some (excluída, renomeada ou fora
+    // do catálogo) sai da seleção, e sem nenhuma volta para todos. Roda antes do filtro deste quadro.
+    const validas = filtros.visoes.filter((v) => nomesGrupos.includes(v));
+    if (validas.length !== filtros.visoes.length) selecionarVisoes(validas, false);
     // Totais da instalação contam cada ramal uma vez (somar os grupos contaria o ramal em N grupos N vezes).
     totais = {};
     for (const e of ESTADOS) totais[e.chave] = 0;
@@ -339,14 +345,14 @@ function renderIndicadores() {
   // Como o design: registrado é todo ramal com registro, inclusive o inalcançável (registrado sem resposta).
   const reg = total - totais.nao_registrado - totais.desconhecido;
   $("ind-total").textContent = formatarNumero(total);
-  $("ind-grupos").textContent = "em " + formatarNumero(nomesGrupos.length) + " grupos";
+  $("ind-grupos").textContent = "em " + formatarNumero(nomesGrupos.length) + (nomesGrupos.length === 1 ? " visão" : " visões");
   $("ind-reg").textContent = leitura(reg);
   $("ind-reg-pct").textContent = ami ? formatarPct(reg, total) : "";
   $("ind-reg-barra").style.width = ami && total ? ((reg / total) * 100).toFixed(2) + "%" : "0%";
   $("ind-nao-reg").textContent = leitura(totais.nao_registrado);
   let pior = null;
   for (const g of grupos) if (g.porEstado.nao_registrado > 0 && (!pior || g.porEstado.nao_registrado > pior.porEstado.nao_registrado)) pior = g;
-  $("ind-pior").textContent = "pior grupo: " + (!ami ? TRACO : pior ? pior.nome + " (" + formatarNumero(pior.porEstado.nao_registrado) + ")" : "nenhum");
+  $("ind-pior").textContent = "pior visão: " + (!ami ? TRACO : pior ? rotuloVisao(pior.nome) + " (" + formatarNumero(pior.porEstado.nao_registrado) + ")" : "nenhuma");
   $("ind-inalc").textContent = leitura(totais.inalcancavel);
   $("ind-chamadas").textContent = leitura(totais.em_conversa + totais.em_espera);
   const d = direcoes(dados.itens);
@@ -355,7 +361,7 @@ function renderIndicadores() {
   $("ind-espera").textContent = leitura(totais.em_espera);
 }
 
-// ---------- coluna Grupos: barra empilhada, % registrados, "X não registrados" e "Y inalcançáveis" (item 11) ----------
+// ---------- coluna Visões: barra empilhada, % registrados, "X não registrados" e "Y inalcançáveis" (item 11) ----------
 const linhasGrupo = new Map(); // nome ("" = Todos os ramais) -> nós da linha
 let chaveOrdemGrupos = "";
 
@@ -373,8 +379,8 @@ function criarLinhaGrupo(nome) {
   const pe = span("grupo-pe", b);
   const reg = span("", pe);
   const alerta = span("", pe);
-  titulo.textContent = nome || TODOS;
-  b.addEventListener("click", () => { edicao.fecharDetalhe(); selecionarGrupo(nome); });
+  titulo.textContent = nome ? rotuloVisao(nome) : TODOS;
+  ligarItemVisao(b, nome, () => filtros.visoes, (novas) => { edicao.fecharDetalhe(); selecionarVisoes(novas); });
   return { b, n, segs, reg, alerta };
 }
 
@@ -410,7 +416,7 @@ function renderGrupos() {
     ui.reg.textContent = formatarPct(e.reg, e.n) + " registrados";
     ui.alerta.textContent = textoProblemas(e.p); // destaque e ordem continuam pela soma (ruins)
     ui.alerta.classList.toggle("grupo-alerta-forte", e.problema > 0.25);
-    ui.b.setAttribute("aria-pressed", String(e.nome === filtros.grupo));
+    ui.b.setAttribute("aria-pressed", String(e.nome ? filtros.visoes.includes(e.nome) : !filtros.visoes.length));
   }
   for (const nome of [...linhasGrupo.keys()]) if (!vivos.has(nome)) { linhasGrupo.get(nome).b.remove(); linhasGrupo.delete(nome); }
   // Só reordena o DOM quando a ordem muda (mover o nó tira o foco do botão).
@@ -429,14 +435,14 @@ for (const b of document.querySelectorAll(".ordem-btn")) {
   });
 }
 
-function selecionarGrupo(nome, rolar = true) {
-  if (filtros.grupo === nome) return;
-  filtros.grupo = nome;
-  $("hist-grupo").textContent = nome || TODOS;
-  instabilidade.definirGrupo(nome);
+function selecionarVisoes(visoes, rolar = true) {
+  if (visoes.join("\n") === filtros.visoes.join("\n")) return;
+  filtros.visoes = visoes;
+  $("hist-grupo").textContent = rotuloVisoes(visoes);
+  instabilidade.definirVisoes(visoes);
   lista.irAoTopo();
   $("chamadas").scrollTop = 0;
-  sujo.dados = true; // grupos, chamadas ativas e centro marcam o grupo
+  sujo.dados = true; // visões, chamadas ativas e centro marcam a seleção
   agendar();
   carregarHistorico(true);
   // Colunas empilhadas: leva a lista para a vista se ela ficou abaixo da dobra.
@@ -479,8 +485,8 @@ function aplicarFiltroEstados() {
 }
 
 function renderCentro() {
-  // Com busca, o design procura em todos os grupos e ignora o grupo selecionado.
-  const fonte = filtrar(dados.itens, { busca: filtros.busca, grupo: normalizar(filtros.busca) ? "" : filtros.grupo, estados: null });
+  // Com busca, o design procura em todas as visões e ignora as escolhidas.
+  const fonte = filtrar(dados.itens, { busca: filtros.busca, visoes: normalizar(filtros.busca) ? [] : filtros.visoes, estados: null });
   const porEstado = {};
   for (const e of ESTADOS) porEstado[e.chave] = 0;
   for (const it of fonte) porEstado[it.estado]++;
@@ -491,11 +497,14 @@ function renderCentro() {
   for (const [chave, c] of chips) c.n.textContent = formatarNumero(porEstado[chave]);
   $("chip-todos-n").textContent = formatarNumero(fonte.length);
 
-  const g = filtros.grupo;
-  const total = g ? (porNome.get(g) || { total: 0 }).total : dados.itens.length;
-  const cat = g ? dados.grupos.find((x) => x.name === g) : null;
+  const v = filtros.visoes;
+  // Ramais do escopo (a união das visões, cada ramal uma vez), sem a busca.
+  let total = dados.itens.length;
+  if (v.length) { total = 0; for (const it of dados.itens) if (naVisoes(gruposDe(it.ramal), v)) total++; }
+  const cat = v.length === 1 ? dados.grupos.find((x) => x.name === v[0]) : null;
   const faixas = cat && cat.ranges && cat.ranges.length ? "faixa " + textoFaixas(cat.ranges, String.fromCharCode(0x2013)) + " · " : "";
-  $("centro-nome").textContent = g || TODOS;
+  $("centro-nome").textContent = rotuloVisoes(v);
+  $("centro-nome").title = v.length > 2 ? v.map(rotuloVisao).join(", ") : "";
   $("centro-info").textContent = faixas + formatarNumero(total) + " ramais";
   $("contagem-lista").textContent = "Mostrando " + formatarNumero(filtrados.length) + " de " + formatarNumero(fonte.length) + " ramais · a lista carrega conforme a rolagem";
 
@@ -564,7 +573,7 @@ for (const b of botoesAba) {
   });
 }
 
-// ---------- chamadas ativas do escopo selecionado (grupo ou todos os ramais), mais longas primeiro ----------
+// ---------- chamadas ativas do escopo selecionado (visões ou todos os ramais), mais longas primeiro ----------
 // Rolagem virtual e teclado pelo ListaLinhas (linhas.js, D18 e D34): só as linhas da janela visível existem no DOM,
 // roving tabindex, setas, Home e End; a linha focada é achada pelo número do ramal e não perde o foco no tique de 1 s.
 // Cada linha é um item de lista com o botão dentro (o clique abre o detalhe do ramal).
@@ -621,12 +630,12 @@ function renderChamadas() {
   const ativos = [];
   for (const it of dados.itens) {
     if (it.estado !== "em_conversa" && it.estado !== "em_espera") continue;
-    if (filtros.grupo && !gruposDe(it.ramal).includes(filtros.grupo)) continue;
+    if (!naVisoes(gruposDe(it.ramal), filtros.visoes)) continue;
     ativos.push({ it, ms: duracaoMs(it.ramal.calls, agora, dados.desvioMs) ?? 0 });
   }
   ativos.sort((a, b) => b.ms - a.ms);
   $("chamadas-n").textContent = formatarNumero(ativos.length);
-  $("chamadas-sub").textContent = (filtros.grupo || TODOS) + " · mais longas primeiro";
+  $("chamadas-sub").textContent = rotuloVisoes(filtros.visoes) + " · mais longas primeiro";
   $("chamadas").setAttribute("aria-label", "Chamadas ativas, " + formatarNumero(ativos.length) + (ativos.length === 1 ? " chamada" : " chamadas"));
   listaChamadas.itens = ativos;
   pintarChamadas();
@@ -658,8 +667,10 @@ async function carregarHistorico(mostrarCarregando) {
   const ate = new Date();
   const de = new Date(ate.getTime() - DIA);
   try {
-    const h = await api.historico(de, ate, filtros.grupo);
+    // Várias visões: o daemon soma por minuto e avisa (sobreposicao) se algum ramal está em mais de uma.
+    const h = await api.historico(de, ate, filtros.visoes);
     if (meu !== pedidoHistorico) return;
+    $("hist-overlap").hidden = !h.sobreposicao;
     const pontos = h.points || [];
     const temDado = pontos.some((p) => !p.gap);
     estado.hidden = temDado;
@@ -674,12 +685,13 @@ async function carregarHistorico(mostrarCarregando) {
     if (e.status === 401) { semSessao(); return; }
     estado.hidden = false;
     texto.textContent = "Não foi possível carregar o histórico.";
+    $("hist-overlap").hidden = true;
     repetir.hidden = false;
   }
 }
 $("hist-repetir").addEventListener("click", () => carregarHistorico(true));
 
-// ---------- tela cheia e grupos ----------
+// ---------- tela cheia e visões ----------
 $("botao-cheia").addEventListener("click", () => {
   if (document.fullscreenElement) document.exitFullscreen();
   else document.documentElement.requestFullscreen().catch(() => { $("botao-cheia").hidden = true; });

@@ -6,14 +6,14 @@
 // Texto do servidor só por textContent.
 
 import { api } from "./conexao.js";
-import { SEM_GRUPO, compararGrupos, formatarNumero, normalizar, dataHora, horaMinuto, avisoPausa } from "./estado.js";
+import { formatarNumero, normalizar, dataHora, horaMinuto, avisoPausa, naVisoes, rotuloVisoes, rotulosVisao } from "./estado.js";
+import { seletorVisoes } from "./visoes.js";
 import { janela } from "./lista.js";
 
 const $ = (id) => document.getElementById(id);
 const INTERVALO = 5e3;
 const INTERVALO_SERIE = 60e3;
 const ALTURA_LINHA = 36; // px, a mesma altura do .reg-linha no app.css
-const TODOS = "Todos os ramais";
 const AUSENTE = String.fromCharCode(0x2013); // dado ausente nesta aba (sem travessão longo)
 const PERIODOS = ["24h", "7d", "30d"];
 const NS = "http://www.w3.org/2000/svg";
@@ -112,19 +112,14 @@ export const faixaFora = (r) => (r.down_since && (r.down_kind === "observed" || 
 
 export const ipPorta = (ip, porta) => (ip ? ip + (porta != null ? ":" + porta : "") : "");
 
-// Filtro de grupo da tela (CONTRATOS 4.7.2): "" = todas as linhas, inclusive removidas;
-// "Sem grupo" = groups igual a ["Sem grupo"]; outro = groups contém o grupo.
-export function passaGrupo(row, grupo) {
-  const gs = Array.isArray(row.groups) ? row.groups : [];
-  if (!grupo) return true;
-  if (grupo === SEM_GRUPO) return gs.length === 1 && gs[0] === SEM_GRUPO;
-  return gs.includes(grupo);
-}
+// Filtro de visões da tela (CONTRATOS 4.7.2): [] = todas as linhas, inclusive removidas; senão a linha cujo groups
+// contém alguma das visões ("Sem grupo" só aparece sozinho em groups, então vale a mesma regra).
+export const passaVisoes = (row, visoes) => naVisoes(Array.isArray(row.groups) ? row.groups : [], visoes);
 
 // ---------- CSV (CONTRATOS 4.7.5) ----------
 const BOM = String.fromCharCode(0xfeff);
 const CABECALHO_CSV = [
-  "Ramal", "Nome", "Grupos", "Perdeu registro", "Ficou inalcançável", "Registrou", "Voltou a ser alcançável",
+  "Ramal", "Nome", "Visões", "Perdeu registro", "Ficou inalcançável", "Registrou", "Voltou a ser alcançável",
   "Última queda", "Último IP", "Fora do ar há (s)", "Último registro", "Tempo total fora no período (s)",
   "Lacuna no período", "Removido",
 ];
@@ -164,7 +159,7 @@ export function gerarCsv(linhas, fromMs, fimMs, since) {
   const out = [CABECALHO_CSV.map((c) => celulaCsv(c)).join(";")];
   for (const { r } of linhas) {
     out.push([
-      celulaCsv(r.number), celulaCsv(r.name || ""), celulaCsv((r.groups || []).join(", ")),
+      celulaCsv(r.number), celulaCsv(r.name || ""), celulaCsv(rotulosVisao(r.groups)),
       celulaCsv(inteiro(r.lost_registration), false), celulaCsv(inteiro(r.became_unreachable), false),
       celulaCsv(inteiro(r.registered), false), celulaCsv(inteiro(r.reachable_again), false),
       celulaCsv(dataCsv(r.last_drop_at)), celulaCsv(ipPorta(r.last_ip, r.last_port)),
@@ -255,13 +250,13 @@ function span(classe, pai, papel) {
 
 export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
   const el = {
-    grupo: $("reg-grupo"), busca: $("reg-busca"), ocultar: $("reg-ocultar"), exportar: $("reg-exportar"),
+    busca: $("reg-busca"), ocultar: $("reg-ocultar"), exportar: $("reg-exportar"),
     avisoEstado: $("reg-aviso-estado"), avisoPausa: $("reg-aviso-pausa"),
     desde: $("reg-desde"), tabela: $("reg-tabela"), corpo: $("reg-corpo"), altura: $("reg-altura"),
     contagem: $("reg-contagem"), estado: $("reg-estado"), estadoTexto: $("reg-estado-texto"), repetir: $("reg-repetir"),
     grafTitulo: $("reg-graf-titulo"), grafNota: $("reg-graf-nota"), graf: $("reg-graf"), barras: $("reg-graf-barras"),
     grafEstado: $("reg-graf-estado"), grafEstadoTexto: $("reg-graf-estado-texto"), grafRepetir: $("reg-graf-repetir"),
-    eixo: $("reg-graf-eixo"), grafMax: $("reg-graf-max"), sistema: $("reg-sistema"),
+    eixo: $("reg-graf-eixo"), grafMax: $("reg-graf-max"), sistema: $("reg-sistema"), grafOverlap: $("reg-graf-overlap"),
   };
   const rl = {
     painel: $("reg-linha"), num: $("rl-num"), nome: $("rl-nome"), removido: $("rl-removido"), grupos: $("rl-grupos"),
@@ -271,7 +266,7 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
   };
   const cabecalhos = [...el.tabela.querySelectorAll("[role=\"columnheader\"]")];
   // ocultarAntes: filtro "Ocultar fora desde antes da instalação" (D40), desligado ao abrir a aba.
-  const filtro = { periodo: "24h", grupo: "", busca: "", ocultarAntes: false };
+  const filtro = { periodo: "24h", visoes: [], busca: "", ocultarAntes: false };
   let ordem = { chave: "foraha", desc: false };
 
   // Tabela: mapa número -> { r, chave de busca }; meta da última resposta (from em ms, since e o cabeçalho rc.9:
@@ -377,11 +372,11 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     const termo = normalizar(filtro.busca);
     const out = [];
     for (const { r, chave } of mapa.values()) {
-      if (!passaGrupo(r, filtro.grupo) || (termo && !chave.includes(termo))) continue;
+      if (!passaVisoes(r, filtro.visoes) || (termo && !chave.includes(termo))) continue;
       if (filtro.ocultarAntes && r.down_kind === "before_install") continue;
       out.push({
         r, perdeu: inteiro(r.lost_registration), inalc: inteiro(r.became_unreachable), registrou: inteiro(r.registered),
-        queda: Date.parse(r.last_drop_at) || 0, ultreg: Date.parse(r.last_registered) || 0, grupos: (r.groups || []).join(", "),
+        queda: Date.parse(r.last_drop_at) || 0, ultreg: Date.parse(r.last_registered) || 0, grupos: rotulosVisao(r.groups),
         faixa: faixaFora(r), desde: Date.parse(r.down_since) || 0,
       });
     }
@@ -511,31 +506,24 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
   }
 
   // ---------- filtros ----------
-  function preencherGrupos() {
-    const nomes = dados.grupos.map((g) => g.name).filter((n) => n !== SEM_GRUPO).sort(compararGrupos);
-    const ops = [[TODOS, ""], ...nomes.map((n) => [n, n]), [SEM_GRUPO, SEM_GRUPO]].map(([t, v]) => {
-      const o = document.createElement("option");
-      o.textContent = t;
-      o.value = v;
-      return o;
-    });
-    el.grupo.replaceChildren(...ops);
-    // Grupo escolhido que saiu do catálogo (excluído, renomeado): volta para todos os ramais.
-    if (filtro.grupo && filtro.grupo !== SEM_GRUPO && !nomes.includes(filtro.grupo)) definirGrupo("");
-    el.grupo.value = filtro.grupo;
+  // Visões (mesma seleção da aba Ramais: clique simples só uma, Ctrl ou Cmd soma ou tira).
+  const seletor = seletorVisoes($("reg-visoes"), (v) => definirVisoes(v));
+
+  // Visão escolhida que saiu do catálogo (excluída, renomeada) sai da seleção; sem nenhuma, todos os ramais.
+  function preencherVisoes() {
+    if (seletor.preencher(dados.grupos.map((g) => g.name))) definirVisoes(seletor.visoes);
   }
 
-  function definirGrupo(g) {
-    if (g === filtro.grupo) return;
-    filtro.grupo = g;
-    el.grupo.value = g;
-    el.grafNota.textContent = g || TODOS;
+  function definirVisoes(v) {
+    if (v.join("\n") === filtro.visoes.join("\n")) return;
+    filtro.visoes = v;
+    seletor.definir(v);
+    el.grafNota.textContent = rotuloVisoes(v);
     el.corpo.scrollTop = 0;
     serieCarregada = false;
     renderTabela();
     if (ligado()) carregarSerie();
   }
-  el.grupo.addEventListener("change", () => definirGrupo(el.grupo.value));
 
   function definirPeriodo(p) {
     if (!PERIODOS.includes(p) || p === filtro.periodo) return;
@@ -616,10 +604,12 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
       el.eixo.replaceChildren();
       el.grafMax.textContent = "";
       el.sistema.textContent = "";
+      el.grafOverlap.hidden = true;
       estadoGrafico("Carregando gráfico...", false);
     }
     try {
-      const s = await api.serieRegistros(filtro.periodo, filtro.grupo);
+      // Várias visões: o daemon soma e avisa (sobreposicao) se algum ramal está em mais de uma.
+      const s = await api.serieRegistros(filtro.periodo, filtro.visoes);
       if (meu !== pedidoSerie) return;
       desenharSerie(s || {});
       serieCarregada = true;
@@ -662,7 +652,8 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     });
     el.barras.replaceChildren(...filhos);
     el.grafTitulo.textContent = dia ? "OCORRÊNCIAS POR DIA" : "OCORRÊNCIAS POR HORA";
-    el.grafNota.textContent = filtro.grupo || TODOS;
+    el.grafNota.textContent = rotuloVisoes(filtro.visoes);
+    el.grafOverlap.hidden = !s.sobreposicao;
     el.graf.setAttribute("aria-label", "Ocorrências por " + (dia ? "dia" : "hora") + " no período: perdeu registro "
       + formatarNumero(somaPerdeu) + ", ficou inalcançável " + formatarNumero(somaInalc));
     el.eixo.style.gridTemplateColumns = "repeat(" + n + ", minmax(0, 1fr))";
@@ -742,7 +733,7 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
     linhaTempo = { x, from: Date.parse(d.from), desconhecidoDesde: d.state_unknown_since || null, since: d.since || null };
     rl.nome.textContent = x.name || "sem nome";
     rl.removido.hidden = !x.removed;
-    rl.grupos.textContent = (x.groups || []).join(", ") || AUSENTE;
+    rl.grupos.textContent = rotulosVisao(x.groups) || AUSENTE;
     rl.perdeu.textContent = formatarNumero(inteiro(x.lost_registration));
     rl.inalc.textContent = formatarNumero(inteiro(x.became_unreachable));
     rl.registrou.textContent = formatarNumero(inteiro(x.registered));
@@ -799,25 +790,25 @@ export function iniciarRegistros({ dados, relogio, aoSessaoEncerrada }) {
       visivel = sim;
       if (!sim) { clearTimeout(timer); timer = null; return; }
       if (abrindo) { filtro.ocultarAntes = false; el.ocultar.checked = false; }
-      preencherGrupos();
-      el.grafNota.textContent = filtro.grupo || TODOS;
+      preencherVisoes();
+      el.grafNota.textContent = rotuloVisoes(filtro.visoes);
       renderTabela();
       if (!emVoo) proximo(0);
       if (!serieCarregada || Date.now() - serieEm >= INTERVALO_SERIE) carregarSerie();
     },
-    // Vindo do bloco de instabilidade: 24 h, o grupo da tela de ramais, busca limpa e a linha do tempo aberta.
-    abrirRamal(numero, grupo) {
+    // Vindo do bloco de instabilidade: 24 h, as visões da aba Ramais, busca limpa e a linha do tempo aberta.
+    abrirRamal(numero, visoes) {
       definirPeriodo("24h");
-      preencherGrupos();
-      const valido = !grupo || grupo === SEM_GRUPO || dados.grupos.some((g) => g.name === grupo);
-      definirGrupo(valido ? grupo : "");
+      seletor.definir(visoes);
+      seletor.preencher(dados.grupos.map((g) => g.name)); // tira as que não estão no catálogo
+      definirVisoes(seletor.visoes);
       el.busca.value = "";
       filtro.busca = "";
       renderTabela();
       abrirLinha(numero, false);
     },
     aoMudarCatalogo() {
-      if (visivel) preencherGrupos();
+      if (visivel) preencherVisoes();
     },
     // Tique de 1 s com a aba visível: só os relógios das linhas desenhadas e da linha do tempo, sem reordenar e
     // sem rede (a ordem é pela data, não pela duração); o aviso de pausa some quando a hora passa.

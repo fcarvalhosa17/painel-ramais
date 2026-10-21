@@ -93,15 +93,16 @@ export function normalizar(texto) {
   return String(texto ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
 }
 
-// filtros: { busca: "", estados: Set de chaves (vazio = todos), grupo: "" (vazio = todos) }
-// lista: [{ ramal, estado, chaveBusca }] na ordem do snapshot. Grupo: o ramal está nele (groups contém, N:N).
+// filtros: { busca: "", estados: Set de chaves (vazio = todos), visoes: [] (vazio = todos os ramais) }
+// lista: [{ ramal, estado, chaveBusca }] na ordem do snapshot. Visões: o ramal está em alguma (groups, N:N);
+// cada item entra uma vez só, mesmo estando em várias visões escolhidas.
 export function filtrar(lista, filtros) {
   const termo = normalizar(filtros.busca);
   const estados = filtros.estados;
-  const grupo = filtros.grupo;
+  const visoes = filtros.visoes || [];
   const out = [];
   for (const item of lista) {
-    if (grupo && !gruposDe(item.ramal).includes(grupo)) continue;
+    if (visoes.length && !naVisoes(gruposDe(item.ramal), visoes)) continue;
     if (estados && estados.size && !estados.has(item.estado)) continue;
     if (termo && !item.chaveBusca.includes(termo)) continue;
     out.push(item);
@@ -126,7 +127,36 @@ export function contagens(ramais) {
   return c;
 }
 
+// Valor do contrato (JSON e banco) para o ramal sem vínculo: compara-se sempre por ele; na tela aparece "Sem visão".
 export const SEM_GRUPO = "Sem grupo";
+export const TODOS_RAMAIS = "Todos os ramais";
+
+// Nome de visão para exibir (o "grupo" do contrato se chama visão na tela).
+export const rotuloVisao = (nome) => (nome === SEM_GRUPO ? "Sem visão" : nome);
+export const rotulosVisao = (nomes) => (nomes || []).map(rotuloVisao).join(", ");
+
+// Rótulo de uma seleção de visões: [] = todos os ramais; uma ou duas pelo nome; mais, a quantidade.
+export function rotuloVisoes(visoes) {
+  if (!visoes.length) return TODOS_RAMAIS;
+  return visoes.length <= 2 ? visoes.map(rotuloVisao).join(" + ") : visoes.length + " visões";
+}
+
+// Teto de visões por pedido do daemon (group repetido): acima disso ele responde 400.
+export const MAX_VISOES = 20;
+
+// Seleção de visões, a mesma na aba Ramais e nos filtros das abas Registros e Chamadas. [] = todos os ramais;
+// nome "" = a linha "Todos os ramais". Clique simples: só a visão clicada (desmarca as outras e o Todos).
+// Ctrl ou Cmd: soma ou tira a visão sem mexer nas outras; tirar a última volta para todos os ramais.
+// Somar além de MAX_VISOES devolve null: nada muda e quem chama avisa.
+export function proximaSelecao(atual, nome, somar) {
+  if (!nome) return [];
+  if (!somar) return [nome];
+  if (atual.includes(nome)) return atual.filter((v) => v !== nome);
+  return atual.length >= MAX_VISOES ? null : [...atual, nome];
+}
+
+// grupos (do ramal ou da linha) em alguma das visões escolhidas; [] = todos os ramais.
+export const naVisoes = (grupos, visoes) => !visoes.length || grupos.some((g) => visoes.includes(g));
 
 // Grupos do ramal (CONTRATOS 2.1: nunca vazio; sem vínculo vem ["Sem grupo"]). A lista vazia só por garantia.
 export const gruposDe = (ramal) => (ramal.groups && ramal.groups.length ? ramal.groups : [SEM_GRUPO]);
@@ -218,18 +248,18 @@ export function contarComFaixas(itens, faixas, nome) {
 // Nome de grupo novo ou renomeado. Duplicado é comparado sem maiúsculas nem acentos; o daemon revalida.
 export function erroNomeGrupo(nome, catalogo, atual = null) {
   const n = String(nome ?? "").trim();
-  if (!n) return "Digite o nome do grupo.";
+  if (!n) return "Digite o nome da visão.";
   // Só o nome novo é conferido (CONTRATOS 9): grupo antigo com nome hoje reservado edita as faixas sem renomear.
   if (atual !== null && n === atual) return "";
   if ([...n].length > 64) return "O nome pode ter no máximo 64 caracteres.";
   if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(n)) return "O nome tem caractere invisível ou de controle.";
   const chave = normalizar(n);
-  if (chave === normalizar(SEM_GRUPO)) return "\"Sem grupo\" é reservado. Escolha outro nome.";
+  if (chave === normalizar(SEM_GRUPO) || chave === normalizar("Sem visão")) return "\"Sem visão\" é reservado. Escolha outro nome.";
   // "Todos os ramais" é o escopo de todos os ramais na tela, não grupo. Desde a rc.8 o daemon também recusa (D37);
   // a tela recusa antes de enviar e, se o 400 vier mesmo assim, mostra a mensagem dele.
   if (chave === normalizar("Todos os ramais")) return "\"Todos os ramais\" é reservado. Escolha outro nome.";
   const igual = (catalogo || []).find((g) => g.name !== atual && normalizar(g.name) === chave);
-  return igual ? "Já existe o grupo " + igual.name + "." : "";
+  return igual ? "Já existe a visão " + igual.name + "." : "";
 }
 
 // Por grupo: { nome, total, porEstado: {chave: n} }, em ordem alfabética com "Sem grupo" por último
@@ -307,8 +337,8 @@ export function textosChamada(c, filas, nomeRamal) {
   return { numero, resto, l2: partes.join(" · ") };
 }
 
-// Filtros da aba (D30), menos o de tipo: grupo (algum ramal da chamada no grupo; "Sem grupo" = algum ramal sem
-// vínculo), tronco, fila e busca (número externo, números e nomes dos ramais, sem maiúsculas nem acentos).
+// Filtros da aba (D30), menos o de tipo: visões (algum ramal da chamada em alguma visão escolhida; "Sem grupo" =
+// algum ramal sem vínculo, porque ele só aparece sozinho em groups), tronco, fila e busca (número externo, números e nomes dos ramais, sem maiúsculas nem acentos).
 // porNumero: Map número -> item da lista de ramais ({ ramal }).
 export function filtrarChamadas(chamadas, f, porNumero) {
   const termo = normalizar(f.busca);
@@ -317,15 +347,8 @@ export function filtrarChamadas(chamadas, f, porNumero) {
     if (f.tronco && c.trunk !== f.tronco) continue;
     if (f.fila && c.queue !== f.fila) continue;
     const exts = Array.isArray(c.extensions) ? c.extensions : [];
-    if (f.grupo) {
-      const noGrupo = exts.some((n) => {
-        const it = porNumero.get(n);
-        if (!it) return false;
-        const gs = gruposDe(it.ramal);
-        return f.grupo === SEM_GRUPO ? gs.length === 1 && gs[0] === SEM_GRUPO : gs.includes(f.grupo);
-      });
-      if (!noGrupo) continue;
-    }
+    const visoes = f.visoes || [];
+    if (visoes.length && !exts.some((n) => { const it = porNumero.get(n); return !!it && naVisoes(gruposDe(it.ramal), visoes); })) continue;
     if (termo) {
       const nomes = exts.map((n) => { const it = porNumero.get(n); return n + " " + ((it && it.ramal.name) || ""); });
       if (!normalizar((c.external || "") + " " + nomes.join(" ")).includes(termo)) continue;

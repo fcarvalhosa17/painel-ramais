@@ -3,14 +3,14 @@
 // a aba só recalcula, pinta e conta o tempo enquanto está visível. Texto do Asterisk só por textContent.
 
 import {
-  SETA, SEM_GRUPO, compararGrupos, formatarNumero, formatarCronometro, nomeFila, textosChamada,
+  SETA, formatarNumero, formatarCronometro, nomeFila, textosChamada,
   filtrarChamadas, contarChamadas, listaDaChamada,
 } from "./estado.js";
 import { ListaLinhas } from "./linhas.js";
+import { seletorVisoes } from "./visoes.js";
 import { iniciarFilas } from "./filas.js";
 
 const $ = (id) => document.getElementById(id);
-const TODOS = "Todos os ramais";
 const LONGA_MS = 20 * 60e3; // tempo em laranja acima de 20 min (como em Chamadas ativas)
 const LISTAS = [
   { chave: "entrantes", titulo: "Externas entrantes" },
@@ -39,7 +39,7 @@ function preencherSeletor(sel, ops, atual) {
 }
 
 export function iniciarChamadas({ dados, relogio, aoSessaoEncerrada }) {
-  const filtro = { grupo: "", busca: "", tipo: "", tronco: "", fila: "" };
+  const filtro = { visoes: [], busca: "", tipo: "", tronco: "", fila: "" };
   let visivel = false;
   let sujo = true;
   const inicio = new WeakMap(); // chamada -> started_at em ms (o objeto é trocado inteiro pelo delta)
@@ -101,18 +101,20 @@ export function iniciarChamadas({ dados, relogio, aoSessaoEncerrada }) {
   }
 
   // ---------- filtros (D30): guardados só na visita ----------
+  // Visões (mesma seleção da aba Ramais: clique simples só uma, Ctrl ou Cmd soma ou tira).
+  const visoes = seletorVisoes($("ch-visoes"), (v) => { filtro.visoes = v; irAoTopo(); render(); });
+
   function preencherFiltros(todas) {
-    const grupos = dados.grupos.map((g) => g.name).filter((n) => n !== SEM_GRUPO).sort(compararGrupos);
-    // Grupo escolhido que saiu do catálogo (excluído, renomeado): volta para todos os ramais.
-    if (filtro.grupo && filtro.grupo !== SEM_GRUPO && !grupos.includes(filtro.grupo)) filtro.grupo = "";
-    preencherSeletor($("ch-grupo"), [[TODOS, ""], ...grupos.map((n) => [n, n]), [SEM_GRUPO, SEM_GRUPO]], filtro.grupo);
+    // Visão escolhida que saiu do catálogo (excluída, renomeada) sai da seleção; sem nenhuma, todos os ramais.
+    visoes.preencher(dados.grupos.map((g) => g.name));
+    filtro.visoes = visoes.visoes;
     const troncos = [...new Set(todas.map((c) => c.trunk).filter((t) => typeof t === "string" && t))].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
     preencherSeletor($("ch-tronco"), [["Todos os troncos", ""], ...troncos.map((t) => [t, t])], filtro.tronco);
     const nomes = [...dados.filas.keys()].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
     preencherSeletor($("ch-fila"), [["Todas as filas", ""], ...nomes.map((q) => [nomeFila(q, dados.filas), q])], filtro.fila);
   }
 
-  for (const [id, campo] of [["ch-grupo", "grupo"], ["ch-tronco", "tronco"], ["ch-fila", "fila"]]) {
+  for (const [id, campo] of [["ch-tronco", "tronco"], ["ch-fila", "fila"]]) {
     $(id).addEventListener("change", (e) => { filtro[campo] = e.target.value; irAoTopo(); render(); });
   }
   let timerBusca = null;

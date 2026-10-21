@@ -10,7 +10,7 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const LIMITE_CORPO = 1024 * 1024; // o daemon aceita até 1 MiB no corpo JSON do import (C6); acima disso, 413
-const VAZIO = "Nenhum grupo cadastrado. Use Novo grupo ou importe um CSV.";
+const VAZIO = "Nenhuma visão cadastrada. Use Nova visão ou importe um CSV.";
 const plural = (n, um, varios) => formatarNumero(n) + " " + (n === 1 ? um : varios);
 
 // Tamanho do corpo exatamente como sai no POST: o JSON escapa aspas, barras e quebras de linha do CSV.
@@ -107,9 +107,9 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
     const acoes = document.createElement("div");
     acoes.className = "dg-acoes";
     const editar = botaoTexto("Editar", "botao");
-    editar.setAttribute("aria-label", "Editar o grupo " + g.name);
+    editar.setAttribute("aria-label", "Editar a visão " + g.name);
     const remover = botaoTexto("Excluir", "botao");
-    remover.setAttribute("aria-label", "Excluir o grupo " + g.name);
+    remover.setAttribute("aria-label", "Excluir a visão " + g.name);
     acoes.append(editar, remover);
     li.append(info, acoes);
 
@@ -120,8 +120,8 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
       const aviso = paragrafo("dg-aviso");
       // CONTRATOS 4.6 (delete): cada ramal sai só deste grupo; quem fica sem nenhum vai para "Sem grupo".
       aviso.textContent = qtd
-        ? plural(qtd, "ramal sai", "ramais saem") + " só deste grupo; quem ficar sem nenhum grupo vai para \"Sem grupo\"."
-        : "O grupo está vazio.";
+        ? plural(qtd, "ramal sai", "ramais saem") + " só desta visão; quem ficar sem nenhuma visão vai para \"Sem visão\"."
+        : "A visão está vazia.";
       const confirmar = botaoTexto("Confirmar exclusão", "botao botao-perigo");
       const cancelar = botaoTexto("Cancelar", "botao");
       const restaurar = () => { aviso.remove(); acoes.replaceChildren(editar, remover); };
@@ -131,7 +131,7 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
         confirmar.textContent = "Excluindo...";
         try {
           await api.removerGrupo(g.name);
-          okLista.textContent = "Grupo " + g.name + " excluído.";
+          okLista.textContent = "Visão " + g.name + " excluída.";
           // Tira da lista já, pelo resultado do POST; o catálogo novo chega pelo delta (ou snapshot) e redesenha.
           li.remove();
           contadores.delete(g.name);
@@ -180,7 +180,7 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
       if (e) { previa.textContent = ""; return; }
       const c = contarComFaixas(dados.itens, fx, g.name);
       const hoje = contarPorGrupo().get(g.name) || 0;
-      previa.textContent = "Com essas faixas o grupo fica com " + plural(c.total, "ramal", "ramais") + " (hoje " + formatarNumero(hoje) + ").";
+      previa.textContent = "Com essas faixas a visão fica com " + plural(c.total, "ramal", "ramais") + " (hoje " + formatarNumero(hoje) + ").";
     };
     faixas.input.addEventListener("input", atualizarPrevia);
     nome.input.addEventListener("input", () => {
@@ -205,7 +205,7 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
       try {
         const r = await api.editarGrupo(g.name, mudancas);
         const final = (r && r.name) || novoNome;
-        okLista.textContent = "Grupo " + final + " atualizado.";
+        okLista.textContent = "Visão " + final + " atualizada.";
         // Mostra o resultado do POST já; o delta com o catálogo novo redesenha a lista logo depois.
         const c = contarComFaixas(dados.itens, fx, g.name);
         li.replaceWith(linhaGrupo({ name: final, ranges: fx }, c.total));
@@ -245,14 +245,14 @@ export function iniciarGrupos({ dados, aoSessaoEncerrada }) {
       // rows = linhas lidas; ignored = linhas que não mudaram nada (repetidas, já gravadas, "Sem grupo,N").
       const ignoradas = Number.isFinite(r.ignored) ? r.ignored : 0;
       ok.textContent = plural(r.rows, "linha lida", "linhas lidas")
-        + (ignoradas ? ", " + plural(ignoradas, "sem mudança", "sem mudança") + " (repetida, já gravada ou Sem grupo)." : ".");
+        + (ignoradas ? ", " + plural(ignoradas, "sem mudança", "sem mudança") + " (repetida, já gravada ou de ramal sem visão)." : ".");
       texto.value = "";
       $("dg-arquivo").value = "";
     } catch (err) {
       tratar(err, erro);
     } finally {
       botao.disabled = false;
-      botao.textContent = "Importar grupos";
+      botao.textContent = "Importar visões";
     }
   });
 
