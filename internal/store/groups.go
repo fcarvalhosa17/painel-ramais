@@ -78,7 +78,7 @@ func (s *Store) ImportGroups(ctx context.Context, subject string, rows []GroupRo
 		if err := tx.QueryRowContext(ctx,
 			"INSERT INTO groups(name, created_at) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET name = name RETURNING id",
 			r.Name, now.Unix()).Scan(&gid); err != nil {
-			return res, fmt.Errorf("linha %d: grupo %q: %w", r.Line, r.Name, err)
+			return res, fmt.Errorf("linha %d: visão %q: %w", r.Line, r.Name, err)
 		}
 		if r.Manual {
 			out, err := tx.ExecContext(ctx, insertManualSQL, r.Number, gid, now.Unix(), subject)
@@ -108,7 +108,7 @@ func (s *Store) ImportGroups(ctx context.Context, subject string, rows []GroupRo
 			return res, err
 		}
 		if n > MaxGroupRanges {
-			return res, invalidf("o grupo %q ficaria com %d faixas; o maximo e %d por grupo. Nada foi gravado", name, n, MaxGroupRanges)
+			return res, invalidf("a visão %q ficaria com %d faixas; o máximo é %d por visão. Nada foi gravado", name, n, MaxGroupRanges)
 		}
 	}
 	if err := auditTx(ctx, tx, now, subject, "import", map[string]any{
@@ -153,7 +153,7 @@ func skipExistingRanges(ctx context.Context, tx *sql.Tx, rows []GroupRow) error 
 			if r.Start <= h.End && h.Start <= r.End {
 				total++
 				if len(msgs) < maxMsgs {
-					msgs = append(msgs, fmt.Sprintf("linha %d: faixa %d-%d cruza a faixa %d-%d ja gravada no grupo %q", r.Line, r.Start, r.End, h.Start, h.End, h.Name))
+					msgs = append(msgs, fmt.Sprintf("linha %d: faixa %d-%d cruza a faixa %d-%d ja gravada na visão %q", r.Line, r.Start, r.End, h.Start, h.End, h.Name))
 				}
 			}
 		}

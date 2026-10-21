@@ -464,9 +464,9 @@ type signalJSON struct {
 func (s *Server) registrationsSeries(w http.ResponseWriter, r *http.Request, _ store.Session) {
 	now := s.Now()
 	q := r.URL.Query()
-	group := q.Get("group")
-	if utf8.RuneCountInString(group) > store.MaxGroupNameRunes {
-		writeError(w, http.StatusBadRequest, "bad_request", "group acima de 64 caracteres")
+	groups, gmsg := queryGroups(q)
+	if gmsg != "" {
+		writeError(w, http.StatusBadRequest, "bad_request", gmsg)
 		return
 	}
 	p, ok := parseRegPeriod(q.Get("period"), now)
@@ -481,10 +481,18 @@ func (s *Server) registrationsSeries(w http.ResponseWriter, r *http.Request, _ s
 		s.internalError(w, r, err)
 		return
 	}
-	mins, err := s.Store.RegSeries(ctx, group, p.from.Unix(), now.Unix()+1)
-	if err != nil {
-		s.internalError(w, r, err)
-		return
+	qg := groups
+	if len(qg) == 0 {
+		qg = []string{""}
+	}
+	var mins []store.RegMinute // varias visoes: os minutos de todas, somados nos baldes abaixo
+	for _, g := range qg {
+		m, err := s.Store.RegSeries(ctx, g, p.from.Unix(), now.Unix()+1)
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
+		mins = append(mins, m...)
 	}
 	sigs, err := s.Store.RegSignals(ctx, p.from.Unix(), regSignalsLimit)
 	if err != nil {
@@ -518,15 +526,12 @@ func (s *Server) registrationsSeries(w http.ResponseWriter, r *http.Request, _ s
 	for i, sg := range sigs {
 		events[i] = signalJSON{At: stamp(time.Unix(sg.At, 0)), Kind: sg.Kind}
 	}
-	var g any
-	if group != "" {
-		g = group
-	}
 	writeOK(w, struct {
 		regHead
 		Group        any           `json:"group"`
+		Groups       []string      `json:"groups"`
 		Step         string        `json:"step"`
 		Points       []seriesPoint `json:"points"`
 		SystemEvents []signalJSON  `json:"system_events"`
-	}{head, g, p.step, points, events}, map[string]int{"count": len(points)})
+	}{head, singleGroup(groups), groups, p.step, points, events}, s.seriesMeta(map[string]any{"count": len(points)}, groups))
 }

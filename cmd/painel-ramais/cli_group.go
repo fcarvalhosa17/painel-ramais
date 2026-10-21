@@ -25,7 +25,7 @@ func (c *cli) group(args []string) int {
 	}
 	sub := args[0]
 	fs, cfgPath := c.flagSet("group " + sub)
-	replace := fs.Bool("replace", false, "trocar todos os grupos")
+	replace := fs.Bool("replace", false, "trocar todas as visões")
 	limit := fs.Int("limit", 50, "quantas linhas da auditoria mostrar (group audit)")
 	pos, err := parseArgs(fs, args[1:])
 	wantArgs := map[string]int{"import": 1, "list": 0, "del": 1, "audit": 0}
@@ -173,7 +173,7 @@ func (c *cli) groupDel(st *store.Store, name string) int {
 	case err == nil:
 		return exitOK
 	case errors.Is(err, store.ErrNotFound):
-		c.errf("grupo %q não existe", name)
+		c.errf("visão %q não existe", name)
 		return exitUsage
 	default:
 		c.errf("banco: %v", err)

@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"painel-ramais/internal/depcheck"
 	"painel-ramais/internal/model"
@@ -60,33 +62,112 @@ type historyPoint struct {
 func (s *Server) history(w http.ResponseWriter, r *http.Request, _ store.Session) {
 	q := r.URL.Query()
 	now := s.Now()
-	from, to, group, msg := parseHistoryQuery(q.Get("from"), q.Get("to"), q.Get("group"), now)
+	from, to, msg := parseHistoryQuery(q.Get("from"), q.Get("to"), now)
+	groups, gmsg := queryGroups(q)
+	if msg == "" {
+		msg = gmsg
+	}
 	if msg != "" {
 		writeError(w, http.StatusBadRequest, "bad_request", msg)
 		return
 	}
-	rows, err := s.Store.QueryHistory(r.Context(), group, from, to)
-	if err != nil {
-		s.internalError(w, r, err)
-		return
+	qg := groups
+	if len(qg) == 0 {
+		qg = []string{store.TotalGroup}
 	}
-	byMinute := make(map[int64]store.HistoryRow, len(rows))
-	for _, row := range rows {
-		byMinute[row.Minute.Unix()] = row
+	// Varias visoes: soma por minuto. O minuto so vale se TODAS tem dado (uma com lacuna deixa a soma desconhecida).
+	acc, seen := map[int64]*store.HistoryRow{}, map[int64]int{}
+	for _, g := range qg {
+		rows, err := s.Store.QueryHistory(r.Context(), g, from, to)
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
+		for _, row := range rows {
+			if row.Gap {
+				continue
+			}
+			k := row.Minute.Unix()
+			if a := acc[k]; a == nil {
+				c := row
+				acc[k] = &c
+			} else {
+				a.Registered += row.Registered
+				a.Unregistered += row.Unregistered
+				a.Unreachable += row.Unreachable
+				a.InCall += row.InCall
+			}
+			seen[k]++
+		}
+	}
+	byMinute := make(map[int64]store.HistoryRow, len(acc))
+	for k, a := range acc {
+		if seen[k] == len(qg) {
+			byMinute[k] = *a
+		}
 	}
 	points := make([]historyPoint, 0, int(to.Sub(from)/historyStep)+1)
 	for m := from; m.Before(to); m = m.Add(historyStep) {
 		points = append(points, point(m, byMinute))
 	}
-	data := map[string]any{"group": groupOrNull(q, group), "step_s": int(historyStep.Seconds()), "points": points}
-	writeOK(w, data, map[string]int{"retention_days": s.RetentionDays, "count": len(points)})
+	data := map[string]any{"group": singleGroup(groups), "groups": groups, "step_s": int(historyStep.Seconds()), "points": points}
+	writeOK(w, data, s.seriesMeta(map[string]any{"retention_days": s.RetentionDays, "count": len(points)}, groups))
 }
 
-func groupOrNull(q map[string][]string, group string) any {
-	if _, present := q["group"]; present && group != "" {
-		return group
+// queryGroups le o parametro group (pode repetir): tira vazios e repetidos, na ordem recebida.
+// Lista vazia = total da instalacao. Nunca nil.
+func queryGroups(q url.Values) ([]string, string) {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, g := range q["group"] {
+		if g == "" || seen[g] {
+			continue
+		}
+		if utf8.RuneCountInString(g) > store.MaxGroupNameRunes {
+			return nil, "group acima de 64 caracteres"
+		}
+		seen[g] = true
+		out = append(out, g)
+	}
+	if len(out) > store.MaxAssignGroups {
+		return nil, fmt.Sprintf("No maximo %d visoes por pedido", store.MaxAssignGroups)
+	}
+	return out, ""
+}
+
+// singleGroup e o campo "group" de antes: o nome quando veio uma so, senao null (total, ou varias: ver "groups").
+func singleGroup(groups []string) any {
+	if len(groups) == 1 {
+		return groups[0]
 	}
 	return nil
+}
+
+// seriesMeta acrescenta overlap quando ha mais de uma visao. A soma por visao so e o total sem repeticao se
+// nenhum ramal esta em duas delas; o historico guarda so contagens por visao, nao os ramais. overlap=true
+// (algum ramal em mais de uma visao agora, ou pertenca ilegivel) significa que o valor pode contar o ramal 2 vezes.
+func (s *Server) seriesMeta(meta map[string]any, groups []string) map[string]any {
+	if len(groups) < 2 {
+		return meta
+	}
+	overlap := true
+	if infos, ok := s.hub.Infos(); ok {
+		overlap = false
+		for _, info := range infos {
+			n := 0
+			for _, g := range groups {
+				if inGroup(info.Groups, g) {
+					n++
+				}
+			}
+			if n > 1 {
+				overlap = true
+				break
+			}
+		}
+	}
+	meta["overlap"] = overlap
+	return meta
 }
 
 func point(m time.Time, by map[int64]store.HistoryRow) historyPoint {
@@ -101,12 +182,12 @@ func point(m time.Time, by map[int64]store.HistoryRow) historyPoint {
 }
 
 // parseHistoryQuery aplica as regras da secao 4.3; msg != "" e o erro 400.
-func parseHistoryQuery(fromS, toS, group string, now time.Time) (from, to time.Time, g, msg string) {
+func parseHistoryQuery(fromS, toS string, now time.Time) (from, to time.Time, msg string) {
 	to = now
 	if toS != "" {
 		t, err := time.Parse(time.RFC3339, toS)
 		if err != nil {
-			return from, to, "", "Parametro to invalido (use RFC 3339)"
+			return from, to, "Parametro to invalido (use RFC 3339)"
 		}
 		to = t
 	}
@@ -114,20 +195,18 @@ func parseHistoryQuery(fromS, toS, group string, now time.Time) (from, to time.T
 	if fromS != "" {
 		t, err := time.Parse(time.RFC3339, fromS)
 		if err != nil {
-			return from, to, "", "Parametro from invalido (use RFC 3339)"
+			return from, to, "Parametro from invalido (use RFC 3339)"
 		}
 		from = t
 	}
 	from = from.UTC().Truncate(time.Minute)
 	switch {
 	case !to.After(from):
-		return from, to, "", "to precisa ser maior que from"
+		return from, to, "to precisa ser maior que from"
 	case to.Sub(from) > historyMaxSpan:
-		return from, to, "", "Intervalo acima de 30 dias"
-	case len([]rune(group)) > 64:
-		return from, to, "", "group acima de 64 caracteres"
+		return from, to, "Intervalo acima de 30 dias"
 	}
-	return from, to.UTC(), group, ""
+	return from, to.UTC(), ""
 }
 
 // ---- health ----

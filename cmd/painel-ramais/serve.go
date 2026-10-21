@@ -372,12 +372,12 @@ func reloadQueueNamesAfterRequest(ctx context.Context, st *store.Store, events c
 func warnReservedGroup(ctx context.Context, st *store.Store, log *slog.Logger) {
 	groups, err := st.ListGroups(ctx)
 	if err != nil {
-		log.Warn("ler grupos para conferir nome reservado", "erro", err.Error())
+		log.Warn("ler visões para conferir nome reservado", "erro", err.Error())
 		return
 	}
 	for _, g := range groups {
 		if strings.EqualFold(g.Name, store.AllGroupsName) {
-			log.Warn("grupo com nome reservado \"Todos os ramais\"; renomeie pela tela", "grupo", g.Name)
+			log.Warn("visão com nome reservado \"Todos os ramais\"; renomeie pela tela", "grupo", g.Name)
 		}
 	}
 }
@@ -400,10 +400,10 @@ func onSIGHUP(ctx context.Context, hup <-chan os.Signal, st *store.Store, events
 			return
 		case <-hup:
 			if err := loadGroups(ctx, st, events); err != nil && ctx.Err() == nil {
-				log.Error("SIGHUP: ler grupos", "erro", err.Error())
+				log.Error("SIGHUP: ler visões", "erro", err.Error())
 			}
 			n := srv.Revalidate(ctx)
-			log.Info("SIGHUP: grupos recarregados", "websockets_fechados", n)
+			log.Info("SIGHUP: visões recarregadas", "websockets_fechados", n)
 		}
 	}
 }
@@ -434,9 +434,9 @@ func housekeep(ctx context.Context, st *store.Store, log *slog.Logger, retention
 		}
 		cutoff := time.Now().Add(-time.Duration(retentionDays) * 24 * time.Hour)
 		if n, err := st.PurgeGroupAudit(ctx, cutoff); err != nil && ctx.Err() == nil {
-			log.Warn("expurgo da auditoria de grupos", "erro", err.Error())
+			log.Warn("expurgo da auditoria de visões", "erro", err.Error())
 		} else if n > 0 {
-			log.Info("auditoria de grupos antiga removida", "n", n)
+			log.Info("auditoria de visões antiga removida", "n", n)
 		}
 		select {
 		case <-ctx.Done():

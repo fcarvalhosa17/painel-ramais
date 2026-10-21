@@ -57,14 +57,14 @@ func validLabel(name, what string) error {
 }
 
 // ValidGroupName e a regra unica de nome de grupo (CSV, tela e CLI): validLabel mais os nomes
-// reservados "Sem grupo" e "Todos os ramais" (sem diferenciar maiusculas). Vale para o nome NOVO:
+// reservados "Sem grupo"/"Sem visão" e "Todos os ramais" (sem diferenciar maiusculas). Vale para o nome NOVO:
 // update e delete acham o grupo atual sem validar o nome dele.
 func ValidGroupName(name string) error {
-	if err := validLabel(name, "nome do grupo"); err != nil {
+	if err := validLabel(name, "nome da visão"); err != nil {
 		return err
 	}
-	if strings.EqualFold(name, noGroupName) {
-		return invalidf("%q e nome reservado", noGroupName)
+	if isNoGroupName(name) {
+		return invalidf("%q e nome reservado", noGroupLabel)
 	}
 	if strings.EqualFold(name, AllGroupsName) {
 		return invalidf("%q e nome reservado", AllGroupsName)
@@ -87,7 +87,7 @@ func ValidNumber(number string) error {
 // proprias faixas do grupo e entrada invalida; faixas de grupos diferentes podem se sobrepor (ADR-006).
 func normalizeRanges(in []Range) ([]Range, error) {
 	if len(in) > MaxGroupRanges {
-		return nil, invalidf("no maximo %d faixas por grupo", MaxGroupRanges)
+		return nil, invalidf("no maximo %d faixas por visão", MaxGroupRanges)
 	}
 	rs := append([]Range(nil), in...)
 	for _, r := range rs {
@@ -379,10 +379,10 @@ func validNumbers(numbers []string) error {
 // (que nao e grupo: e onde fica o ramal sem nenhum vinculo). Grupo inexistente e ErrNotFound (404), la na transacao.
 func validAssignGroup(name string) error {
 	if n := utf8.RuneCountInString(name); n < 1 || n > MaxGroupNameRunes {
-		return invalidf("nome do grupo deve ter de 1 a %d caracteres", MaxGroupNameRunes)
+		return invalidf("nome da visão deve ter de 1 a %d caracteres", MaxGroupNameRunes)
 	}
-	if strings.EqualFold(name, noGroupName) {
-		return invalidf("%s não é grupo: é onde fica o ramal sem nenhum vínculo", noGroupName)
+	if isNoGroupName(name) {
+		return invalidf("%s não é visão: é onde fica o ramal sem nenhum vínculo", noGroupLabel)
 	}
 	return nil
 }
@@ -396,10 +396,10 @@ func (s *Store) AddToGroups(ctx context.Context, subject string, numbers, groups
 		return 0, err
 	}
 	if len(groups) < 1 || len(groups) > MaxAssignGroups {
-		return 0, invalidf("groups deve ter de 1 a %d grupos", MaxAssignGroups)
+		return 0, invalidf("groups deve ter de 1 a %d visões", MaxAssignGroups)
 	}
 	if len(numbers)*len(groups) > MaxAssignPairs {
-		return 0, invalidf("ramais x grupos acima de %d por pedido", MaxAssignPairs)
+		return 0, invalidf("ramais x visões acima de %d por pedido", MaxAssignPairs)
 	}
 	seen := make(map[string]struct{}, len(groups))
 	for _, g := range groups {
@@ -407,7 +407,7 @@ func (s *Store) AddToGroups(ctx context.Context, subject string, numbers, groups
 			return 0, err
 		}
 		if _, dup := seen[nameKey(g)]; dup {
-			return 0, invalidf("grupo %q repetido em groups", g)
+			return 0, invalidf("visão %q repetida em groups", g)
 		}
 		seen[nameKey(g)] = struct{}{}
 	}

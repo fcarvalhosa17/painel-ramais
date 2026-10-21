@@ -62,7 +62,7 @@ func (s *Server) sessionInfo(w http.ResponseWriter, _ *http.Request, sess store.
 
 // adminOnly exige sessao de administrador do Issabel; senao 403 forbidden (rotas de grupo).
 func (s *Server) adminOnly(h sessionHandler) sessionHandler {
-	return s.adminOnlyMsg("Apenas administradores do Issabel podem alterar grupos", h)
+	return s.adminOnlyMsg("Apenas administradores do Issabel podem alterar visões", h)
 }
 
 // adminOnlyMsg e o adminOnly com a mensagem do 403 da rota (a checagem vem antes de ler o corpo).

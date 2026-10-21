@@ -12,7 +12,15 @@ import (
 	"unicode"
 )
 
-const noGroupName = "Sem grupo"
+const noGroupName = "Sem grupo" // valor interno (banco, JSON); o texto para a pessoa e noGroupLabel
+
+// noGroupLabel e como as mensagens chamam o noGroupName.
+const noGroupLabel = "Sem visão"
+
+// isNoGroupName: "Sem grupo" (nome interno e CSV antigo) ou "Sem visão" / "Sem visao", sem diferenciar maiusculas.
+func isNoGroupName(name string) bool {
+	return strings.EqualFold(name, noGroupName) || strings.EqualFold(name, noGroupLabel) || strings.EqualFold(name, "Sem visao")
+}
 
 // nameKey e a chave de identidade de um nome de grupo: a mesma do COLLATE NOCASE do SQLite
 // (so as letras ASCII dobram), para o arquivo e o banco concordarem sobre "e o mesmo grupo".
@@ -43,6 +51,7 @@ func ParseGroupsCSV(r io.Reader) ([]GroupRow, error) {
 	var rows []GroupRow
 	var errs []string
 	first := true
+	var cols []int // colunas [visao, ramal] do cabecalho; nil = sem cabecalho (duas colunas, nessa ordem)
 	for {
 		rec, err := rd.Read()
 		if errors.Is(err, io.EOF) {
@@ -55,9 +64,17 @@ func ParseGroupsCSV(r io.Reader) ([]GroupRow, error) {
 		}
 		if first {
 			first = false
-			if len(rec) == 2 && strings.EqualFold(strings.TrimSpace(rec[0]), "grupo") && strings.EqualFold(strings.TrimSpace(rec[1]), "ramal") {
+			if c, ok := csvHeader(rec); ok {
+				cols = c
 				continue
 			}
+		}
+		if cols != nil && len(rec) > max(cols[0], cols[1]) {
+			if extra := extraCell(rec, cols); extra {
+				errs = append(errs, fmt.Sprintf("linha %d: coluna a mais com conteúdo; use só visão e ramal (ou faixa)", line))
+				continue
+			}
+			rec = []string{rec[cols[0]], rec[cols[1]]}
 		}
 		row, err := parseGroupRecord(line, rec)
 		if err != nil {
@@ -76,7 +93,7 @@ func ParseGroupsCSV(r io.Reader) ([]GroupRow, error) {
 		if !r.Manual && !r.Skip {
 			k := nameKey(r.Name)
 			if perGroup[k]++; perGroup[k] > MaxGroupRanges {
-				return nil, fmt.Errorf("o grupo %q tem mais de %d faixas no arquivo; o maximo e %d por grupo. Nada foi gravado", r.Name, MaxGroupRanges, MaxGroupRanges)
+				return nil, fmt.Errorf("a visão %q tem mais de %d faixas no arquivo; o máximo é %d por visão. Nada foi gravado", r.Name, MaxGroupRanges, MaxGroupRanges)
 			}
 		}
 	}
@@ -88,6 +105,39 @@ func ParseGroupsCSV(r io.Reader) ([]GroupRow, error) {
 		return nil, errors.New("arquivo sem nenhuma linha de dados")
 	}
 	return rows, nil
+}
+
+// csvHeader reconhece o cabecalho: uma coluna "ramal" e uma coluna da visao, que se chama "visao"
+// (ou "visão") no arquivo novo e "grupo" no antigo; com as duas, vale "visao". Devolve [visao, ramal].
+func csvHeader(rec []string) ([]int, bool) {
+	visao, grupo, ramal := -1, -1, -1
+	for i, c := range rec {
+		switch strings.ToLower(strings.TrimSpace(c)) {
+		case "visao", "visão":
+			visao = i
+		case "grupo":
+			grupo = i
+		case "ramal":
+			ramal = i
+		}
+	}
+	if visao < 0 {
+		visao = grupo
+	}
+	if visao < 0 || ramal < 0 {
+		return nil, false
+	}
+	return []int{visao, ramal}, true
+}
+
+// extraCell diz se alguma coluna fora das mapeadas (visao, ramal) tem conteudo; vazia (";" final do Excel) passa.
+func extraCell(rec []string, cols []int) bool {
+	for i, c := range rec {
+		if i != cols[0] && i != cols[1] && strings.TrimSpace(c) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // markRepeated marca como Skip a linha repetida: mesmo grupo (sem diferenciar maiusculas) e mesmo
@@ -130,10 +180,10 @@ func detectDelimiter(raw []byte) rune {
 
 func parseGroupRecord(line int, rec []string) (GroupRow, error) {
 	if len(rec) != 2 {
-		return GroupRow{}, fmt.Errorf("linha %d: esperado grupo e ramal (ou faixa), veio %d campo(s)", line, len(rec))
+		return GroupRow{}, fmt.Errorf("linha %d: esperado visão e ramal (ou faixa), veio %d campo(s)", line, len(rec))
 	}
 	name := strings.TrimSpace(rec[0])
-	noGroup := strings.EqualFold(name, noGroupName) // "Sem grupo,2150": aceito e ignorado (arquivos antigos); faixa e erro
+	noGroup := isNoGroupName(name) // "Sem grupo,2150" ou "Sem visão,2150": aceito e ignorado (arquivos antigos); faixa e erro
 	if noGroup {
 		name = noGroupName
 	} else if err := ValidGroupName(name); err != nil {
@@ -153,7 +203,7 @@ func parseGroupRecord(line int, rec []string) (GroupRow, error) {
 		return GroupRow{}, fmt.Errorf("linha %d: faixa %d-%d com inicio maior que o fim", line, start, end)
 	}
 	if found && noGroup {
-		return GroupRow{}, fmt.Errorf("linha %d: %q aceita so um ramal por linha, nao faixa", line, noGroupName)
+		return GroupRow{}, fmt.Errorf("linha %d: %q aceita so um ramal por linha, nao faixa", line, noGroupLabel)
 	}
 	// Ramal unico vira vinculo manual (soma a faixa, ADR-006); faixa N-M continua sendo faixa do grupo.
 	// "Sem grupo,N" nao tem vinculo: a linha conta como lida e sai como ignorada.
@@ -206,7 +256,7 @@ func overlaps(rows []GroupRow) []string {
 				if a > b {
 					a, b = b, a
 				}
-				out = append(out, fmt.Sprintf("linhas %d e %d: faixas %d-%d e %d-%d do grupo %q se sobrepoem", a, b, maxEnd.Start, maxEnd.End, r.Start, r.End, sorted[0].Name))
+				out = append(out, fmt.Sprintf("linhas %d e %d: faixas %d-%d e %d-%d da visão %q se sobrepoem", a, b, maxEnd.Start, maxEnd.End, r.Start, r.End, sorted[0].Name))
 			}
 			if r.End > maxEnd.End {
 				maxEnd = r

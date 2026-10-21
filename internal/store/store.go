@@ -18,7 +18,7 @@ var (
 	ErrNotFound   = errors.New("nao encontrado")
 	ErrUserExists = errors.New("usuario ja existe")
 	ErrOverlap    = errors.New("faixa sobreposta")
-	ErrExists     = errors.New("grupo ja existe")
+	ErrExists     = errors.New("visão já existe")
 	ErrInvalid    = errors.New("entrada invalida") // a mensagem do erro e segura para o cliente (ver invalidf)
 )
 

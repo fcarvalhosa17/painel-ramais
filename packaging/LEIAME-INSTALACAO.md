@@ -59,7 +59,7 @@ acesso root. O Python 3 nao precisa estar instalado (no Rocky 8 minimo o instala
 
    Cada item sai como OK, AVISO ou ERRO, com a explicacao de como corrigir. Corrija todos os ERROs.
 
-3. Instale (nao faz nenhuma pergunta: tecnologia `auto`, sem senha; os grupos sao criados depois pela tela "Grupos" do painel ou pela CLI):
+3. Instale (nao faz nenhuma pergunta: tecnologia `auto`, sem senha; as visoes sao criadas depois pela tela do painel, em "Gerenciar visoes", ou pela CLI):
 
        ./instalar.py instalar
 
@@ -78,7 +78,8 @@ Remover mantendo os dados: `./instalar.py remover`. Remover tudo: `./instalar.py
 ## Opcoes e arquivo de respostas
 
 Casos especiais, sem perguntas: `./instalar.py instalar --tecnologia sip` (ou `pjsip`; o padrao `auto` deixa o painel detectar) e
-`./instalar.py instalar --grupos grupos.csv` (importa um CSV de grupos). Em lote, o mesmo pode vir de um arquivo `respostas.ini`
+`./instalar.py instalar --grupos grupos.csv` (importa um CSV de visoes; a opcao e a chave abaixo mantem o nome antigo "grupos").
+Em lote, o mesmo pode vir de um arquivo `respostas.ini`
 (nao combina com as duas opcoes):
 
     [painel]
@@ -114,7 +115,9 @@ rodar `instalar` de novo, ou atualizar a versao, nao troca a senha.
 - Usuarios criados na fase 1 (por exemplo `admin`) deixam de entrar. Remova-os com `sudo -u painel-ramais painel-ramais user del <usuario>`.
 - Encerrar as sessoes de um usuario do Issabel: `sudo -u painel-ramais painel-ramais session purge --issabel <usuario>` (disponivel com a fase 2 do painel).
 
-Formato do CSV de grupos: `grupo,ramal` onde ramal pode ser faixa (`2000-2099`). Veja `grupos-exemplo.csv`.
+Formato do CSV de visoes: cabecalho `visao,ramal` (o antigo `grupo,ramal` continua aceito), uma linha por visao e ramal,
+onde ramal pode ser faixa (`2000-2099`). Veja `grupos-exemplo.csv`. Na tela e no CSV exportado da aba Registros o nome e
+"Visoes"; o ramal sem nenhuma visao aparece como "Sem visao".
 
 ## Homologacao e coleta de suporte (`homologar`)
 

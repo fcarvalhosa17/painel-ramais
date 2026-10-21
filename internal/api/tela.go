@@ -29,6 +29,7 @@ var assetTypes = map[string]string{
 	".js":  "text/javascript; charset=utf-8",
 	".css": "text/css; charset=utf-8",
 	".svg": "image/svg+xml",
+	".png": "image/png",
 }
 
 // fontTypes vale so dentro de assets/fonts/: as fontes (woff2) e os textos de licenca (OFL) que vao com elas.
@@ -38,7 +39,7 @@ var fontTypes = map[string]string{
 }
 
 // fontTexts: os unicos .txt servidos em assets/fonts/, por nome exato (licencas OFL e origem das fontes).
-var fontTexts = map[string]bool{"OFL-IBMPlex.txt": true, "OFL-BarlowSemiCondensed.txt": true, "ORIGEM.txt": true}
+var fontTexts = map[string]bool{"OFL-Barlow.txt": true, "OFL-Exo2.txt": true, "ORIGEM.txt": true}
 
 // fontCacheControl: a fonte so muda com versao nova do binario; uma semana de cache e a revalidacao por ETag cobrem a troca.
 const fontCacheControl = "public, max-age=604800"
@@ -104,7 +105,7 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request, file, csp, fr
 	w.Write(body)
 }
 
-// asset serve assets/<arquivo> (so .js, .css e .svg) e assets/fonts/<arquivo> (so .woff2 e .txt),
+// asset serve assets/<arquivo> (so .js, .css, .svg e .png) e assets/fonts/<arquivo> (so .woff2 e .txt),
 // um nivel por pasta. Revalida por ETag.
 // ponytail: le e calcula o hash a cada pedido (centenas de KiB, poucos clientes); cache em memoria se pesar.
 func (s *Server) asset(w http.ResponseWriter, r *http.Request) {

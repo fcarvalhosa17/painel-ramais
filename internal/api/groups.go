@@ -49,7 +49,7 @@ func (s *Server) groupsImport(w http.ResponseWriter, r *http.Request, sess store
 		s.internalError(w, r, err)
 		return
 	}
-	s.log.Info("grupos importados", requestIDKey, requestID(r), "sub", sess.Subject, "rows", res.Rows, "ignored", res.Ignored, "replace", in.Replace)
+	s.log.Info("visões importadas", requestIDKey, requestID(r), "sub", sess.Subject, "rows", res.Rows, "ignored", res.Ignored, "replace", in.Replace)
 	if !s.reloadGroups(w, r) {
 		return
 	}
@@ -65,18 +65,18 @@ func (s *Server) groupsDelete(w http.ResponseWriter, r *http.Request, sess store
 		return
 	}
 	if n := utf8.RuneCountInString(in.Name); n < 1 || n > store.MaxGroupNameRunes {
-		writeError(w, http.StatusBadRequest, "bad_request", fmt.Sprintf("Nome do grupo deve ter de 1 a %d caracteres", store.MaxGroupNameRunes))
+		writeError(w, http.StatusBadRequest, "bad_request", fmt.Sprintf("Nome da visão deve ter de 1 a %d caracteres", store.MaxGroupNameRunes))
 		return
 	}
 	switch err := s.Store.DeleteGroup(r.Context(), sess.Subject, in.Name, s.Now()); {
 	case errors.Is(err, store.ErrNotFound):
-		writeError(w, http.StatusNotFound, "not_found", "Grupo inexistente")
+		writeError(w, http.StatusNotFound, "not_found", "Visão inexistente")
 		return
 	case err != nil:
 		s.internalError(w, r, err)
 		return
 	}
-	s.log.Info("grupo removido", requestIDKey, requestID(r), "sub", sess.Subject, "name", in.Name)
+	s.log.Info("visão removida", requestIDKey, requestID(r), "sub", sess.Subject, "name", in.Name)
 	if !s.reloadGroups(w, r) {
 		return
 	}
@@ -106,7 +106,7 @@ func (s *Server) groupsWriteError(w http.ResponseWriter, r *http.Request, err er
 	case errors.Is(err, store.ErrInvalid):
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 	case errors.Is(err, store.ErrNotFound):
-		writeError(w, http.StatusNotFound, "not_found", "Grupo inexistente")
+		writeError(w, http.StatusNotFound, "not_found", "Visão inexistente")
 	case errors.Is(err, store.ErrExists), errors.Is(err, store.ErrOverlap):
 		writeError(w, http.StatusConflict, "conflict", err.Error())
 	default:
@@ -133,7 +133,7 @@ func (s *Server) groupsCreate(w http.ResponseWriter, r *http.Request, sess store
 		s.groupsWriteError(w, r, err)
 		return
 	}
-	s.log.Info("grupo criado", requestIDKey, requestID(r), "sub", sess.Subject, "name", name, "ranges", len(ranges))
+	s.log.Info("visão criada", requestIDKey, requestID(r), "sub", sess.Subject, "name", name, "ranges", len(ranges))
 	if !s.reloadGroups(w, r) {
 		return
 	}
@@ -170,7 +170,7 @@ func (s *Server) groupsUpdate(w http.ResponseWriter, r *http.Request, sess store
 		s.groupsWriteError(w, r, err)
 		return
 	}
-	s.log.Info("grupo alterado", requestIDKey, requestID(r), "sub", sess.Subject, "name", name, "final", final,
+	s.log.Info("visão alterada", requestIDKey, requestID(r), "sub", sess.Subject, "name", name, "final", final,
 		"renamed", ed.NewName != nil, "ranges", ed.Ranges != nil)
 	if !s.reloadGroups(w, r) {
 		return
@@ -216,7 +216,7 @@ func (s *Server) assignAdd(w http.ResponseWriter, r *http.Request, sess store.Se
 		s.groupsWriteError(w, r, err)
 		return
 	}
-	s.log.Info("ramais atribuidos a grupo", requestIDKey, requestID(r), "sub", sess.Subject, "groups", trimmed,
+	s.log.Info("ramais atribuidos a visão", requestIDKey, requestID(r), "sub", sess.Subject, "groups", trimmed,
 		"requested", len(numbers), "changed", changed)
 	if changed > 0 && !s.reloadGroups(w, r) {
 		return
@@ -226,7 +226,7 @@ func (s *Server) assignAdd(w http.ResponseWriter, r *http.Request, sess store.Se
 
 func (s *Server) assignRemove(w http.ResponseWriter, r *http.Request, sess store.Session, numbers []string, group *string, hasGroups bool) {
 	if hasGroups || group == nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "mode remove usa group (um grupo), nao groups")
+		writeError(w, http.StatusBadRequest, "bad_request", "mode remove usa group (uma visão), nao groups")
 		return
 	}
 	name := strings.TrimSpace(*group)
@@ -235,7 +235,7 @@ func (s *Server) assignRemove(w http.ResponseWriter, r *http.Request, sess store
 		s.groupsWriteError(w, r, err)
 		return
 	}
-	s.log.Info("ramais retirados de grupo", requestIDKey, requestID(r), "sub", sess.Subject, "group", name,
+	s.log.Info("ramais retirados de visão", requestIDKey, requestID(r), "sub", sess.Subject, "group", name,
 		"requested", len(numbers), "changed", changed, "not_manual", notManual)
 	if changed > 0 && !s.reloadGroups(w, r) {
 		return

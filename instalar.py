@@ -850,7 +850,7 @@ def coletar_respostas(args):
     r = {"tecnologia": "auto", "csv": None}
     flag_tec, flag_csv = getattr(args, "tecnologia", None), getattr(args, "grupos", None)
     if args.respostas and (flag_tec or flag_csv):
-        raise Uso("--respostas ja traz tecnologia e grupos: nao combine com --tecnologia nem --grupos.")
+        raise Uso("--respostas ja traz tecnologia e visoes: nao combine com --tecnologia nem --grupos.")
     if args.respostas:
         cp = configparser.ConfigParser()
         if not cp.read(args.respostas):
@@ -873,7 +873,7 @@ def coletar_respostas(args):
     if r["tecnologia"] not in TECNOLOGIAS:
         raise Uso("tecnologia invalida '%s' (use auto, sip ou pjsip)." % r["tecnologia"])
     if r["csv"] and not os.path.isfile(r["csv"]):
-        raise Uso("CSV de grupos nao encontrado: " + r["csv"])
+        raise Uso("CSV de visoes nao encontrado: " + r["csv"])
     return r
 
 
@@ -1069,7 +1069,7 @@ def importar_grupos(csv):
         conteudo = f.read().decode("utf-8-sig")
     rc, out = daemon_cli(["group", "import", "--replace", "-"], entrada=conteudo)
     if rc != 0:
-        raise Falha("Falha ao importar grupos (rc=%d): %s" % (rc, out.strip()))
+        raise Falha("Falha ao importar visoes (rc=%d): %s" % (rc, out.strip()))
 
 
 def total_grupos():
@@ -1166,7 +1166,7 @@ def cmd_instalar(args):
             passo = "sessoes antigas"
             encerrar_sessoes_antigas()
         if resp["csv"]:
-            passo = "grupos"
+            passo = "visoes"
             importar_grupos(resp["csv"])
         passo = "servico"
         if run(["systemctl", "enable", "--now", SOCKET])[0] != 0:
@@ -1199,7 +1199,7 @@ def cmd_instalar(args):
     dizer("Versao:      " + (versao_instalada() or "?"))
     dizer("Tecnologia:  " + str(h.get("ami", {}).get("technology", "?")))
     dizer("Ramais:      " + json.dumps(h.get("extensions", {})))
-    dizer("Grupos:      " + (str(ng) if ng is not None else "?"))
+    dizer("Visoes:      " + (str(ng) if ng is not None else "?"))
     dizer("Acesso:      https://%s/painel-ramais/" % endereco_servidor())
     dizer("Senha de emergencia: " + SENHA_EMERGENCIA)
     dizer("Log:         " + LOG_FILE)
@@ -1349,16 +1349,16 @@ def cmd_rollback(args):
         if sch_ant == 3 and sch_db >= 4:
             # rc.7, rc.8 ou rc.9 (esquema 4 a 6) para a rc.6 (esquema 3): a rc.6 recusa abrir banco 4 ou mais, entao o .bak-v3 e restaurado sempre
             dizer("ATENCAO: voltando para a rc.6 (esquema 3); o banco esta no esquema %d. O banco volta ao estado de antes da "
-                  "atualizacao (%s). Os vinculos de ramal em mais de um grupo, o relatorio de registros, o estado de registro dos "
+                  "atualizacao (%s). Os vinculos de ramal em mais de uma visao, o relatorio de registros, o estado de registro dos "
                   "ramais (fora do ar e ultimo registro), os nomes de fila e tudo o que foi gravado depois da atualizacao "
-                  "(historico, sessoes, usuarios e grupos) serao PERDIDOS." % (sch_db, os.path.basename(bak)))
+                  "(historico, sessoes, usuarios e visoes) serao PERDIDOS." % (sch_db, os.path.basename(bak)))
         if sch_ant == 5 and sch_db >= 6:
             # rc.9 (esquema 6) para a rc.8 (esquema 5): o .bak-v5 foi feito na subida da rc.9
             dizer("ATENCAO: voltando para a rc.8 (esquema 5); o banco esta no esquema %d. O banco volta ao estado de antes da "
                   "atualizacao para a rc.9 (%s). O estado de registro persistente dos ramais (fora do ar desde quando e ultimo "
                   "registro, reg_state) e tudo o que foi gravado depois da atualizacao para a rc.9 (historico, relatorio de "
-                  "registros, sessoes, usuarios e grupos) serao PERDIDOS." % (sch_db, os.path.basename(bak)))
-        dizer("ATENCAO: o banco sera trocado pelo backup %s. O historico, as sessoes e as mudancas de usuario e de grupo "
+                  "registros, sessoes, usuarios e visoes) serao PERDIDOS." % (sch_db, os.path.basename(bak)))
+        dizer("ATENCAO: o banco sera trocado pelo backup %s. O historico, as sessoes e as mudancas de usuario e de visao "
               "feitas depois do upgrade serao PERDIDOS." % os.path.basename(bak))
     dir_do_root_seguro(INSTALADOR_DIR)
     sha = sha_registrado(RPM_ANTERIOR)
@@ -2302,7 +2302,7 @@ def montar_parser():
     p.add_argument("--respostas", metavar="ARQ.ini", help="respostas nao interativas (senha por ARQUIVO 0600)")
     p.add_argument("--tecnologia", choices=list(TECNOLOGIAS), metavar="auto|sip|pjsip",
                    help="(instalar) so para casos especiais; padrao auto (o daemon detecta)")
-    p.add_argument("--grupos", metavar="ARQ.csv", help="(instalar) importa este CSV de grupos (opcional)")
+    p.add_argument("--grupos", metavar="ARQ.csv", help="(instalar) importa este CSV de visoes (opcional)")
     p.add_argument("--sim", action="store_true", help="aceita as confirmacoes")
     p.add_argument("--recriar", action="store_true", help="(menu) remove e registra de novo o item do menu")
     p.add_argument("--purge", action="store_true", help="(remover) apaga tambem dados e configuracao")

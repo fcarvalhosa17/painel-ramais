@@ -69,9 +69,9 @@ func (c *cli) usage() int {
   painel-ramais user del <usuario>
   painel-ramais user passwd <usuario> [--password-stdin]
   painel-ramais group import [--replace] <arquivo.csv | ->   (- le o CSV do stdin)
-  painel-ramais group list                                       (grupo, faixas e, se houver, os ramais atribuidos a mao)
-  painel-ramais group audit [--limit N]                          (auditoria das alteracoes de grupo, a mais nova primeiro)
-  painel-ramais group del <grupo>
+  painel-ramais group list                                       (visão, faixas e, se houver, os ramais atribuidos a mao)
+  painel-ramais group audit [--limit N]                          (auditoria das alteracoes de visão, a mais nova primeiro)
+  painel-ramais group del <visão>
   painel-ramais session purge [--all | --issabel <usuario>]
   painel-ramais capturar --minutos N --saida ARQ|- [--anonimizar] [--digitos-externos 7]
   painel-ramais filtrar [--anonimizar] [--digitos-externos 7]   (stdin -> stdout; mascara segredos com as regras do capturar)
