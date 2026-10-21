@@ -1,7 +1,7 @@
 # Referência técnica do Painel de Ramais
 
 Este arquivo guarda, sem cortes, o texto técnico que ficava no `README.md` até a rc.8 (commit `d629e90`): configuração, CLI,
-CSV de grupos, API, segurança, problemas comuns, roteiro de ensaio, relatório de carga e desenvolvimento. O `README.md` passou
+CSV de visões, API, segurança, problemas comuns, roteiro de ensaio, relatório de carga e desenvolvimento. O `README.md` passou
 a ser o guia do técnico de campo. Em caso de divergência vale o `docs/CONTRATOS.md`.
 
 ## Introdução (texto original da Fase 1)
@@ -54,7 +54,7 @@ git clone https://github.com/fcarvalhosa17/painel-ramais.git && cd painel-ramais
 ```sh
 tar xzf painel-ramais-<versao>.tar.gz && cd painel-ramais-<versao>
 ./instalar.py verificar          # somente leitura; relatório em /var/log/painel-ramais/verificacao-<data>.txt
-./instalar.py instalar           # não faz perguntas (tecnologia auto; grupos pela tela ou pela CLI)
+./instalar.py instalar           # não faz perguntas (tecnologia auto; visões pela tela ou pela CLI)
 ./instalar.py status
 ```
 
@@ -131,7 +131,7 @@ Constantes (não configuráveis, de propósito): lote WS 250 ms; ring buffer 40 
 
 Não há variáveis de ambiente. O único "ambiente" é este arquivo e os dois segredos, todos validados na subida.
 
-## 4. Usuários e grupos
+## 4. Usuários e visões (grupos na CLI)
 
 Binário único `/usr/bin/painel-ramais`. Todo subcomando, exceto `version`, recusa euid 0 com a mensagem `não rode como root; use: sudo -u painel-ramais painel-ramais <comando>` e sai com código 1.
 
@@ -143,7 +143,7 @@ painel-ramais user passwd <usuario> [--password-stdin]
 painel-ramais group import [--replace] <arquivo.csv | ->
 painel-ramais session purge [--all]
 painel-ramais group list
-painel-ramais group del <grupo>
+painel-ramais group del <visão>
 painel-ramais token --sub <texto> [--ttl 60s]
 painel-ramais capturar --minutos N --saida <arquivo> [--anonimizar] [--digitos-externos 7]
 painel-ramais version
@@ -160,11 +160,11 @@ painel-ramais version
 - Códigos de saída: 0 sucesso; 1 erro de uso ou validação (mensagem cita a linha do CSV); 2 erro de ambiente (banco, arquivo, permissão); 3 `user add` de usuário que já existe (nada alterado). O 3 existe para o `instalar.py` ser idempotente sem ler o banco. Só no `serve`: 4 = Asterisk abaixo da versão mínima (13); a unit deve ter `RestartPreventExitStatus=4` para não reiniciar em laço.
 - `version` imprime uma linha `painel-ramais <versao> schema <user_version que o binário conhece>` (exemplo: `painel-ramais 0.1.1 schema 2`). O `instalar.py` usa o `schema` para decidir o rollback (seção 15.5).
 - Root (o instalador) chama a CLI com `runuser -u painel-ramais -- painel-ramais ...`; pessoa usa `sudo -u painel-ramais painel-ramais ...`.
-- `group list` imprime `grupo<TAB>faixas` (faixas separadas por vírgula), uma linha por grupo, ordenado por nome.
+- `group list` imprime `visão<TAB>faixas` (faixas separadas por vírgula), uma linha por visão, ordenado por nome. Na CLI, na API e no banco a visão se chama "grupo" (`group`); na tela, "Visão" (desde a rc.10).
 
 ```
-# grupo,ramal_ou_faixa
-grupo,ramal
+# visao,ramal_ou_faixa  (o cabeçalho antigo grupo,ramal continua aceito)
+visao,ramal
 Suporte,2000-2099
 Suporte,2150
 Vendas,3000-3999
@@ -174,12 +174,12 @@ Diretoria,4000
 O mesmo arquivo com `;` (`Suporte;2000-2099`) também é aceito, desde que o arquivo inteiro use `;`. Este formato também é o do `grupos-exemplo.csv` que vai no bundle.
 
 - UTF-8, BOM aceito. Delimitador `,` ou `;`, detectado na primeira linha de dados e fixo para o arquivo (Excel em português exporta com `;`).
-- Linhas vazias e linhas que começam com `#` são ignoradas. Cabeçalho opcional: só é pulado se a primeira linha de dados for exatamente `grupo<delim>ramal` (sem diferenciar maiúsculas). Qualquer outra linha é dado.
-- `grupo`: 1 a 64 caracteres depois do trim, diferente de `Sem grupo`. Grupo que não existe é criado.
-- `ramal_ou_faixa`: só dígitos (`2150`) ou `inicio-fim` com `inicio <= fim`. Comparação numérica. Ramal com zero à esquerda ou nome não numérico nunca cai em faixa e fica em `"Sem grupo"` (suposição registrada na seção 13).
-- **Ramal em vários grupos (N:N, rc.7).** O mesmo ramal pode aparecer em várias linhas, uma por grupo. Um ramal por linha (`Suporte,2150`) é vínculo manual e soma à faixa; sem nenhum vínculo o ramal fica em "Sem grupo", que é implícito (`Sem grupo,2150` é aceito e ignorado). Linha repetida (mesmo grupo, mesmo valor), ou já existente no banco, é ignorada sem erro.
-- Faixas de grupos diferentes podem se sobrepor. Só faixas do **mesmo grupo** que se cruzam são erro (a idêntica é ignorada). Limites por importação: 5.000 linhas e 1.000 faixas por grupo (contando as que já existiam).
-- Tudo ou nada: qualquer erro rejeita o arquivo inteiro e lista as linhas em conflito. Sem `--replace` a importação só acrescenta: nunca apaga nem troca faixa ou vínculo existente. Com `--replace`, apaga todos os grupos e importa na mesma transação.
+- Linhas vazias e linhas que começam com `#` são ignoradas. Cabeçalho opcional: a primeira linha é cabeçalho quando tem uma coluna `ramal` e uma coluna `visao` (ou `visão`; nos arquivos antigos, `grupo`), em qualquer ordem e sem diferenciar maiúsculas. Sem cabeçalho, cada linha tem duas colunas: visão e ramal. Regra exata: CONTRATOS, seção 9.
+- Nome da visão: 1 a 64 caracteres depois do trim, diferente de `Sem grupo`, `Sem visão` e `Todos os ramais`. Visão que não existe é criada.
+- `ramal_ou_faixa`: só dígitos (`2150`) ou `inicio-fim` com `inicio <= fim`. Comparação numérica. Ramal com zero à esquerda ou nome não numérico nunca cai em faixa e fica em "Sem visão" (valor interno `"Sem grupo"`) (suposição registrada na seção 13).
+- **Ramal em várias visões (N:N, rc.7).** O mesmo ramal pode aparecer em várias linhas, uma por visão. Um ramal por linha (`Suporte,2150`) é vínculo manual e soma à faixa; sem nenhum vínculo o ramal fica em "Sem visão", que é implícito (`Sem grupo,2150` e `Sem visão,2150` são aceitos e ignorados). Linha repetida (mesma visão, mesmo valor), ou já existente no banco, é ignorada sem erro.
+- Faixas de visões diferentes podem se sobrepor. Só faixas da **mesma visão** que se cruzam são erro (a idêntica é ignorada). Limites por importação: 5.000 linhas e 1.000 faixas por visão (contando as que já existiam).
+- Tudo ou nada: qualquer erro rejeita o arquivo inteiro e lista as linhas em conflito. Sem `--replace` a importação só acrescenta: nunca apaga nem troca faixa ou vínculo existente. Com `--replace`, apaga todas as visões e importa na mesma transação.
 
 ### Tela: grupos, Registros e instabilidade (rc.7)
 
@@ -197,6 +197,13 @@ O mesmo arquivo com `;` (`Suporte;2000-2099`) também é aceito, desde que o arq
 - A única action nova no AMI é `QueueStatus` (somente leitura). Em Asterisk sem o módulo de filas a lista fica vazia, sem erro (`queues.unsupported` no health).
 - "Todos os ramais" passou a ser nome **proibido** de grupo (é o item fixo do seletor da tela), na tela, no CSV pela API e em `group import`. Grupo antigo com esse nome continua no banco e pode ser renomeado ou excluído. "+ Novo grupo" voltou ao seletor de destino.
 - O gravador do relatório de registro agora divide o lote em sublotes e nunca perde ocorrência em silêncio: o que falhar duas vezes é contado no health (`registrations.lost_events`) e vai para o log.
+
+### Tela: visões e tema da marca CAM (rc.10)
+
+- "Grupo" passa a se chamar **Visão** em todo texto da tela ("Visões", "Gerenciar visões", "Nova visão"); o ramal sem vínculo aparece como "Sem visão". API, banco, CLI e as opções do instalador mantêm os nomes `group`/`grupos`.
+- Várias visões ao mesmo tempo: clique escolhe uma; Ctrl ou Cmd + clique soma ou tira; "Todos os ramais" volta a todos. Vale na coluna Visões da aba Ramais e nos filtros das abas Registros e Chamadas. "Últimas 24 h" e o gráfico da aba Registros pedem as visões com `group` repetido; o daemon soma e avisa em `meta.overlap` quando algum ramal está em mais de uma (CONTRATOS 4.3 e 4.7.4).
+- CSV de importação aceita cabeçalho `visao,ramal` ou `grupo,ramal`; o CSV exportado da aba Registros tem a coluna `Visões`.
+- Tema claro do Manual da Marca CAM: logo CAM no cabeçalho, fontes Exo 2 e Barlow embutidas (sem CDN), vermelho da marca só no cabeçalho, na aba ativa e no foco. Detalhe: `docs/design/desvios.md`, D47 a D52.
 
 ## 5. API consumida pela Fase 2
 
@@ -428,7 +435,7 @@ e o bloqueio de `X-Forwarded-*` em `/api/health` e `/debug`. Acesso externo: só
 - **Rollback rc.8 para rc.6:** a rc.6 recusa banco de esquema 4 ou 5. O `./instalar.py rollback` restaura sozinho o `painel.db.bak-v3` (o banco atual fica como `painel.db.rollback-<data>`) e avisa antes de confirmar que serão perdidos: nomes de fila, vínculos de ramal em vários grupos, relatório de registros e tudo o que foi gravado depois da atualização (histórico, sessões, usuários, grupos). Sem o `.bak-v3`, o rollback não mexe em nada e sai com 2.
 - **Rollback rc.7 para rc.6:** a rc.7 usa o banco no esquema 4 e a rc.6 recusa abri-lo. O `./instalar.py rollback` restaura sozinho o `painel.db.bak-v3` (o banco 4 fica guardado como `painel.db.rollback-<data>`) e avisa antes de confirmar: vínculos de ramal em vários grupos, relatório de registros e tudo o que foi gravado depois da atualização (histórico, sessões, usuários, grupos) é perdido. Sem o `.bak-v3`, o rollback não mexe em nada e sai com 2.
 - O instalador guarda o RPM anterior em `/var/lib/painel-ramais-instalador/` (acessível só ao root, 0700), **aceito pelo usuário** (decisão 3). Antes do `rollback` confere o nome do pacote e o **SHA-256** gravado na instalação. `./instalar.py remover --purge` apaga esse diretório também.
-- O instalador roda como root e nunca lê nem grava como root em diretório do usuário do serviço: usa `runuser -u painel-ramais`, e o CSV de grupos vai pelo stdin da CLI. O `%post` edita o `manager_custom.conf` como o usuário `asterisk`.
+- O instalador roda como root e nunca lê nem grava como root em diretório do usuário do serviço: usa `runuser -u painel-ramais`, e o CSV de visões vai pelo stdin da CLI. O `%post` edita o `manager_custom.conf` como o usuário `asterisk`.
 - O RPM do bundle é conferido pelo `SHA256SUMS` antes de instalar. Obtenha o tar.gz de origem confiável.
 - O `%post` nunca edita `manager.conf` nem arquivos do Issabel/IssabelPBX, e só adiciona o arquivo próprio do Apache.
 
@@ -470,7 +477,7 @@ com um Asterisk de laboratório (modos `sip` e `pjsip`). Preparação: copie o b
    `./instalar.py verificar` → `[ERRO ] mod_proxy_wstunnel ausente`, saída 1. `./instalar.py instalar` aborta com `Verificacao com ERRO: nada foi alterado`
    e `rpm -q painel-ramais` continua dizendo que não está instalado. Reverta o sed.
 3. **Instalação sem perguntas:** `./instalar.py instalar --grupos packaging/grupos-exemplo.csv` (tecnologia `auto`; nenhuma pergunta nem senha; `--tecnologia sip|pjsip` só para casos especiais).
-   Esperado ao fim: bloco `== Resumo ==` com versão, tecnologia, ramais, grupos e `Acesso: https://<ip>/painel-ramais/`; saída 0.
+   Esperado ao fim: bloco `== Resumo ==` com versão, tecnologia, ramais, visões e `Acesso: https://<ip>/painel-ramais/`; saída 0.
    Confira: `systemctl is-active painel-ramais` → `active`; `ls -l /etc/painel-ramais/` (`secret` e `ami-secret` 0600 `painel-ramais`);
    `grep -c 'BEGIN painel-ramais' /etc/asterisk/manager_custom.conf` → `1`; `stat -c '%a %U' /etc/asterisk/manager_custom.conf` sem acesso para outros;
    `curl -fsS http://127.0.0.1:8790/api/health` → JSON com `"status":"ok"` (**anexe a saída real**).
@@ -480,7 +487,7 @@ com um Asterisk de laboratório (modos `sip` e `pjsip`). Preparação: copie o b
 4. **Instalação com `--respostas`:** crie `respostas.ini` (modelo no `LEIAME-INSTALACAO.md`; `admin_usuario` e `admin_senha_arquivo` são ignoradas com AVISO);
    `./instalar.py instalar --respostas respostas.ini --sim`; saída 0.
 5. **Idempotência / upgrade:** rode `instalar` de novo com o mesmo bundle: `Mesma versao (...): reaplicando.`, usuário existente mantido
-   (`AVISO: usuario ... ja existe`), grupos iguais. Com um bundle de versão maior: `Upgrade A -> B.`, e passa a existir
+   (`AVISO: usuario ... ja existe`), visões iguais. Com um bundle de versão maior: `Upgrade A -> B.`, e passa a existir
    `/var/lib/painel-ramais-instalador/rpm-anterior/`.
 6. **`rpm -i / -U / -e` direto:** `rpm -i`, `rpm -U` (config e segredos preservados: compare `sha256sum` antes e depois) e `rpm -e`
    (binário, unit, `/etc/httpd/conf.d/painel-ramais.conf` e bloco AMI somem; `/var/lib/painel-ramais` e `/etc/painel-ramais` ficam).

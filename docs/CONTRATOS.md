@@ -4,7 +4,7 @@
 **Origem**: `docs/PROMPT-FASE-1.md` e `docs/ADENDO-FASE-1-INSTALADOR.md` (especificação do usuário, mesmo peso; o adendo troca o `discovery.sh` pelo `instalar.py verificar`). Em conflito, a especificação vence e este documento é corrigido.
 **Decisões de arquitetura ligadas**: `docs/adr/ADR-001-protocolo-websocket.md` (Aceito), `docs/adr/ADR-002-sessao-e-token-hmac.md` (PROPOSTO, aguarda o usuário), `docs/adr/ADR-003-pacote-rpm-e-integracao-issabel.md` (Proposto, aguarda spike em Rocky 8 e 9), `docs/adr/ADR-004-tela-e-menu-do-issabel.md` (Proposto; fase 2: tela, menu do Issabel, chave própria do Issabel e acesso de emergência), `docs/adr/ADR-005-grupos-editaveis-manual-sobre-faixa.md` (substituído em parte pelo ADR-006), `docs/adr/ADR-006-ramal-em-n-grupos.md` e `docs/adr/ADR-007-relatorio-de-registro.md` (Aceitos, rc.7), `docs/adr/ADR-008-chamadas-e-filas-ao-vivo.md` e `docs/adr/ADR-009-nome-da-fila-esquema-5.md` (Aceitos, rc.8), `docs/adr/ADR-010-estado-de-registro-persistente.md` e `docs/adr/ADR-011-decisoes-operacionais-rc9.md` (Aceitos, rc.9). Planos: `docs/plans/2026-10-16-fase2-menu-issabel.md`, `docs/plans/2026-10-19-rc7-n-grupos-e-registros.md`, `docs/plans/2026-10-19-rc8-chamadas-e-filas.md` e `docs/plans/2026-10-19-rc9-registros-e-filas.md`.
 
-Este documento é a fonte única dos formatos trocados entre as partes do coletor, e entre o coletor e quem o consome (fase 2: tela e item no menu do Issabel). Quem implementa não inventa campo: campo novo entra aqui primeiro.
+Este documento é a fonte única dos formatos trocados entre as partes do coletor, e entre o coletor e quem o consome (fase 2: tela e item no menu do Issabel). Quem implementa não inventa campo: campo novo entra aqui primeiro. Vocabulário (rc.10, desvio D50): o "grupo" deste documento (tabelas, rotas `/api/groups*`, chaves `group`/`groups`, CLI `group`) se chama **Visão** na interface, e o valor interno `"Sem grupo"` aparece na tela como "Sem visão"; identificadores e formatos não mudam.
 
 ---
 
@@ -39,7 +39,7 @@ O daemon escuta só em loopback. O Apache publica o prefixo `/painel-ramais/` e 
 | GET | `/acesso` | não | navegador via Apache | HTML de aviso, sem script (seção 1.3) |
 | GET | `/emergencia` | não | navegador via Apache | `301` para `/painel-ramais/emergencia/` |
 | GET | `/emergencia/` (exato) | não | navegador via Apache | a mesma `index.html` da tela, cabeçalhos de emergência (seção 1.3) |
-| GET | `/assets/<arquivo>` | não | navegador via Apache | arquivo de `assets/`; só `.js`, `.css`, `.svg`; e `assets/fonts/<arquivo>` só `.woff2` e três `.txt` por nome exato (seção 1.3) |
+| GET | `/assets/<arquivo>` | não | navegador via Apache | arquivo de `assets/`; só `.js`, `.css`, `.svg`, `.png` (rc.10); e `assets/fonts/<arquivo>` só `.woff2` e três `.txt` por nome exato (seção 1.3) |
 | POST | `/api/login` | não | navegador via Apache | envelope; só aceita o usuário `emergencia` (seção 3.1) |
 | POST | `/api/logout` | não exige (idempotente) | navegador via Apache | envelope |
 | POST | `/api/token` | não | navegador via Apache | envelope |
@@ -95,10 +95,10 @@ Erro:
 | 401 | `unauthorized` | sem sessão ou sessão expirada |
 | 401 | `invalid_credentials` | login com usuário ou senha errados (mesma mensagem para os dois casos) |
 | 401 | `invalid_token` | token com assinatura errada, expirado, já usado ou malformado (mesma mensagem para todos) |
-| 403 | `forbidden` | sessão sem papel de administrador numa rota de administrador: "Apenas administradores do Issabel podem alterar grupos" (em `/api/queues/rename`: "Apenas administradores do Issabel podem renomear filas"); ou sessão `issabel:admin:<usuario>` cujo usuário não está mais no grupo `administrator` do `/var/www/db/acl.db` (conferido somente leitura a cada escrita de grupo; acl.db ilegível também dá 403, falha fechada; a sessão e a visualização continuam; M1); ou POST com `Sec-Fetch-Site` diferente de ausente, `same-origin` e `none` (por exemplo `cross-site` ou `same-site`; qualquer rota POST, antes de ler o corpo) |
-| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy; `/api/groups/update`, `/assign` ou `/delete` de grupo que não existe ("Grupo inexistente"); `/api/queues/rename` de fila que não está na projeção atual ("Fila inexistente", rc.8) |
+| 403 | `forbidden` | sessão sem papel de administrador numa rota de administrador: "Apenas administradores do Issabel podem alterar visões" (em `/api/queues/rename`: "Apenas administradores do Issabel podem renomear filas"); ou sessão `issabel:admin:<usuario>` cujo usuário não está mais no grupo `administrator` do `/var/www/db/acl.db` (conferido somente leitura a cada escrita de grupo; acl.db ilegível também dá 403, falha fechada; a sessão e a visualização continuam; M1); ou POST com `Sec-Fetch-Site` diferente de ausente, `same-origin` e `none` (por exemplo `cross-site` ou `same-site`; qualquer rota POST, antes de ler o corpo) |
+| 404 | `not_found` | rota inexistente, ou rota só localhost acessada via proxy; `/api/groups/update`, `/assign` ou `/delete` de grupo que não existe ("Visão inexistente"); `/api/queues/rename` de fila que não está na projeção atual ("Fila inexistente", rc.8) |
 | 405 | `method_not_allowed` | método errado |
-| 409 | `conflict` | só nas rotas de edição de grupo (`create`, `update`): nome de grupo que já existe (sem diferenciar maiúsculas; `message` = `grupo ja existe: "<nome>"`). Desde a rc.7 faixa que cruza faixa de **outro** grupo é aceita (ADR-006). Nada é gravado |
+| 409 | `conflict` | só nas rotas de edição de grupo (`create`, `update`): nome de grupo que já existe (sem diferenciar maiúsculas; `message` = `visão já existe: "<nome>"`). Desde a rc.7 faixa que cruza faixa de **outro** grupo é aceita (ADR-006). Nada é gravado |
 | 413 | `payload_too_large` | corpo acima de 4 KiB (1 MiB em `/api/groups/import`, `create`, `update` e `delete`; 2 MiB em `/api/groups/assign`) |
 | 415 | `unsupported_media_type` | POST sem `application/json` |
 | 429 | `too_many_attempts` | 5 logins errados do mesmo IP do cliente em 5 min, ou 20 do mesmo usuário em 5 min (seção 3.1), ou 4 comparações bcrypt já em andamento (a tentativa recusada por saturação não conta contra o usuário) |
@@ -107,7 +107,7 @@ Erro:
 
 ### 1.3 Tela, aviso e cabeçalhos (ADR-004)
 
-O prefixo do navegador é fixo: `/painel-ramais/` (o mesmo `Path` do cookie). A tela (HTML, CSS e JavaScript de `internal/web/static/`) vai embutida no binário (`//go:embed`, pacote `internal/web`); arquivo começando com `.` ou `_` não entra no embed. `Content-Type` definido pelo daemon pela extensão, sem depender do `/etc/mime.types`: `.js` `text/javascript; charset=utf-8`, `.css` `text/css; charset=utf-8`, `.svg` `image/svg+xml`, `.html` `text/html; charset=utf-8`. `/assets/` aceita um nível só (`/assets/x.js`), mais a pasta `/assets/fonts/` (também um nível só), onde valem apenas `.woff2` (`font/woff2`) e três `.txt` por nome exato (`OFL-IBMPlex.txt`, `OFL-BarlowSemiCondensed.txt`, `ORIGEM.txt`; `text/plain; charset=utf-8`); `/assets/`, outra subpasta, nome começando com `.`, extensão fora da lista e arquivo inexistente dão `404 not_found` (envelope). A CSP da tela já tem `font-src 'self'` (sem `data:` e sem terceiros).
+O prefixo do navegador é fixo: `/painel-ramais/` (o mesmo `Path` do cookie). A tela (HTML, CSS e JavaScript de `internal/web/static/`) vai embutida no binário (`//go:embed`, pacote `internal/web`); arquivo começando com `.` ou `_` não entra no embed. `Content-Type` definido pelo daemon pela extensão, sem depender do `/etc/mime.types`: `.js` `text/javascript; charset=utf-8`, `.css` `text/css; charset=utf-8`, `.svg` `image/svg+xml`, `.png` `image/png` (rc.10: logo CAM), `.html` `text/html; charset=utf-8`. `/assets/` aceita um nível só (`/assets/x.js`), mais a pasta `/assets/fonts/` (também um nível só), onde valem apenas `.woff2` (`font/woff2`; rc.10: Exo 2 e Barlow) e três `.txt` por nome exato (`OFL-Barlow.txt`, `OFL-Exo2.txt`, `ORIGEM.txt`; `text/plain; charset=utf-8`); `/assets/`, outra subpasta, nome começando com `.`, extensão fora da lista e arquivo inexistente dão `404 not_found` (envelope). A CSP da tela já tem `font-src 'self'` (sem `data:` e sem terceiros).
 
 `GET /` decide pelo `Sec-Fetch-Dest`:
 
@@ -493,7 +493,7 @@ Parâmetros de query:
 |---|---|---|
 | `from` | não | RFC 3339; padrão `agora - 60 min`; truncado para o minuto |
 | `to` | não | RFC 3339, exclusivo; padrão agora; `to > from`; `to - from <= 30 dias` |
-| `group` | não | nome do grupo (inclui `"Sem grupo"`); ausente = total da instalação; até 64 caracteres |
+| `group` | não | nome do grupo (inclui `"Sem grupo"`); ausente = total da instalação; até 64 caracteres. rc.10: **repetível** (`?group=A&group=B`), até 20 nomes; vazios e repetidos são descartados (na ordem recebida); acima de 20, `400 bad_request` |
 
 Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13T13:03:00Z`
 
@@ -518,6 +518,7 @@ Exemplo: `GET /api/history?group=Suporte&from=2026-10-13T13:00:00Z&to=2026-10-13
 - `in_call` conta ramais com pelo menos uma chamada, não chamadas.
 - Grupo sem dados (inexistente ou fora da retenção) devolve 200 com todos os pontos em `gap: true`.
 - rc.7: as contagens de cada grupo incluem todo ramal que está no grupo (N:N); a do total conta cada ramal uma vez. As colunas novas de `history` (seção 10, versão 4) **não** saem nesta rota; servem a `/api/registrations/series` (seção 4.7). `group` volta `null` quando ausente na query (o campo `group_manual` dos exemplos antigos nunca existiu no código).
+- rc.10 (desvio D52, seleção de várias visões na tela): `data` ganha `groups` (array, sempre presente: os nomes pedidos depois de tirar vazios e repetidos; `[]` = total). `group` passa a ser o nome só quando veio **um**; com zero ou dois ou mais, `null`. Com dois ou mais, cada ponto é a **soma** das contagens dos grupos naquele minuto, e o minuto só vale se **todos** os grupos têm linha com `gap = 0` (um grupo com lacuna deixa o ponto em `gap: true`). `meta.overlap` (booleano) aparece só com dois ou mais: `true` quando algum ramal está hoje em mais de um dos grupos pedidos (ou quando a projeção não está disponível), e então a soma pode contar esse ramal duas vezes, porque o histórico guarda contagens por grupo, não os ramais. A tela mostra o aviso "Ramais em mais de uma visão podem ser contados duas vezes neste gráfico.".
 
 ### 4.4 GET /api/health (só localhost)
 
@@ -592,7 +593,7 @@ HTML puro gerado no servidor, com `<meta http-equiv="refresh" content="2">`, sem
 
 ### 4.6 POST /api/groups/create, update, assign, import e delete (só administrador)
 
-Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes de ler o corpo. Todas são `POST` com `Content-Type: application/json`, corpo estrito (campo desconhecido: `400 bad_request`) de até 1 MiB (`413 payload_too_large` acima disso; `assign` aceita até 2 MiB, ver abaixo); o resto da API segue com 4 KiB. Teto de 20.000 linhas no CSV pela tela (a quebra de linha final não conta como linha; 20.001 ou mais dão `400 invalid_csv`; a CLI não tem esse teto). Cada escrita é **uma transação só** no SQLite, junto com a linha de auditoria (`group_audit`: `subject` da sessão, ação, detalhe JSON curto, `at`); falhou, nada foi gravado. Depois de gravar, o daemon relê o catálogo e as atribuições pelo mesmo caminho do SIGHUP (`loadGroups`) e o estado publica a diferença **por delta, sem epoch novo** (seções 5.2 e ADR-005): as telas abertas recebem os ramais afetados em `extensions` (com `groups`, `range_groups` e `manual_groups` novos) e o catálogo em `groups`. Toda escrita confere, antes de gravar, se o usuário ainda está no grupo `administrator` do `acl.db` (M1, seção 1.2). Se a recarga falhar, a resposta é `500 internal` (os dados já estão gravados; repetir é seguro). Cada escrita gera log Info com `request_id`, `sub` (quem) e o resumo (`grupo criado`, `grupo alterado`, `ramais atribuidos a grupo`, `grupos importados`, `grupo removido`).
+Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes de ler o corpo. Todas são `POST` com `Content-Type: application/json`, corpo estrito (campo desconhecido: `400 bad_request`) de até 1 MiB (`413 payload_too_large` acima disso; `assign` aceita até 2 MiB, ver abaixo); o resto da API segue com 4 KiB. Teto de 20.000 linhas no CSV pela tela (a quebra de linha final não conta como linha; 20.001 ou mais dão `400 invalid_csv`; a CLI não tem esse teto). Cada escrita é **uma transação só** no SQLite, junto com a linha de auditoria (`group_audit`: `subject` da sessão, ação, detalhe JSON curto, `at`); falhou, nada foi gravado. Depois de gravar, o daemon relê o catálogo e as atribuições pelo mesmo caminho do SIGHUP (`loadGroups`) e o estado publica a diferença **por delta, sem epoch novo** (seções 5.2 e ADR-005): as telas abertas recebem os ramais afetados em `extensions` (com `groups`, `range_groups` e `manual_groups` novos) e o catálogo em `groups`. Toda escrita confere, antes de gravar, se o usuário ainda está no grupo `administrator` do `acl.db` (M1, seção 1.2). Se a recarga falhar, a resposta é `500 internal` (os dados já estão gravados; repetir é seguro). Cada escrita gera log Info com `request_id`, `sub` (quem) e o resumo (rc.10: `visão criada`, `visão alterada`, `ramais atribuidos a visão`, `visões importadas`, `visão removida`; até a rc.9 diziam "grupo").
 
 `POST /api/groups/import`:
 
@@ -600,7 +601,7 @@ Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes 
 { "csv": "grupo,ramal\nSuporte,2000-2099\nVendas,3000-3999\n", "replace": true }
 ```
 
-`csv` obrigatório (texto do arquivo, mesmo formato da seção 9); `replace` opcional, padrão `false`; campo desconhecido: `400 bad_request`. Sucesso: `200` com `{"success":true,"data":{"rows":2,"replace":true,"ignored":0},"error":null,"meta":null}` e log Info `grupos importados` com `sub`, `rows`, `ignored` e `replace`. `rows` = linhas de dados lidas; `ignored` (rc.7) = linhas que não mudaram nada (repetidas no arquivo, faixa ou vínculo que já existia, `Sem grupo,N`). Sem `replace` a importação **só acrescenta** (seção 9). CSV inválido ou com faixas que se cruzam no mesmo grupo: `400 invalid_csv`, `message` = o texto do erro do parser (até 20 linhas `linha N: ...`); nada é gravado.
+`csv` obrigatório (texto do arquivo, mesmo formato da seção 9); `replace` opcional, padrão `false`; campo desconhecido: `400 bad_request`. Sucesso: `200` com `{"success":true,"data":{"rows":2,"replace":true,"ignored":0},"error":null,"meta":null}` e log Info `visões importadas` com `sub`, `rows`, `ignored` e `replace`. `rows` = linhas de dados lidas; `ignored` (rc.7) = linhas que não mudaram nada (repetidas no arquivo, faixa ou vínculo que já existia, `Sem grupo,N`). Sem `replace` a importação **só acrescenta** (seção 9). CSV inválido ou com faixas que se cruzam no mesmo grupo: `400 invalid_csv`, `message` = o texto do erro do parser (até 20 linhas `linha N: ...`); nada é gravado.
 
 `POST /api/groups/delete`:
 
@@ -608,7 +609,7 @@ Sessão sem papel de administrador (seção 1, "Papel"): `403 forbidden`, antes 
 { "name": "Suporte" }
 ```
 
-`name` de 1 a 64 caracteres (senão `400 bad_request`). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}` e log Info `grupo removido`. Inexistente: `404 not_found`, "Grupo inexistente". Apagar o grupo apaga as faixas e os vínculos manuais dele (cascade): cada ramal sai só deste grupo e continua nos outros; quem fica sem nenhum vai para "Sem grupo".
+`name` de 1 a 64 caracteres (senão `400 bad_request`). Sucesso: `200` com `{"success":true,"data":{"name":"Suporte"},"error":null,"meta":null}` e log Info `visão removida`. Inexistente: `404 not_found`, "Visão inexistente". Apagar o grupo apaga as faixas e os vínculos manuais dele (cascade): cada ramal sai só deste grupo e continua nos outros; quem fica sem nenhum vai para "Sem grupo".
 
 `POST /api/groups/create`:
 
@@ -648,11 +649,11 @@ Resposta `200`: `{"success":true,"data":{"changed":1,"not_manual":1},"error":nul
 
 Regras:
 - `mode` obrigatório, `add` ou `remove`. No `add`, `groups` obrigatório e `group` proibido; no `remove`, `group` obrigatório e `groups` proibido. Combinação errada, campo ausente ou desconhecido: `400 bad_request`.
-- `groups`: de 1 a 20 nomes, cada um de 1 a 64 caracteres depois do trim, sem repetição (sem diferenciar maiúsculas). `group` e cada item de `groups`: nome de grupo existente (sem diferenciar maiúsculas); `"Sem grupo"` dá `400 bad_request` ("Sem grupo não é grupo: é onde fica o ramal sem nenhum vínculo"); grupo inexistente dá `404 not_found` e nada é aplicado.
+- `groups`: de 1 a 20 nomes, cada um de 1 a 64 caracteres depois do trim, sem repetição (sem diferenciar maiúsculas). `group` e cada item de `groups`: nome de grupo existente (sem diferenciar maiúsculas); `"Sem grupo"` dá `400 bad_request` ("Sem visão não é visão: é onde fica o ramal sem nenhum vínculo"; rc.10: "Sem visão" e "Sem visao" valem como "Sem grupo"); grupo inexistente dá `404 not_found` e nada é aplicado.
 - `numbers`: de 1 a 20.000 textos, cada um de 1 a 64 caracteres sem controle/formatação invisível (Cc, Cf, Zl, Zp), sem repetição (repetido: `400 bad_request`). `len(numbers) x len(groups)` até 100.000 (acima: `400 bad_request`). O vínculo é pelo **número do ramal como texto**, não exige que o ramal exista agora e sobrevive a ramal apagado e recriado.
 - Corpo até 2 MiB (`maxAssignBodyBytes`): 20.000 números de 64 caracteres ocupam cerca de 1,34 MB; 10.000 ramais de 4 a 6 dígitos, cerca de 90 KB.
 - `changed` igual a 0: sem escrita, sem auditoria e sem recarga. Auditoria: ação `assign`, detalhe `{"mode","groups","requested","changed","numbers"}` (até 20 números de amostra).
-- Log Info `ramais atribuidos a grupo` (`add`) ou `ramais retirados de grupo` (`remove`), com `sub`, grupos, pedidos e alterados.
+- Log Info `ramais atribuidos a visão` (`add`) ou `ramais retirados de visão` (`remove`), com `sub`, grupos, pedidos e alterados.
 
 Leitura: `GET /api/groups` (seção 4.2). Ele lê a projeção do estado, não o banco: logo depois de uma escrita pode ficar defasado por até ~250 ms (um lote), até o estado publicar o delta; a tela usa o `groups` e os ramais do delta do WebSocket para atualizar sem reler.
 
@@ -791,7 +792,7 @@ Tabela da aba Registros. Query: `period`; `cursor` opcional (texto opaco devolvi
 - `full: false`: `rows` traz só os ramais com alguma linha de `reg_hourly` **ou** de `reg_state` (rc.9) gravada depois do cursor (coluna `rev`, seção 10), já com os valores do período inteiro e **sem** a regra de lista; a tela **substitui ou insere** pelo `number` e **remove** do mapa a linha que não passa na regra de lista da 4.7 (rc.9: sem isso, o ramal listado só por estar fora continuaria com "Fora do ar há" depois de voltar). Sem mudança: `rows: []`. A maior revisão (`MaxRegRev`) passa a ser o maior `rev` de `reg_hourly` e de `reg_state`.
 - **Ordem da tabela (rc.9, padrão e coluna "Fora do ar há")**, em três faixas, nesta ordem: (a) `down_kind` `observed` ou `unknown_start`, por `down_since` crescente (o mais antigo no topo; o `unknown_start` entra pela hora-limite); (b) `before_install`, por `number`; (c) o resto (`down_since` nulo, inclusive `removed`), por `number`. Empate dentro da faixa: `number` (comparação numérica de texto da tela). Clicar de novo em "Fora do ar há" inverte só a faixa (a); as faixas ficam na mesma ordem. As outras colunas continuam ordenáveis como na rc.7. A ordem pela data (não pela duração) não muda com o tempo: o relógio de 1 s não reordena.
 - **Filtro "Ocultar fora desde antes da instalação"** (rc.9): caixa de marcar na faixa de controles, **desligada** ao abrir a aba (não é lembrada). Ligada, some da tabela toda linha com `down_kind` `before_install`. Vale para a contagem de ramais e para o CSV (o CSV leva a tabela filtrada e ordenada que está na tela, 4.7.5).
-- **Colunas da tabela (rc.9)**: Ramal, Nome, Grupos, Perdeu registro, Ficou inalcançável, Registrou, Última queda, Último IP, **Fora do ar há**, **Último registro** (saiu a coluna "Fora do ar" do tempo total, que vai para o detalhe e o CSV). Texto das células novas, hora local do navegador:
+- **Colunas da tabela (rc.9)**: Ramal, Nome, Visões (rc.10; era "Grupos"), Perdeu registro, Ficou inalcançável, Registrou, Última queda, Último IP, **Fora do ar há**, **Último registro** (saiu a coluna "Fora do ar" do tempo total, que vai para o detalhe e o CSV). Texto das células novas, hora local do navegador:
   - "Fora do ar há": `observed`: duração ao vivo (`X d HH h` a partir de 1 dia, `H h MM min` a partir de 1 hora, `M min SS s` a partir de 1 minuto, `S s`), redesenhada no tique de 1 s; com `state_unknown_since`, parada em `state_unknown_since - down_since` e acinzentada. `unknown_start`: "antes de dd/mm hh:mm" (sem relógio). `before_install`: "antes da instalação" na célula e o texto completo "fora desde antes da instalação do painel (dd/mm/aaaa hh:mm)" no `title` e no `aria-label` da célula, com a data da instalação da 4.7 (`since`; `down_since` só sem `since`). `null`: o traço de ausente da tela.
   - "Último registro": `last_registered_exact`: "dd/mm/aaaa hh:mm"; inexato: "antes de dd/mm/aaaa hh:mm"; `null`: o traço de ausente.
 - `cursor`: sempre presente; a tela manda de volta exatamente o que recebeu. Formato interno (não depender dele): `<início da hora em unix>.<rev>`.
@@ -832,7 +833,7 @@ Linha do tempo de um ramal. Query: `number` obrigatório (regra do `numbers` do 
 
 #### 4.7.4 GET /api/registrations/series
 
-Gráfico da aba Registros. Query: `period`; `group` opcional (até 64 caracteres; ausente = total da instalação; `"Sem grupo"` aceito). Fonte: colunas `lost_registration` e `became_unreachable` de `history` (seção 10), com a pertença ao grupo **no minuto** em que aconteceu.
+Gráfico da aba Registros. Query: `period`; `group` opcional (até 64 caracteres; ausente = total da instalação; `"Sem grupo"` aceito; rc.10: **repetível**, até 20, com as mesmas regras e o mesmo `groups`/`meta.overlap` da seção 4.3). Fonte: colunas `lost_registration` e `became_unreachable` de `history` (seção 10), com a pertença ao grupo **no minuto** em que aconteceu.
 
 ```json
 {
@@ -861,6 +862,7 @@ Gráfico da aba Registros. Query: `period`; `group` opcional (até 64 caracteres
 ```
 
 - `points`: série densa (24, 7 ou 30 pontos, o exemplo mostra dois), `t` = início do intervalo. Valor = soma dos minutos do intervalo com coluna não nula; `null` quando nenhum minuto do intervalo tem dado (antes do `since`, daemon parado, AMI fora).
+- rc.10: `data` ganha `groups` (os nomes pedidos; `[]` = total) e `group` fica com o nome só quando veio um. Com dois ou mais grupos, os minutos de todos entram nos mesmos intervalos e são somados (intervalo sem nenhum minuto com dado continua `null`); `meta` ganha `overlap` como na seção 4.3.
 - `system_events`: sinais de `reg_system_events` no período, mais novo primeiro, até 100. A tela mostra a contagem e o último abaixo do gráfico ("Eventos do sistema no período: N; último: Asterisk iniciado em ...").
 - A tela relê ao abrir a aba, ao trocar período ou grupo e a cada 60 s com a aba visível.
 
@@ -871,7 +873,7 @@ Decisão do ADR-007: o servidor não gera CSV. O botão "Exportar CSV" da aba Re
 - Nome: `registros-<period>-<AAAAMMDD-HHMM>.csv` (hora local do navegador).
 - UTF-8 com BOM, separador `;`, fim de linha CRLF. Célula com `;`, `"`, CR ou LF vai entre aspas, com `"` dobrada.
 - **Injeção de fórmula**: toda célula de texto que começa com `=`, `+`, `-`, `@`, TAB ou CR recebe `'` na frente (antes das aspas).
-- Cabeçalho e colunas, nesta ordem (rc.9): `Ramal;Nome;Grupos;Perdeu registro;Ficou inalcançável;Registrou;Voltou a ser alcançável;Última queda;Último IP;Fora do ar há (s);Último registro;Tempo total fora no período (s);Lacuna no período;Removido`. `Grupos` separados por `, `; datas em hora local `AAAA-MM-DD HH:MM:SS`; `Última queda` na data ou vazio; `Último IP` como `ip:porta` (ou só `ip`, ou vazio); `Removido` `sim` ou `não`. Colunas da rc.9:
+- Cabeçalho e colunas, nesta ordem (rc.9; rc.10 troca o nome da terceira coluna de `Grupos` para `Visões`): `Ramal;Nome;Visões;Perdeu registro;Ficou inalcançável;Registrou;Voltou a ser alcançável;Última queda;Último IP;Fora do ar há (s);Último registro;Tempo total fora no período (s);Lacuna no período;Removido`. `Visões` separadas por `, `, com o ramal sem vínculo escrito "Sem visão"; datas em hora local `AAAA-MM-DD HH:MM:SS`; `Última queda` na data ou vazio; `Último IP` como `ip:porta` (ou só `ip`, ou vazio); `Removido` `sim` ou `não`. Colunas da rc.9:
   - `Fora do ar há (s)`: `observed`: inteiro de segundos na hora da exportação (até `state_unknown_since` se não for `null`); `unknown_start`: `antes de AAAA-MM-DD HH:MM:SS`; `before_install`: `antes da instalação do painel (AAAA-MM-DD HH:MM:SS)` com a data da instalação da 4.7 (`since`; `down_since` só sem `since`); registrado: vazio.
   - `Último registro`: exato: `AAAA-MM-DD HH:MM:SS`; inexato: `antes de AAAA-MM-DD HH:MM:SS`; nunca: vazio.
   - `Tempo total fora no período (s)`: inteiro, fórmula da 4.7.
@@ -1212,8 +1214,8 @@ painel-ramais version
 ## 9. CSV de grupos
 
 ```
-# grupo,ramal_ou_faixa
-grupo,ramal
+# visao,ramal_ou_faixa  (rc.10; o cabeçalho antigo grupo,ramal continua aceito)
+visao,ramal
 Suporte,2000-2099
 Suporte,2150
 Vendas,3000-3999
@@ -1227,13 +1229,13 @@ rc.7 (ADR-006): `2150` está em Suporte (manual), Plantão (manual) e Andar 2 (f
 O mesmo arquivo com `;` (`Suporte;2000-2099`) também é aceito, desde que o arquivo inteiro use `;`. Este formato também é o do `grupos-exemplo.csv` que vai no bundle.
 
 - UTF-8, BOM aceito. Delimitador `,` ou `;`, detectado na primeira linha de dados e fixo para o arquivo (Excel em português exporta com `;`).
-- Linhas vazias e linhas que começam com `#` são ignoradas. Cabeçalho opcional: só é pulado se a primeira linha de dados for exatamente `grupo<delim>ramal` (sem diferenciar maiúsculas). Qualquer outra linha é dado.
-- `grupo`: 1 a 64 caracteres depois do trim (`store.MaxGroupNameRunes`, a mesma constante que as rotas `create` e `update` validam), diferente de `Sem grupo` (exceto em linha de um ramal, que é ignorada, ver abaixo) e, desde a rc.8, diferente de `Todos os ramais` (nome reservado da tela, D17 do `desvios.md`; sem diferenciar maiúsculas; erro `"Todos os ramais" e nome reservado`), só com o espaço comum U+0020 (NBSP U+00A0, U+3000 e os outros separadores Zs são recusados; nas pontas o trim os remove), sem caractere de controle (Cc, inclui C1), de formatação (Cf: marcas bidirecionais U+202A a U+202E e U+2066 a U+2069, largura zero U+200B/E/F, U+061C, U+FEFF) nem separador de linha ou de parágrafo (Zl, Zp: U+2028/2029); é a mesma regra do `<usuario>` do `sub` (seção 3.3). Grupo que não existe é criado.
+- Linhas vazias e linhas que começam com `#` são ignoradas. Cabeçalho opcional (rc.10): a primeira linha de dados é cabeçalho quando tem uma coluna `ramal` e uma coluna da visão, `visao` (ou `visão`) no arquivo novo ou `grupo` no antigo, em qualquer ordem e sem diferenciar maiúsculas (com as duas, vale `visao`); as demais colunas do cabeçalho e das linhas são ignoradas. Sem cabeçalho, cada linha tem exatamente duas colunas, visão e ramal, nessa ordem. Qualquer outra linha é dado.
+- `grupo`: 1 a 64 caracteres depois do trim (`store.MaxGroupNameRunes`, a mesma constante que as rotas `create` e `update` validam), diferente de `Sem grupo` e, desde a rc.10, de `Sem visão` e `Sem visao` (os três exceto em linha de um ramal, que é ignorada, ver abaixo) e, desde a rc.8, diferente de `Todos os ramais` (nome reservado da tela, D17 do `desvios.md`; sem diferenciar maiúsculas; erro `"Todos os ramais" e nome reservado`), só com o espaço comum U+0020 (NBSP U+00A0, U+3000 e os outros separadores Zs são recusados; nas pontas o trim os remove), sem caractere de controle (Cc, inclui C1), de formatação (Cf: marcas bidirecionais U+202A a U+202E e U+2066 a U+2069, largura zero U+200B/E/F, U+061C, U+FEFF) nem separador de linha ou de parágrafo (Zl, Zp: U+2028/2029); é a mesma regra do `<usuario>` do `sub` (seção 3.3). Grupo que não existe é criado.
 - `ramal_ou_faixa`: só dígitos (`2150`, **um ramal**) ou `inicio-fim` com `inicio <= fim` (**faixa**). Comparação numérica nas faixas.
 - **Um ramal por linha (`Suporte,2150`) é vínculo manual**: grava o par (número como texto, grupo) em `extension_groups`. Desde a rc.7 ele **soma** à faixa (ADR-006): o ramal fica no grupo da linha e continua nos grupos das faixas que o contêm. Faixa `N-M` continua sendo faixa do grupo (para uma faixa de um número só use `2150-2150`). Como o vínculo é pelo texto digitado, `02150` (zero à esquerda) vira vínculo manual de `02150`; ramal com zero à esquerda ou nome não numérico nunca cai numa faixa (seção 13).
-- **`Sem grupo,2150`**: aceito e **ignorado** (conta em `ignored`), para arquivos antigos continuarem importando; "Sem grupo" é implícito e não tem vínculo. `Sem grupo,2000-2999` continua erro. A linha não cria grupo nenhum.
+- **`Sem grupo,2150`**: aceito e **ignorado** (conta em `ignored`), para arquivos antigos continuarem importando; "Sem grupo" é implícito e não tem vínculo. `Sem grupo,2000-2999` continua erro. A linha não cria grupo nenhum. rc.10: `Sem visão,2150` e `Sem visao,2150` valem igual.
 - **Pertença** (CSV, CLI, API e tela): o ramal está em todo grupo de faixa que o contém mais todo grupo de vínculo manual; sem nenhum, em `"Sem grupo"`.
-- **`Todos os ramais` reservado (rc.8).** A regra mora num ponto só, `store.ValidGroupName`, que vale para `create`, `new_name` do `update`, CSV pela API (`400 invalid_csv`/`bad_request`) e pela CLI (`group import`, código 1). Sem migração: grupo antigo com esse nome continua no banco, aparece, pode ser **renomeado** e **excluído** (a validação só olha o nome **novo**; `update` e `delete` acham o grupo atual sem validar o nome dele) e continua aceito em `assign` (`validAssignGroup` não muda). Na subida, se o catálogo tiver esse nome, log Warn uma vez: `grupo com nome reservado "Todos os ramais"; renomeie pela tela`.
+- **`Todos os ramais` reservado (rc.8).** A regra mora num ponto só, `store.ValidGroupName`, que vale para `create`, `new_name` do `update`, CSV pela API (`400 invalid_csv`/`bad_request`) e pela CLI (`group import`, código 1). Sem migração: grupo antigo com esse nome continua no banco, aparece, pode ser **renomeado** e **excluído** (a validação só olha o nome **novo**; `update` e `delete` acham o grupo atual sem validar o nome dele) e continua aceito em `assign` (`validAssignGroup` não muda). Na subida, se o catálogo tiver esse nome, log Warn uma vez: `visão com nome reservado "Todos os ramais"; renomeie pela tela`.
 - **O mesmo ramal em várias linhas** é aceito (um vínculo por grupo). Linha repetida (mesmo grupo sem diferenciar maiúsculas e mesmo valor) é ignorada sem erro, e também a linha cujo vínculo ou faixa idêntica já existe no banco.
 - **Faixas**: faixas de grupos diferentes podem se sobrepor. Faixas do **mesmo grupo** que se cruzam (no arquivo, ou com as faixas que o grupo já tem quando não há `--replace`) são erro, exceto a faixa idêntica, que é ignorada: `linhas N e M: faixas A-B e C-D do grupo "X" se sobrepoem` ou `linha N: faixa A-B cruza a faixa C-D ja gravada no grupo "X"`. Total de faixas por grupo depois da importação até 1.000 (contando as que já existiam).
 - Tudo ou nada: qualquer erro rejeita o arquivo inteiro e lista até 20 linhas. Com `--replace`, apaga todos os grupos (faixas e vínculos manuais saem por cascade) e importa na mesma transação. **Sem `--replace` a importação só acrescenta**: nunca apaga nem troca vínculo ou faixa existente; grupo citado que não existe é criado. A importação grava uma linha de auditoria (`import`: linhas, `replace`, faixas, vínculos e ignoradas).

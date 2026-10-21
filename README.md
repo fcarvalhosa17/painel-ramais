@@ -13,19 +13,27 @@ nem senha do painel para o uso do dia a dia.
 - Roda como um serviço próprio (`painel-ramais`), separado do Issabel.
 - Abre **uma única** conexão com o AMI do Asterisk. Essa conexão só usa comandos de consulta (uma lista fixa no código) e só recebe
   os eventos que interessam ao painel (filtro `eventfilter` na conta AMI do painel).
-- O estado ao vivo (ramais, chamadas e filas) fica em memória. No disco, em `/var/lib/painel-ramais/painel.db`, ficam só grupos,
-  nomes de fila, sessões, o cache de nomes dos ramais, o histórico e o relatório de registros.
+- O estado ao vivo (ramais, chamadas e filas) fica em memória. No disco, em `/var/lib/painel-ramais/painel.db`, ficam só as
+  visões, nomes de fila, sessões, o cache de nomes dos ramais, o histórico e o relatório de registros.
 - A tela recebe o estado completo uma vez e, depois, só o que mudou (um pacote a cada 250 ms, e só quando há mudança).
 - O acesso passa pelo Apache do Issabel (HTTPS, porta 443). O serviço escuta só em `127.0.0.1:8790`: nenhuma porta nova fica aberta
   para a rede.
 
 A tela tem três abas:
 
-- **Ramais**: estado de cada ramal em tempo real, organizado em grupos. Um ramal pode estar em mais de um grupo. Inclui o bloco
+- **Ramais**: estado de cada ramal em tempo real, organizado em **visões** (conjuntos de ramais definidos por faixa de números
+  ou escolhidos um a um). Um ramal pode estar em mais de uma visão; o ramal sem nenhuma aparece em "Sem visão". Um clique
+  escolhe uma visão; Ctrl (ou Cmd) + clique soma ou tira visões; "Todos os ramais" volta a mostrar tudo. Inclui o bloco
   "Instabilidade de registro (24 h)", com os ramais que mais perderam o registro.
 - **Registros**: quedas e registros de cada ramal em 24 h, 7 dias ou 30 dias, com gráfico (linha do tempo) e exportação em CSV.
 - **Chamadas**: chamadas entrantes, saintes e internas ao vivo, e o painel de filas (quem está aguardando e há quanto tempo,
   agentes, atendidas, abandonadas e nível de serviço).
+
+Visual (a partir da rc.10): tema claro do Manual da Marca CAM, com a logo CAM no cabeçalho e as fontes Exo 2 (títulos) e
+Barlow (texto e números). As fontes e a logo vão dentro do próprio painel: a tela não baixa nada da internet.
+
+Nos arquivos técnicos, na API e na linha de comando a visão ainda se chama "grupo" (`group`, `/api/groups`,
+`painel-ramais group`, `--grupos`); é o mesmo conceito.
 
 ## 3. Requisitos
 
@@ -66,12 +74,12 @@ O que cada passo faz:
    com `ERRO`, o `instalar` para sem alterar nada.
 2. `instalar --pre`: escolhe a última pré-release publicada no GitHub, baixa o pacote e o `SHA256SUMS`, confere o SHA256, extrai em
    `/root/painel-ramais-<versao>/` e roda o instalador de dentro do pacote. Não faz perguntas. No fim mostra um bloco `== Resumo ==`
-   com versão, tecnologia, ramais e grupos.
+   com versão, tecnologia, ramais e visões.
 3. `status`: mostra versão, serviço, item do menu, AMI, ramais por estado e cada dependência (seção 8).
 
 Sobre o `--pre`: hoje só existem pré-releases, marcadas no GitHub como "NÃO HOMOLOGADA. Uso exclusivo em laboratório.". Sem o
 `--pre`, o comando procura uma versão estável, não acha e pede o `--pre`. Para instalar uma versão específica:
-`./instalar.py instalar --versao v0.1.2-rc.9`.
+`./instalar.py instalar --versao v0.1.2-rc.10`.
 
 Tudo o que o instalador executa fica em `/var/log/painel-ramais/instalacao.log` (a senha nunca é registrada).
 
@@ -94,7 +102,7 @@ Para o caso de o menu do Issabel não estar disponível, o instalador cria o usu
 ## 5. Instalação sem internet no PBX
 
 1. Num computador com internet, abra https://github.com/fcarvalhosa17/painel-ramais/releases, escolha a versão e baixe dois arquivos:
-   `painel-ramais-<versao>.tar.gz` e `SHA256SUMS` (exemplo de `<versao>`: `0.1.2-rc.9`).
+   `painel-ramais-<versao>.tar.gz` e `SHA256SUMS` (exemplo de `<versao>`: `0.1.2-rc.10`).
 2. Copie os dois para o `/root` do PBX, por exemplo: `scp painel-ramais-<versao>.tar.gz SHA256SUMS root@<ip-do-pbx>:/root/`
 3. No PBX, como root:
 
@@ -147,6 +155,7 @@ Depois da cópia:
   (`painel.db.bak-v<N>`), usado pelo rollback (seção 7).
 - Atualizando da rc.8 para a rc.9, o banco passa do esquema 5 para o 6 e o painel guarda sozinho `painel.db.bak-v5` na primeira
   subida. Quem vem direto da rc.6 tem o `painel.db.bak-v3` e o banco passa do esquema 3 para o 6 numa subida só.
+- Atualizando da rc.9 para a rc.10, o banco não muda (continua no esquema 6) e nenhum backup automático novo é criado.
 - As telas abertas precisam ser abertas de novo pelo menu: a atualização encerra as sessões antigas.
 - Confira com `./instalar.py status` (seção 8).
 
@@ -172,8 +181,8 @@ cd /dados/painel-ramais
   e não é usado a partir da rc.9.
 - Ao voltar da rc.9 para a rc.8 **perde-se**: o estado de registro persistente ("fora do ar há" e "último registro") e tudo o que foi
   gravado depois da atualização.
-- Ao voltar da rc.8 para a rc.6 (só quando a rc.8 é a versão anterior guardada) **perde-se**: os nomes de fila, os vínculos de ramal em mais de um grupo, o relatório de registros
-  e tudo o que foi gravado depois da atualização (histórico, sessões, usuários e grupos). O instalador avisa isso antes de pedir a
+- Ao voltar da rc.8 para a rc.6 (só quando a rc.8 é a versão anterior guardada) **perde-se**: os nomes de fila, os vínculos de ramal em mais de uma visão, o relatório de registros
+  e tudo o que foi gravado depois da atualização (histórico, sessões, usuários e visões). O instalador avisa isso antes de pedir a
   confirmação.
 
 ### Restaurar a copia manual do painel.db
@@ -266,7 +275,9 @@ Tabela de problemas comuns e onde olhar: `docs/referencia-tecnica.md`, seção 7
   três faixas, e o filtro "Ocultar fora desde antes da instalação" esconde quem já estava fora do ar antes de o painel existir.
   "Fora desde antes da instalação do painel" usa a data do "Dados desde".
 - **Aba Chamadas (rc.9).** Canais auxiliares (como o ChanSpy) não contam como chamada, e a fila de nome `default` é ignorada.
-- **Tela de Ramais (rc.9).** A coluna de grupos mostra "X não registrados" e, quando houver, "Y inalcançáveis".
+- **Tela de Ramais (rc.9).** A coluna Visões mostra "X não registrados" e, quando houver, "Y inalcançáveis".
+- **Gráficos com várias visões (rc.10).** Com mais de uma visão escolhida, "Últimas 24 h" e o gráfico da aba Registros somam as
+  visões. Se algum ramal está em mais de uma delas, a tela avisa que ele pode ser contado duas vezes.
 - **Nomes dos ramais vazios logo depois de instalar.** Os nomes são buscados em segundo plano, 20 por segundo, para não sobrecarregar
   o Asterisk. Com muitos ramais leva alguns minutos; depois ficam guardados e aparecem logo após um reinício.
 - **Lista de filas vazia.** Em Asterisk sem o módulo de filas, a lista fica vazia, sem erro.
@@ -294,7 +305,9 @@ Fora isso, nada da configuração do Issabel é alterada.
 
 ## 11. Para saber mais
 
-- `docs/referencia-tecnica.md`: configuração (`config.yaml`), CLI do serviço, formato do CSV de grupos, API, segurança, tabela de
+- `docs/MAPA.md`: índice de toda a documentação e de onde fica o código de cada funcionalidade; `docs/arquitetura/`:
+  como o sistema é hoje (componentes, fluxo de dados, rotas, banco, caminhos no servidor, segurança).
+- `docs/referencia-tecnica.md`: configuração (`config.yaml`), CLI do serviço, formato do CSV de visões, API, segurança, tabela de
   problemas comuns, roteiro de ensaio, relatório de carga (histórico) e desenvolvimento.
 - `docs/CONTRATOS.md`: contratos exatos da API, do banco e do instalador (vale em caso de divergência).
 - `packaging/LEIAME-INSTALACAO.md`: opções avançadas do instalador (`--grupos`, `--respostas`, `--tecnologia`) e instalação em
